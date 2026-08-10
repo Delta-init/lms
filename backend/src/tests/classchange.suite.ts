@@ -68,8 +68,9 @@ mongoose.set('autoIndex', false)
 const nodeFs   = await import('fs/promises')
 const nodePath = await import('path')
 const MAILDIR  = nodePath.join(process.cwd(), '.logs', 'emails')
-const written: string[] = []
-let mailMark = Date.now() - 1
+/* Everything this run writes, for a complete teardown. */
+const SUITE_START = Date.now() - 1
+let mailMark = SUITE_START
 
 interface Mail { to: string; subject: string; body: string }
 
@@ -84,7 +85,6 @@ async function mailbox(): Promise<Mail[]> {
     if (!Number.isFinite(ts) || ts < mailMark) continue
     const full = nodePath.join(MAILDIR, n)
     const raw  = await nodeFs.readFile(full, 'utf8')
-    written.push(full)
     const head = raw.slice(0, raw.indexOf('\n') + 1)
     const to      = (head.match(/to:\s*([^|]+)\|/)?.[1] ?? '').trim()
     const subject = (head.match(/subject:\s*(.*?)\s*-->/)?.[1] ?? '').trim()
@@ -361,9 +361,20 @@ try {
   }
 
 } finally {
-  /* Remove the mail fixtures this run wrote. */
+  /* Remove every mail fixture this run wrote — not merely the ones a check
+     happened to read. Tracking only what mailbox() returned left behind any
+     message written after a section's last read, which is how ten stray
+     booked@t.local captures accumulated across four runs. */
   let removed = 0
-  for (const f of written) { try { await nodeFs.unlink(f); removed++ } catch {} }
+  try {
+    for (const n of await nodeFs.readdir(MAILDIR)) {
+      if (!n.endsWith('.html')) continue
+      const ts = Number(n.split('-')[0])
+      if (Number.isFinite(ts) && ts >= SUITE_START) {
+        try { await nodeFs.unlink(nodePath.join(MAILDIR, n)); removed++ } catch {}
+      }
+    }
+  } catch {}
   lines.push(`\n(cleanup: removed ${removed} captured email file(s))`)
   await mongoose.connection.dropDatabase()
   await mongoose.disconnect()
