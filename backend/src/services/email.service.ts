@@ -924,3 +924,68 @@ function sanitiseUrl(raw: string): string {
     return '#'
   }
 }
+
+/* ── Class assignments (student → instructor) ───────────────────────────── */
+
+export async function sendAssignmentSubmitted(
+  to: string,
+  instructorName: string,
+  assignmentTitle: string,
+  sessionTitle: string,
+  attempt: number,
+): Promise<void> {
+  const isRevision = attempt > 1
+  const subject = isRevision
+    ? `📎 Revised assignment — ${sessionTitle}`
+    : `📎 New assignment — ${sessionTitle}`
+  const html = wrap(subject, `
+    <h2 style="margin:0 0 16px;font-size:20px;font-weight:700;color:#0D0F1A">${isRevision ? 'Revised assignment' : 'New assignment'}</h2>
+    <p style="margin:0 0 16px;color:#374151">Dear <strong>${escapeHtml(instructorName)}</strong>,</p>
+    <p style="margin:0 0 20px;color:#374151">A student has sent work for your review${isRevision ? ` (attempt ${attempt})` : ''}.</p>
+    <table cellpadding="0" cellspacing="0" style="margin:0 0 20px;background:#F4F5F8;border-radius:12px;padding:16px;width:100%;border:1px solid #E5E7EB">
+      <tr><td style="font-size:14px;color:#374151;padding:6px 0"><strong>Class:</strong> ${escapeHtml(sessionTitle)}</td></tr>
+      <tr><td style="font-size:14px;color:#374151;padding:6px 0;border-top:1px solid #E5E7EB"><strong>Assignment:</strong> ${escapeHtml(assignmentTitle)}</td></tr>
+    </table>
+    <p style="margin:0 0 20px;color:#374151">Open the Assignments section to approve it, or send it back with a reason.</p>
+    <p style="margin:0;color:#374151"><strong>Delta Academy</strong></p>
+  `)
+  await sender.send({
+    to, subject, html,
+    text: `Dear ${instructorName},\n\nA student has sent work for your review${isRevision ? ` (attempt ${attempt})` : ''}.\n\nClass: ${sessionTitle}\nAssignment: ${assignmentTitle}\n\nOpen the Assignments section to approve it, or send it back with a reason.\n\nDelta Academy`,
+  })
+}
+
+export async function sendAssignmentReviewed(
+  to: string,
+  studentName: string,
+  assignmentTitle: string,
+  sessionTitle: string,
+  decision: 'approved' | 'rejected',
+  reason?: string,
+): Promise<void> {
+  const approved = decision === 'approved'
+  const subject = approved
+    ? `✅ Assignment approved — ${sessionTitle}`
+    : `📝 Assignment sent back — ${sessionTitle}`
+  const body = approved
+    ? `<p style="margin:0 0 20px;color:#374151">Your instructor has <strong>approved</strong> your work. Nothing further is needed.</p>`
+    : `<p style="margin:0 0 12px;color:#374151">Your instructor has sent your work back for a revision.</p>
+       <table cellpadding="0" cellspacing="0" style="margin:0 0 20px;background:#FEF2F2;border-radius:12px;padding:16px;width:100%;border:1px solid #FECACA">
+         <tr><td style="font-size:14px;color:#374151"><strong>Reason:</strong> ${escapeHtml(reason ?? '')}</td></tr>
+       </table>
+       <p style="margin:0 0 20px;color:#374151">Open the Assignments section to send a revision — your original submission is still there.</p>`
+  const html = wrap(subject, `
+    <h2 style="margin:0 0 16px;font-size:20px;font-weight:700;color:#0D0F1A">${approved ? 'Assignment approved' : 'Assignment sent back'}</h2>
+    <p style="margin:0 0 16px;color:#374151">Dear <strong>${escapeHtml(studentName)}</strong>,</p>
+    <table cellpadding="0" cellspacing="0" style="margin:0 0 20px;background:#F4F5F8;border-radius:12px;padding:16px;width:100%;border:1px solid #E5E7EB">
+      <tr><td style="font-size:14px;color:#374151;padding:6px 0"><strong>Class:</strong> ${escapeHtml(sessionTitle)}</td></tr>
+      <tr><td style="font-size:14px;color:#374151;padding:6px 0;border-top:1px solid #E5E7EB"><strong>Assignment:</strong> ${escapeHtml(assignmentTitle)}</td></tr>
+    </table>
+    ${body}
+    <p style="margin:0;color:#374151"><strong>Delta Academy</strong></p>
+  `)
+  await sender.send({
+    to, subject, html,
+    text: `Dear ${studentName},\n\nClass: ${sessionTitle}\nAssignment: ${assignmentTitle}\n\n${approved ? 'Your instructor has approved your work. Nothing further is needed.' : `Your instructor has sent your work back for a revision.\n\nReason: ${reason ?? ''}\n\nOpen the Assignments section to send a revision.`}\n\nDelta Academy`,
+  })
+}

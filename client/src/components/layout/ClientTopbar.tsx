@@ -8,6 +8,7 @@ import {
   Search, Bell, X, MessageSquare, BookOpen,
   GraduationCap, Heart, Sparkles, Trophy,
   Settings, Clock, Star, Users, Video, Flame, Menu, ShoppingCart, Map, CalendarDays, LifeBuoy,
+  ClipboardList,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/axios'
@@ -26,6 +27,7 @@ import { useIsMobile } from '@/hooks/useIsMobile'
 const SIDEBAR_TABS = [
   { label: 'My Learning', href: '/my-learning',    icon: GraduationCap },
   { label: 'Schedule',    href: '/class-bookings', icon: CalendarDays },
+  { label: 'Assignments', href: '/assignments',     icon: ClipboardList },
   { label: 'Catalog',     href: '/courses',         icon: BookOpen },
   { label: 'Learning Paths', href: '/learning-paths', icon: Map },
   { label: 'Favorites',   href: '/favorites',       icon: Heart, badge: 1 },
@@ -36,6 +38,7 @@ const SIDEBAR_TABS = [
 const TOPBAR_TABS = [
   { label: 'My Learning',    href: '/my-learning',    icon: GraduationCap },
   { label: 'Class Schedule', href: '/class-bookings', icon: CalendarDays },
+  { label: 'Assignments',    href: '/assignments',     icon: ClipboardList },
   { label: 'Catalog',        href: '/courses',         icon: BookOpen },
   { label: 'Learning Paths', href: '/learning-paths',  icon: Map },
   { label: 'Achievements',   href: '/achievements',    icon: Trophy },

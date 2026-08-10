@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   BookOpen, GraduationCap, Trophy,
-  Settings, LogOut, Flame, Map, X, Video, CalendarDays, LifeBuoy,
+  Settings, LogOut, Flame, Map, X, Video, CalendarDays, LifeBuoy, ClipboardList,
 } from 'lucide-react'
 import { useUIStore } from '@/store/ui.store'
 import { logout as apiLogout } from '@/lib/api/user'
@@ -14,6 +14,7 @@ const navItems = [
   { label: 'My Learning',    href: '/my-learning',    icon: GraduationCap },
   { label: 'Class Schedule', href: '/class-bookings', icon: CalendarDays },
   { label: 'My Classes',     href: '/my-bookings',    icon: Video },
+  { label: 'Assignments',    href: '/assignments',     icon: ClipboardList },
   { label: 'Catalog',        href: '/courses',         icon: BookOpen },
   { label: 'Learning Paths', href: '/learning-paths',  icon: Map },
   { label: 'Achievements',   href: '/achievements',    icon: Trophy },

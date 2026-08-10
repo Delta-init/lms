@@ -25,6 +25,7 @@ const adminNavItems = [
   { label: 'Learning Paths', href: '/learning-paths',   icon: Map },
   { label: 'Live Classes',   href: '/live-classes',     icon: Video },
   { label: 'Bookings',       href: '/bookings',          icon: CalendarDays },
+  { label: 'Assignments',    href: '/assignments',       icon: ClipboardCheck },
   { label: 'Students',       href: '/students',          icon: Users },
   { label: 'Instructors',    href: '/instructors',       icon: GraduationCap },
   { label: 'Categories',     href: '/categories',        icon: Tag },
@@ -44,6 +45,7 @@ const scopedAdminNavItems = [
   { label: 'Courses',          href: '/courses',                icon: BookOpen },
   { label: 'Live Classes',     href: '/live-classes',           icon: Video },
   { label: 'Bookings',         href: '/bookings',               icon: CalendarDays },
+  { label: 'Assignments',      href: '/assignments',            icon: ClipboardCheck },
   { label: 'Support',          href: '/support',                icon: LifeBuoy },
 ]
 
@@ -53,6 +55,7 @@ const instructorNavItems = [
   { label: 'Live Classes',  href: '/live-classes',       icon: Video },
   { label: 'Bookings',      href: '/bookings',           icon: CalendarDays },
   { label: 'Availability',  href: '/availability',       icon: CalendarDays },
+  { label: 'Assignments',   href: '/assignments',        icon: ClipboardCheck },
   { label: 'Students',      href: '/students',            icon: Users },
   { label: 'Instructors',   href: '/instructors',        icon: GraduationCap },
   { label: 'Reviews',       href: '/reviews',             icon: Star },

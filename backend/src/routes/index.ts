@@ -32,6 +32,7 @@ import feedbackRoutes      from './feedback.routes.ts'
 import supportRoutes       from './support.routes.ts'
 import instructorRoutes   from './instructors.routes.ts'
 import documentRoutes    from './documents.routes.ts'
+import classAssignmentRoutes from './classAssignments.routes.ts'
 
 const router = Router()
 
@@ -111,5 +112,9 @@ router.use('/support',         supportRoutes)
 router.use('/instructors',     instructorRoutes)
 /* Authorised reads of identity documents (H-11) */
 router.use('/documents',       documentRoutes)
+/* Post-class assignments: student submits, instructor approves or sends back.
+   Mounted at /class-assignments, NOT /assignments — that prefix already
+   belongs to the lesson-level assignment feature above. */
+router.use('/class-assignments', classAssignmentRoutes)
 
 export default router

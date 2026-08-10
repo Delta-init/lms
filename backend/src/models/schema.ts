@@ -1811,3 +1811,110 @@ const SupportTicketSchema = new Schema<ISupportTicket>(
 SupportTicketSchema.index({ organizationId: 1 })
 
 export const SupportTicketModel = mongoose.model<ISupportTicket>('SupportTicket', SupportTicketSchema)
+
+/* ─────────────────────────────────────────────────────
+   CLASS ASSIGNMENT  (student → instructor, after a live class)
+   ─────────────────────────────────────────────────────
+   Distinct from Assignment/AssignmentSubmission above, which is the
+   instructor-authored, lesson-attached, 0-100 graded kind. This one is
+   student-INITIATED and attached to a live SESSION: you attend a class, you
+   send your work to the instructor, they approve it or send it back with a
+   reason and you try again.
+
+   The session carries the course, the module and the instructor, so the
+   student picks ONE thing rather than three — and cannot assemble a
+   combination that never existed. Those fields are still denormalised onto
+   the row because a session can later be re-parented (P-16) and a submission
+   must keep the context it was made in.
+───────────────────────────────────────────────────── */
+export type ClassAssignmentStatus = 'pending' | 'approved' | 'rejected'
+
+export interface IClassAssignmentFile {
+  url:      string      // own-storage reference, validated by documentRef
+  name:     string
+  mimeType: string
+  sizeBytes: number
+}
+
+export interface IClassAssignmentReview {
+  status:     'approved' | 'rejected'
+  reason?:    string           // required by the route when rejecting
+  reviewerId: Types.ObjectId
+  attempt:    number           // which submission attempt this judged
+  reviewedAt: Date
+}
+
+export interface IClassAssignment extends Document {
+  id:             string
+  studentId:      Types.ObjectId
+  liveClassId:    Types.ObjectId
+  courseId:       Types.ObjectId
+  sectionId?:     Types.ObjectId          // the module, when the session has one
+  instructorId:   Types.ObjectId
+  organizationId?: Types.ObjectId
+  title:          string
+  note?:          string
+  files:          IClassAssignmentFile[]
+  status:         ClassAssignmentStatus
+  attempt:        number                  // 1 on first send, +1 per resubmission
+  reviews:        IClassAssignmentReview[]
+  lastReason?:    string                  // the reason on the most recent rejection
+  submittedAt:    Date
+  reviewedAt?:    Date
+  createdAt:      Date
+  updatedAt:      Date
+}
+
+const ClassAssignmentFileSchema = new Schema<IClassAssignmentFile>(
+  {
+    url:       { type: String, required: true, maxlength: 2048 },
+    name:      { type: String, required: true, maxlength: 255 },
+    mimeType:  { type: String, required: true, maxlength: 100 },
+    sizeBytes: { type: Number, required: true, min: 0 },
+  },
+  { _id: false },
+)
+
+const ClassAssignmentReviewSchema = new Schema<IClassAssignmentReview>(
+  {
+    status:     { type: String, enum: ['approved', 'rejected'], required: true },
+    reason:     { type: String, maxlength: 2000 },
+    reviewerId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    attempt:    { type: Number, required: true, min: 1 },
+    reviewedAt: { type: Date, default: () => new Date() },
+  },
+  { _id: false },
+)
+
+const ClassAssignmentSchema = new Schema<IClassAssignment>(
+  {
+    studentId:      { type: Schema.Types.ObjectId, ref: 'User',      required: true, index: true },
+    liveClassId:    { type: Schema.Types.ObjectId, ref: 'LiveClass', required: true, index: true },
+    courseId:       { type: Schema.Types.ObjectId, ref: 'Course',    required: true, index: true },
+    sectionId:      { type: Schema.Types.ObjectId, ref: 'Section' },
+    instructorId:   { type: Schema.Types.ObjectId, ref: 'User',      required: true, index: true },
+    organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', index: true },
+    title:          { type: String, required: true, trim: true, maxlength: 200 },
+    note:           { type: String, maxlength: 5000 },
+    files:          { type: [ClassAssignmentFileSchema], default: [] },
+    status:         { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending', index: true },
+    attempt:        { type: Number, default: 1, min: 1 },
+    reviews:        { type: [ClassAssignmentReviewSchema], default: [] },
+    lastReason:     { type: String, maxlength: 2000 },
+    submittedAt:    { type: Date, default: () => new Date(), index: true },
+    reviewedAt:     { type: Date },
+  },
+  baseSchemaOptions,
+)
+
+/* The instructor's queue: their sessions, newest pending first. */
+ClassAssignmentSchema.index({ instructorId: 1, status: 1, submittedAt: -1 })
+/* The student's own list. */
+ClassAssignmentSchema.index({ studentId: 1, submittedAt: -1 })
+/* One submission per student per session — revisions bump `attempt` on the
+   same row rather than adding another. The service checks this before writing;
+   the index is what makes it true under two simultaneous requests. */
+ClassAssignmentSchema.index({ studentId: 1, liveClassId: 1 }, { unique: true })
+
+export const ClassAssignmentModel =
+  mongoose.model<IClassAssignment>('ClassAssignment', ClassAssignmentSchema)
