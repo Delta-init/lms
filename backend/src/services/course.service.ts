@@ -130,6 +130,8 @@ export class CourseService {
     thumbnailUrl?:   string
     previewUrl?:     string
     price:           number
+    priceAED?:       number
+    priceINR?:       number
     isFree:          boolean
     status:          'draft' | 'published' | 'archived'
     level?:          'beginner' | 'intermediate' | 'advanced'
@@ -152,6 +154,10 @@ export class CourseService {
       thumbnailUrl: input.thumbnailUrl || undefined,
       previewUrl:   input.previewUrl   || undefined,
       price:        input.isFree ? 0 : input.price,
+      /* Undefined stays undefined so the gateway falls back to its conversion
+         rate, which is what every existing course does today (B-01). */
+      priceAED:     input.isFree ? undefined : input.priceAED,
+      priceINR:     input.isFree ? undefined : input.priceINR,
       isFree:       input.isFree,
       status:       input.status,
       level:        input.level,
@@ -178,6 +184,8 @@ export class CourseService {
       thumbnailUrl: string
       previewUrl:   string
       price:        number
+      priceAED:     number
+      priceINR:     number
       isFree:       boolean
       status:       'draft' | 'published' | 'archived'
       level:        'beginner' | 'intermediate' | 'advanced' | ''
@@ -208,6 +216,21 @@ export class CourseService {
     if (input.previewUrl   !== undefined) update.previewUrl   = input.previewUrl   || undefined
     if (input.isFree       !== undefined) update.isFree       = input.isFree
     if (input.price        !== undefined) update.price        = input.isFree ? 0 : input.price
+    /* B-01 — these were accepted by the API and dropped by the schema, so
+       every AED and INR order fell back to a conversion rate no matter what an
+       admin entered. Left undefined they still fall back, which is what every
+       existing course does; set, they are what the gateway charges. */
+    if (input.isFree === true) {
+      /* Clearing has to be unconditional, not gated on the override being in
+         the body: "make this course free" usually arrives as {isFree, price}
+         alone, and a stale INR override left behind is a price on a course
+         that is supposed to cost nothing. */
+      update.priceAED = undefined
+      update.priceINR = undefined
+    } else {
+      if (input.priceAED   !== undefined) update.priceAED     = input.priceAED
+      if (input.priceINR   !== undefined) update.priceINR     = input.priceINR
+    }
     if (input.status       !== undefined) update.status       = input.status
     if (input.level !== undefined) {
       update.level = input.level === '' ? undefined : input.level

@@ -37,6 +37,22 @@ export class EnrollmentService {
       throw new EnrollmentError('COURSE_NOT_FOUND', 'Course not found', 404)
     }
 
+    /* Tenant isolation — a course belonging to one organization may only be
+       enrolled in by that organization's members. super_admin is never scoped,
+       neither is a caller with no organization, and a course that predates the
+       organizationId field stays enrollable by anyone. */
+    if (course.organizationId) {
+      const self       = await UserModel.findById(userId).select('role organizationId').exec()
+      const callerOrg  = self?.organizationId?.toString()
+      if (self?.role !== 'super_admin' && callerOrg && callerOrg !== course.organizationId.toString()) {
+        throw new EnrollmentError(
+          'FORBIDDEN',
+          'This course belongs to another organization',
+          403,
+        )
+      }
+    }
+
     /* Paid courses require Stripe checkout — enforce on the server */
     if (!course.isFree && course.price > 0) {
       throw new EnrollmentError(

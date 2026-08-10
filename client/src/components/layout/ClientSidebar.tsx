@@ -8,6 +8,7 @@ import {
   Settings, LogOut, Flame, Map, X, Video, CalendarDays, LifeBuoy,
 } from 'lucide-react'
 import { useUIStore } from '@/store/ui.store'
+import { logout as apiLogout } from '@/lib/api/user'
 
 const navItems = [
   { label: 'My Learning',    href: '/my-learning',    icon: GraduationCap },
@@ -33,6 +34,12 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
   const pathname = usePathname()
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href)
+
+  const handleLogout = async () => {
+    await apiLogout()
+    localStorage.removeItem('lms-cart')
+    window.location.href = '/login'
+  }
 
   return (
     <>
@@ -108,7 +115,7 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
             <p className="truncate text-[10px]" style={{ color: '#9CA3AF' }}>student@learnos.com</p>
           </div>
           <button
-            onClick={() => { document.cookie = 'lms_at=; path=/; max-age=0'; window.location.href = '/login' }}
+            onClick={handleLogout}
             className="flex-shrink-0 transition-all hover:text-red-500" style={{ color: '#9CA3AF' }}>
             <LogOut size={14} />
           </button>

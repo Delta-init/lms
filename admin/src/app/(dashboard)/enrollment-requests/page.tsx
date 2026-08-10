@@ -24,6 +24,7 @@ import { useToast } from '@/store/ui.store'
 import { api } from '@/lib/axios'
 import { useQueryClient } from '@tanstack/react-query'
 import { useDeleteUser } from '@/lib/api/users'
+import { useDocumentUrl } from '@/lib/api/documents'
 import Spinner from '@/components/ui/Spinner'
 
 /* ── Constants ─────────────────────────────────────── */
@@ -370,13 +371,18 @@ const ID_DOC_LABEL: Record<string, string> = {
   'Other':        'Govt. ID',
 }
 
-function DocumentsSection({ passportUrl, idDocUrl, photoUrl, userId, idType }: {
+function DocumentsSection({ passportUrl: rawPassportUrl, idDocUrl: rawIdDocUrl, photoUrl, userId, idType }: {
   passportUrl?: string
   idDocUrl?:    string
   photoUrl?:    string
   userId:       string
   idType?:      string
 }) {
+  /* Identity scans are stored as bare keys and exchanged for a short-lived
+     signed link (H-11). The photo is public and passes through unchanged. */
+  const passportUrl = useDocumentUrl(userId, 'passport', rawPassportUrl)
+  const idDocUrl    = useDocumentUrl(userId, 'idDoc',    rawIdDocUrl)
+
   const [lightbox,    setLightbox]    = useState<string | null>(null)
   const [pdfView,     setPdfView]     = useState<'passport' | 'idDoc' | 'photo' | null>(null)
   const [uploading,   setUploading]   = useState<'passport' | 'idDoc' | 'photo' | null>(null)
@@ -393,7 +399,10 @@ function DocumentsSection({ passportUrl, idDocUrl, photoUrl, userId, idType }: {
     try {
       const fd = new FormData()
       fd.append('file', file)
-      const uploadRes = await api.post<{ success: true; data: { url: string } }>('/uploads/document', fd, {
+      /* Identity scans go to the gated kyc/ prefix; the photo is the public
+         avatar and stays where it is (H-11). */
+      const endpoint = field === 'photo' ? '/uploads/document' : '/uploads/kyc'
+      const uploadRes = await api.post<{ success: true; data: { url: string } }>(endpoint, fd, {
         headers: { 'Content-Type': undefined },
       })
       const url = uploadRes.data.data.url

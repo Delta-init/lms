@@ -275,6 +275,10 @@ const ID_TYPES = [
 
 const MAX_FILE_BYTES = 3 * 1024 * 1024 // 3 MB — enforced on all document uploads
 
+/* Stored signup documents, keyed by the File the user picked (M-05). A
+   WeakMap so a discarded file is collectable; see uploadDoc() in submit(). */
+const uploadedSignupDocs = new WeakMap<File, string>()
+
 const ID_DOC_META: Record<string, { label: string; hint: string }> = {
   'Emirates ID':  { label: 'Emirates ID Card Copy',  hint: 'Front & back of your Emirates ID card (PDF, JPG, PNG, max 3 MB)' },
   'Passport':     { label: 'Passport Copy',           hint: 'PDF or image of your passport identity page (max 3 MB)' },
@@ -1150,12 +1154,51 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
 
     setLoading(true); setApiErr(null)
     try {
-      await api.post('/auth/register', {
+      /* Documents go up BEFORE the account is created (M-05).
+
+         They used to go up after, using the session /auth/register returns —
+         so turning on SIGNUP_REQUIRE_VERIFICATION, which returns no session,
+         would have made all three uploads and both profile patches 401 and
+         every full signup would have quietly lost its documents. Uploading
+         first and passing the references into the register payload removes
+         that dependency: registration is now a single request that needs no
+         session on either side of it.
+
+         POST /uploads/signup-doc is the unauthenticated counterpart of
+         /uploads/kyc — same file types, same magic-byte check, a tighter size
+         cap and its own hourly limit. `kind: 'photo'` selects the public
+         prefix for the avatar; anything else lands under the private `kyc/`
+         one, which is never served directly. */
+      async function uploadDoc(file: File, kind: 'kyc' | 'photo' = 'kyc'): Promise<string> {
+        /* Reuse what this exact file already stored. Registration can fail
+           after the uploads succeed — a taken email is the common case — and
+           without this, every retry would send all three files again, burn
+           through the hourly limit, and leave more orphans behind each time.
+           Keyed on the File object, so picking a different file re-uploads. */
+        const cached = uploadedSignupDocs.get(file)
+        if (cached) return cached
+
+        const fd = new FormData()
+        fd.append('file', file)
+        fd.append('kind', kind)
+        const res = await fetch('/api/v1/uploads/signup-doc', { method: 'POST', body: fd })
+        const json = await res.json() as { success: boolean; data?: { url: string }; error?: { message: string } }
+        if (!res.ok) throw new Error(json.error?.message ?? 'Upload failed')
+        uploadedSignupDocs.set(file, json.data!.url)
+        return json.data!.url
+      }
+
+      const passportUrl = await uploadDoc(data.passportFile, 'kyc')
+      const idDocUrl    = await uploadDoc(data.idDocFile,    'kyc')
+      const photoUrl    = await uploadDoc(avatarFile,        'photo')
+
+      const reg = await api.post('/auth/register', {
         name:             data.name.trim(),
         email:            data.email.trim().toLowerCase(),
         password:         data.password,
         organizationSlug: data.organizationSlug,
         enrollmentApplication: {
+          passportUrl, idDocUrl, photoUrl,
           phone: data.phone, emergencyContact: data.emergencyContact,
           gender: data.gender, dateOfBirth: data.dateOfBirth,
           nationality: data.nationality, homeCountry: data.homeCountry,
@@ -1168,33 +1211,14 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
         },
       })
 
-      async function uploadDoc(file: File): Promise<string> {
-        const fd = new FormData()
-        fd.append('file', file)
-        const res = await fetch('/api/v1/uploads/document', {
-          method: 'POST',
-          body: fd,
-          credentials: 'include',
-        })
-        const json = await res.json() as { success: boolean; data?: { url: string }; error?: { message: string } }
-        if (!res.ok) throw new Error(json.error?.message ?? 'Upload failed')
-        return json.data!.url
+      /* Verification-first mode issues no session, and nothing after this point
+         needs one — the documents were stored above and travelled in with the
+         register payload, so both branches below are complete accounts. */
+      if (reg.data?.data?.verificationRequired) {
+        window.location.href = '/login?verify=sent'
+        return
       }
 
-      let passportUrl = '', idDocUrl = '', photoUrl = ''
-      if (data.passportFile) passportUrl = await uploadDoc(data.passportFile)
-      if (data.idDocFile)    idDocUrl    = await uploadDoc(data.idDocFile)
-      if (avatarFile) {
-        photoUrl = await uploadDoc(avatarFile)
-        await api.patch('/auth/me', { avatarUrl: photoUrl })
-      }
-      if (passportUrl || idDocUrl || photoUrl) {
-        await api.patch('/auth/me/enrollment-docs', {
-          ...(passportUrl ? { passportUrl } : {}),
-          ...(idDocUrl    ? { idDocUrl }    : {}),
-          ...(photoUrl    ? { photoUrl }    : {}),
-        })
-      }
       window.location.href = '/my-learning'
     } catch (err: unknown) {
       const resp = (err as { response?: { data?: { error?: { message?: string; code?: string } } } })?.response?.data?.error
@@ -1244,7 +1268,7 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
     setExpressLoading(true)
     setExpressApiErr(null)
     try {
-      await api.post('/auth/register', {
+      const reg = await api.post('/auth/register', {
         name,
         email:            expressData.email.trim().toLowerCase(),
         password:         expressData.password,
@@ -1254,6 +1278,12 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
           homeCountry: expressData.homeCountry,
         },
       })
+      /* Verification-first mode returns no session (M-05) — the same answer a taken address gets. Send the user to sign-in with a note rather than to a page that would bounce them straight back. */
+      if (reg.data?.data?.verificationRequired) {
+        window.location.href = '/login?verify=sent'
+        return
+      }
+
       window.location.href = '/my-learning'
     } catch (err: unknown) {
       const resp = (err as { response?: { data?: { error?: { message?: string; code?: string } } } })?.response?.data?.error

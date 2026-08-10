@@ -27,6 +27,9 @@ export interface CourseListParams {
   sort?:           string
 }
 
+/** Upper bound on a free-text search term before it reaches $regex. */
+const MAX_SEARCH_LEN = 100
+
 /* ─── Sort resolver ────────────────────────────────
    Converts either a named preset or a "key:dir" pair
    into a Mongoose sort spec. Unknown keys fall back to
@@ -174,9 +177,10 @@ export class CourseRepository extends BaseRepository<ICourse> {
     if (params.status && params.status !== 'all') filter['status'] = params.status
 
     if (params.search) {
+      const escaped = params.search.slice(0, MAX_SEARCH_LEN).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
       filter['$or'] = [
-        { title:       { $regex: params.search, $options: 'i' } },
-        { description: { $regex: params.search, $options: 'i' } },
+        { title:       { $regex: escaped, $options: 'i' } },
+        { description: { $regex: escaped, $options: 'i' } },
       ]
     }
     if (params.level) filter['level']  = params.level
@@ -227,9 +231,26 @@ export class CourseRepository extends BaseRepository<ICourse> {
     return CourseModel.create(data)
   }
 
+  /* A key set to `undefined` means CLEAR THIS FIELD, and it has to be split
+     out into $unset to actually do that: Mongoose strips undefined values from
+     $set, so `{ $set: { priceINR: undefined } }` is a silent no-op. The
+     service layer already wrote `= undefined` in five places — priceAED,
+     priceINR, level, categoryId and program — on the assumption it cleared
+     them, so clearing a course's level or per-currency price never took
+     effect. Found while fixing B-01; the same line fixes all five. */
   async updateOne_(id: string, data: Partial<ICourse>): Promise<ICourse | null> {
+    const $set: Record<string, unknown> = {}
+    const $unset: Record<string, ''>    = {}
+    for (const [key, value] of Object.entries(data)) {
+      if (value === undefined) $unset[key] = ''
+      else $set[key] = value
+    }
+    const update: Record<string, unknown> = {}
+    if (Object.keys($set).length   > 0) update['$set']   = $set
+    if (Object.keys($unset).length > 0) update['$unset'] = $unset
+
     return CourseModel
-      .findByIdAndUpdate(id, { $set: data }, { new: true, runValidators: true })
+      .findByIdAndUpdate(id, update, { new: true, runValidators: true })
       .populate('instructorId', 'name avatarUrl')
       .populate('categoryId',   'name slug')
       .exec()

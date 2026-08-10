@@ -19,6 +19,7 @@ import { useCourseOutline } from '@/lib/api/outline'
 import { useCourses } from '@/lib/api/courses'
 import { useToast } from '@/store/ui.store'
 import { Button, MotionButton } from '@/components/ui/button'
+import { useDocumentUrl } from '@/lib/api/documents'
 
 /* ── Custom dark course picker (avoids native white dropdown) ── */
 function CourseSelect({
@@ -189,6 +190,36 @@ interface Props {
   user:      AdminUser
   onClose:   () => void
   onSuccess: () => void
+}
+
+
+/* Identity scans are stored as bare keys and exchanged for a short-lived
+   signed link (H-11). Its own component so the hook has a stable home. */
+function KycThumb({ userId, field, stored, label }: {
+  userId: string; field: 'passport' | 'idDoc'; stored?: string; label: string
+}) {
+  const url = useDocumentUrl(userId, field, stored)
+  if (!stored) return null
+  const isImage = /\.(jpg|jpeg|png|webp)$/i.test(stored)
+  return (
+    <div>
+      <p className="mb-1 text-[9px]" style={{ color: 'rgba(255,255,255,0.3)' }}>{label}</p>
+      {url ? (
+        <a href={url} target="_blank" rel="noopener noreferrer">
+          {isImage ? (
+            <img src={url} alt={label} className="h-20 w-full rounded-lg object-cover transition-opacity hover:opacity-80"
+              style={{ border: '1px solid rgba(255,255,255,0.1)' }} />
+          ) : (
+            <span className="flex h-20 w-full items-center justify-center rounded-lg text-[10px]"
+              style={{ border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}>Open</span>
+          )}
+        </a>
+      ) : (
+        <span className="flex h-20 w-full items-center justify-center rounded-lg text-[10px]"
+          style={{ border: '1px dashed rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.3)' }}>Loading…</span>
+      )}
+    </div>
+  )
 }
 
 export function EditStudentModal({ user, onClose, onSuccess }: Props) {
@@ -632,40 +663,8 @@ export function EditStudentModal({ user, onClose, onSuccess }: Props) {
                                   <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>Documents</span>
                                 </div>
                                 <div className="grid grid-cols-3 gap-2">
-                                  {app.passportUrl && (
-                                    <div>
-                                      <span className="text-[9px] font-semibold uppercase tracking-wide block mb-1" style={{ color: 'rgba(255,255,255,0.25)' }}>Passport Copy</span>
-                                      {app.passportUrl.match(/\.(jpg|jpeg|png|webp)$/i) ? (
-                                        <a href={app.passportUrl} target="_blank" rel="noopener noreferrer">
-                                          <img src={app.passportUrl} alt="Passport" className="h-20 w-full rounded-lg object-cover hover:opacity-80 transition-opacity"
-                                            style={{ border: '1px solid rgba(255,255,255,0.08)' }} />
-                                        </a>
-                                      ) : (
-                                        <a href={app.passportUrl} target="_blank" rel="noopener noreferrer"
-                                          className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] transition-colors hover:bg-white/05"
-                                          style={{ border: '1px solid rgba(255,255,255,0.08)', color: '#60A5FA' }}>
-                                          <FileText size={11} />PDF <ExternalLink size={9} />
-                                        </a>
-                                      )}
-                                    </div>
-                                  )}
-                                  {app.idDocUrl && (
-                                    <div>
-                                      <span className="text-[9px] font-semibold uppercase tracking-wide block mb-1" style={{ color: 'rgba(255,255,255,0.25)' }}>{app.idType === 'Emirates ID' ? 'Emirates ID Card' : app.idType === 'Aadhaar Card' ? 'Aadhaar Card' : app.idType === 'Other' ? 'ID Document' : 'Passport Copy'}</span>
-                                      {app.idDocUrl.match(/\.(jpg|jpeg|png|webp)$/i) ? (
-                                        <a href={app.idDocUrl} target="_blank" rel="noopener noreferrer">
-                                          <img src={app.idDocUrl} alt={app.idType ?? 'ID Doc'} className="h-20 w-full rounded-lg object-cover hover:opacity-80 transition-opacity"
-                                            style={{ border: '1px solid rgba(255,255,255,0.08)' }} />
-                                        </a>
-                                      ) : (
-                                        <a href={app.idDocUrl} target="_blank" rel="noopener noreferrer"
-                                          className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] transition-colors hover:bg-white/05"
-                                          style={{ border: '1px solid rgba(255,255,255,0.08)', color: '#60A5FA' }}>
-                                          <FileText size={11} />PDF <ExternalLink size={9} />
-                                        </a>
-                                      )}
-                                    </div>
-                                  )}
+                                  <KycThumb userId={user.id} field="passport" stored={app.passportUrl} label="Passport" />
+                                  <KycThumb userId={user.id} field="idDoc" stored={app.idDocUrl} label={app.idType ?? 'ID Document'} />
                                   {app.photoUrl && (
                                     <div>
                                       <span className="text-[9px] font-semibold uppercase tracking-wide block mb-1" style={{ color: 'rgba(255,255,255,0.25)' }}>Photo</span>

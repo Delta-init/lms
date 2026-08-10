@@ -5,6 +5,9 @@ import type {
   IUser, IRefreshToken, IAuthToken, AuthTokenPurpose, RefreshTokenRevokeReason,
 } from '@/models/schema.ts'
 
+/** Upper bound on a free-text search term before it reaches $regex. */
+const MAX_SEARCH_LEN = 100
+
 /* ─────────────────────────────────────────────────────
    UserRepository
 ───────────────────────────────────────────────────── */
@@ -135,10 +138,14 @@ export class UserRepository extends BaseRepository<IUser> {
       ? [{ category: params.category }, { categories: params.category }]
       : null
 
-    const searchOr = params.search
+    const searchTerm = params.search
+      ? params.search.slice(0, MAX_SEARCH_LEN).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      : null
+
+    const searchOr = searchTerm
       ? [
-          { name:  { $regex: params.search, $options: 'i' } },
-          { email: { $regex: params.search, $options: 'i' } },
+          { name:  { $regex: searchTerm, $options: 'i' } },
+          { email: { $regex: searchTerm, $options: 'i' } },
         ]
       : null
 

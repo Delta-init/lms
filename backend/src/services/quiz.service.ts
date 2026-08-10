@@ -1,6 +1,7 @@
 import { Types } from 'mongoose'
 import { QuizRepository } from '@/repositories/quiz.repository.ts'
 import { QuizAttemptRepository } from '@/repositories/quizAttempt.repository.ts'
+import { EnrollmentRepository } from '@/repositories/enrollment.repository.ts'
 import { LessonModel, type IQuiz, type IQuizQuestion } from '@/models/schema.ts'
 import type { QuestionType } from '@/types/index.ts'
 
@@ -38,6 +39,18 @@ export interface SubmitAnswerDto {
 export class QuizService {
   private readonly quizRepo    = new QuizRepository()
   private readonly attemptRepo = new QuizAttemptRepository()
+  private readonly enrollRepo  = new EnrollmentRepository()
+
+  /* The Quiz model carries no per-quiz attempt limit, so this service-wide
+     constant caps every quiz. Unlimited submissions let a student brute-force
+     the answer key one choice-index at a time. */
+  private static readonly MAX_ATTEMPTS = 5
+
+  /* ── Access: caller must be enrolled in the owning course ── */
+  private async assertEnrolled(userId: string, courseId: Types.ObjectId | string): Promise<void> {
+    const enrolled = await this.enrollRepo.findByUserCourse(userId, courseId)
+    if (!enrolled) throw new QuizError('NOT_ENROLLED', 'You must be enrolled in this course', 403)
+  }
 
   /* ── Admin: get quiz for a lesson (or null if none) ── */
   async getByLesson(lessonId: string): Promise<IQuiz | null> {
@@ -82,10 +95,21 @@ export class QuizService {
     scorePercent: number
     passed:       boolean
     attempt:      number
-    breakdown:    Array<{ questionId: string; correct: boolean; correctAnswer: string; points: number; explanation?: string }>
+    breakdown:    Array<{ questionId: string; correct: boolean; correctAnswer?: string; points: number; explanation?: string }>
   }> {
     const quiz = await this.quizRepo.findByLesson(lessonId)
     if (!quiz) throw new QuizError('QUIZ_NOT_FOUND', 'No quiz found for this lesson', 404)
+    await this.assertEnrolled(userId, quiz.courseId)
+
+    /* Enforce the attempt cap BEFORE scoring so a rejected submission is never recorded. */
+    const attemptCount = await this.attemptRepo.countByUserQuiz(userId, quiz.id)
+    if (attemptCount >= QuizService.MAX_ATTEMPTS) {
+      throw new QuizError(
+        'ATTEMPT_LIMIT_REACHED',
+        `You have used all ${QuizService.MAX_ATTEMPTS} attempts for this quiz`,
+        403,
+      )
+    }
 
     const answerMap = new Map(answers.map(a => [a.questionId, a.answer]))
     let score    = 0
@@ -109,7 +133,6 @@ export class QuizService {
 
     const scorePercent = maxScore === 0 ? 0 : Math.round((score / maxScore) * 100)
     const passed       = scorePercent >= quiz.passPercent
-    const attemptCount = await this.attemptRepo.countByUserQuiz(userId, quiz.id)
 
     await this.attemptRepo.create({
       userId:        new Types.ObjectId(userId) as any,
@@ -125,7 +148,17 @@ export class QuizService {
       completedAt:   new Date(),
     } as any)
 
-    return { score, maxScore, scorePercent, passed, attempt: attemptCount + 1, breakdown }
+    /* A failed attempt returns the aggregate only. Per-question `correct` flags are
+       themselves an oracle: submitting every choice index in turn reveals the whole
+       answer key in as many attempts as a question has choices. */
+    return {
+      score,
+      maxScore,
+      scorePercent,
+      passed,
+      attempt: attemptCount + 1,
+      breakdown: passed ? breakdown : [],
+    }
   }
 
   /* ── Student: quiz summary (for resume / retry UI) ─ */
@@ -155,7 +188,7 @@ export class QuizService {
   }
 
   /* ── Student: get quiz questions (hide correctAnswer + explanation) ─ */
-  async getForStudent(lessonId: string): Promise<{
+  async getForStudent(userId: string, lessonId: string): Promise<{
     id:          string
     passPercent: number
     timeLimit:   number | null
@@ -163,6 +196,7 @@ export class QuizService {
   }> {
     const quiz = await this.quizRepo.findByLesson(lessonId)
     if (!quiz) throw new QuizError('QUIZ_NOT_FOUND', 'No quiz found for this lesson', 404)
+    await this.assertEnrolled(userId, quiz.courseId)
     return {
       id:          quiz.id,
       passPercent: quiz.passPercent,

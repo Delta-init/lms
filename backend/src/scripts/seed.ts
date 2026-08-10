@@ -15,20 +15,42 @@ import {
 } from '@/models/schema.ts'
 import { hashPassword } from '@/utils/hash.ts'
 
-/* ─── Sample data ───────────────────────────────────── */
+/* ─── Environment guard ─────────────────────────────────────────
+   This script DELETES every user, course, enrolment, order and review
+   before repopulating. It is a local-development tool, and the fallback
+   credentials below are published in a public repository — so it must
+   never run against a deployed database.
+
+   SEED_ALLOW_WIPE=true overrides the refusal, for a disposable staging
+   box where wiping is the intent.
+──────────────────────────────────────────────────────────────── */
+if (env.NODE_ENV === 'production' && process.env['SEED_ALLOW_WIPE'] !== 'true') {
+  console.error('❌  Refusing to seed: NODE_ENV=production.')
+  console.error('    `bun run seed` deletes every user, course, enrolment and order.')
+  console.error('    Set SEED_ALLOW_WIPE=true only if this database is disposable.')
+  process.exit(1)
+}
+
+/* ─── Sample data ─────────────────────────────────────
+   Credentials fall back to the published dev defaults so `bun run seed`
+   keeps working with no setup. Override them via the environment for any
+   database that is reachable by anyone but you. */
+const SEEDED_FROM_ENV = !!(process.env['SEED_ADMIN_PASSWORD'] ?? process.env['SEED_INSTRUCTOR_PASSWORD'])
 
 const ADMIN = {
   name: 'LMS Admin',
-  email: 'admin@lms.local',
-  password: 'Admin1234',
+  email:    process.env['SEED_ADMIN_EMAIL']    ?? 'admin@lms.local',
+  password: process.env['SEED_ADMIN_PASSWORD'] ?? 'Admin1234',
 }
 
+const INSTRUCTOR_PASSWORD = process.env['SEED_INSTRUCTOR_PASSWORD'] ?? 'Student1234'
+
 const INSTRUCTORS = [
-  { name: 'Sarah Chen',   email: 'sarah@lms.local',   password: 'Student1234',
+  { name: 'Sarah Chen',   email: 'sarah@lms.local',   password: INSTRUCTOR_PASSWORD,
     headline: 'Senior product designer · 12y',
     bio: 'Former design lead at notable consumer products. Teaches design systems and user research.',
     avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200' },
-  { name: 'Alex Kim',     email: 'alex@lms.local',    password: 'Student1234',
+  { name: 'Alex Kim',     email: 'alex@lms.local',    password: INSTRUCTOR_PASSWORD,
     headline: 'Full-stack engineer · React + TypeScript',
     bio: 'Engineer with a focus on TypeScript, React, and modern frontend tooling.',
     avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200' },
@@ -177,8 +199,13 @@ async function seed() {
 
   await mongoose.disconnect()
   console.log('🌱  Done.\n')
-  console.log('   Admin login:      admin@lms.local      / Admin1234')
-  console.log('   Instructor login: sarah@lms.local      / Student1234')
+  if (SEEDED_FROM_ENV) {
+    console.log(`   Admin login:      ${ADMIN.email}   / (from SEED_ADMIN_PASSWORD)`)
+    console.log('   Instructor login: sarah@lms.local   / (from SEED_INSTRUCTOR_PASSWORD)')
+  } else {
+    console.log(`   Admin login:      ${ADMIN.email}      / ${ADMIN.password}`)
+    console.log(`   Instructor login: sarah@lms.local      / ${INSTRUCTOR_PASSWORD}`)
+  }
 }
 
 seed().catch(err => {

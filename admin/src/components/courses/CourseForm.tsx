@@ -32,6 +32,7 @@ const schema = z.object({
   thumbnailUrl: z.string().url('Enter a valid URL').or(z.literal('')),
   previewUrl:   z.string().url('Enter a valid URL').or(z.literal('')),
   price:        z.coerce.number().min(0, 'Price must be ≥ 0'),
+  priceAED:     z.coerce.number().min(0).optional(),
   priceINR:     z.coerce.number().min(0).optional(),
   isFree:       z.boolean(),
   status:       z.enum(['draft', 'published', 'archived']),
@@ -175,6 +176,7 @@ export function CourseForm({ course }: CourseFormProps) {
       thumbnailUrl: course?.thumbnailUrl ?? '',
       previewUrl:   course?.previewUrl   ?? '',
       price:        course?.price        ?? 0,
+      priceAED:     course?.priceAED     ?? undefined,
       priceINR:     course?.priceINR     ?? undefined,
       isFree:       course?.isFree       ?? false,
       status:       course?.status       ?? 'draft',
@@ -413,9 +415,35 @@ export function CourseForm({ course }: CourseFormProps) {
                       ))}
                     </div>
 
+                    {/* AED price — Abzer, Tabby, Tamara.
+                        Blank falls back to the configured conversion rate; it does
+                        NOT turn a gateway off. The INR hint used to claim it did
+                        (B-01), which was untrue in two ways: the value was never
+                        stored at all, and the gateway is chosen by the academy's
+                        currency rather than by this field. */}
+                    <div className="mt-5">
+                      <Field label="Price (AED) — Abzer / Tabby / Tamara" hint="Leave blank to convert from the USD price at the configured rate" error={(errors as any).priceAED?.message}>
+                        <div className="relative">
+                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.3)' }}>د.إ</span>
+                          <input {...register('priceAED')} type="number" step="1" min="0" placeholder="367"
+                            className={`${inputBase} pl-12`} style={inputStyle}
+                            onFocus={e => inputFocus(e.currentTarget)} onBlur={e => inputBlur(e.currentTarget)} />
+                        </div>
+                        <div className="mt-3 flex gap-2 flex-wrap">
+                          {[199, 367, 499, 999, 1499, 1999].map(p => (
+                            <button key={p} type="button" onClick={() => setValue('priceAED' as any, p)}
+                              className="rounded-lg px-3 py-1 text-xs font-semibold transition-colors hover:bg-white/10"
+                              style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                              د.إ{p}
+                            </button>
+                          ))}
+                        </div>
+                      </Field>
+                    </div>
+
                     {/* INR price for Razorpay */}
                     <div className="mt-5">
-                      <Field label="Price (INR) — Razorpay" hint="Leave blank to disable Razorpay for this course" error={(errors as any).priceINR?.message}>
+                      <Field label="Price (INR) — Razorpay" hint="Leave blank to convert from the USD price at the configured rate" error={(errors as any).priceINR?.message}>
                         <div className="relative">
                           <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.3)' }}>₹</span>
                           <input {...register('priceINR')} type="number" step="1" min="0" placeholder="999"

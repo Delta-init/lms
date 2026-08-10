@@ -31,6 +31,7 @@ import bookingRoutes       from './bookings.routes.ts'
 import feedbackRoutes      from './feedback.routes.ts'
 import supportRoutes       from './support.routes.ts'
 import instructorRoutes   from './instructors.routes.ts'
+import documentRoutes    from './documents.routes.ts'
 
 const router = Router()
 
@@ -43,13 +44,7 @@ router.get('/health', (_req: Request, res: Response) => {
     success: true,
     data: {
       status:    'ok',
-      env:       process.env.NODE_ENV,
       timestamp: new Date().toISOString(),
-      uptime:    Math.floor(process.uptime()),
-      /* Load-balancer visibility: which PM2 instance served this request */
-      pid:       process.pid,
-      instance:  process.env.NODE_APP_INSTANCE ?? '0',
-      port:      Number(process.env.PORT ?? 0),
     },
   })
 })
@@ -114,5 +109,7 @@ router.use('/feedback',        feedbackRoutes)
 router.use('/support',         supportRoutes)
 /* Public instructor list (for client-side mentor filter) */
 router.use('/instructors',     instructorRoutes)
+/* Authorised reads of identity documents (H-11) */
+router.use('/documents',       documentRoutes)
 
 export default router

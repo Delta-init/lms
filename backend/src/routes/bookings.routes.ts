@@ -173,7 +173,8 @@ router.post('/', authenticate, requireEnrollmentApproval, validate(createBooking
       }); return
     }
 
-    /* Capacity check */
+    /* Capacity fast-check — the authoritative check is the atomic seat
+       reservation below, which is what actually enforces the cap. */
     if (session.bookedCount >= session.sessionCapacity) {
       res.status(400).json({ success: false, error: { code: 'SESSION_FULL', message: 'This session is fully booked' } }); return
     }
@@ -187,36 +188,69 @@ router.post('/', authenticate, requireEnrollmentApproval, validate(createBooking
     let bookingDoc
     if (existing) {
       if (existing.status === 'cancelled') {
+        /* Reserve the seat atomically — the cap is re-evaluated inside the
+           filter, so concurrent bookings can never oversell the session. */
+        const reserved = await LiveClassModel.updateOne(
+          { _id: liveClassId, $expr: { $lt: ['$bookedCount', '$sessionCapacity'] } },
+          { $inc: { bookedCount: 1 } },
+        )
+        if (reserved.modifiedCount === 0) {
+          res.status(400).json({ success: false, error: { code: 'SESSION_FULL', message: 'This session is fully booked' } }); return
+        }
         /* Re-book after cancel — reset the reminder flags so the re-booked
          * client gets a fresh set of reminders (otherwise flags left true from
          * the previous booking cycle would suppress them). */
-        await ClassBookingModel.findByIdAndUpdate(existing._id, {
-          status: 'booked',
-          bookedAt: new Date(),
-          cancelledAt: undefined,
-          reminderDayBeforeSent:  false,
-          reminderDayOfSent:      false,
-          reminderPreSessionSent: false,
-          reminder5MinSent:       false,
-          reminderAtTimeSent:     false,
-        })
-        await LiveClassModel.findByIdAndUpdate(liveClassId, { $inc: { bookedCount: 1 } })
+        let rebooked
+        try {
+          rebooked = await ClassBookingModel.updateOne({ _id: existing._id, status: 'cancelled' }, {
+            status: 'booked',
+            bookedAt: new Date(),
+            cancelledAt: undefined,
+            reminderDayBeforeSent:  false,
+            reminderDayOfSent:      false,
+            reminderPreSessionSent: false,
+            reminder5MinSent:       false,
+            reminderAtTimeSent:     false,
+          })
+        } catch (err) {
+          /* Re-book failed — give the reserved seat back */
+          await LiveClassModel.updateOne({ _id: liveClassId, bookedCount: { $gt: 0 } }, { $inc: { bookedCount: -1 } })
+          throw err
+        }
+        if (rebooked.modifiedCount === 0) {
+          /* Another request re-booked it first — give the seat back */
+          await LiveClassModel.updateOne({ _id: liveClassId, bookedCount: { $gt: 0 } }, { $inc: { bookedCount: -1 } })
+          res.status(409).json({ success: false, error: { code: 'ALREADY_BOOKED', message: 'You already have a booking for this session' } }); return
+        }
         bookingDoc = await ClassBookingModel.findById(existing._id).lean({ virtuals: true })
         sendSuccess(res, bookingDoc, 'Booking created', 201)
       } else {
         res.status(409).json({ success: false, error: { code: 'ALREADY_BOOKED', message: 'You already have a booking for this session' } }); return
       }
     } else {
-      /* Create booking + increment bookedCount atomically */
-      const [booking] = await Promise.all([
-        ClassBookingModel.create({
+      /* Reserve the seat atomically — the cap is re-evaluated inside the
+         filter, so concurrent bookings can never oversell the session. */
+      const reserved = await LiveClassModel.updateOne(
+        { _id: liveClassId, $expr: { $lt: ['$bookedCount', '$sessionCapacity'] } },
+        { $inc: { bookedCount: 1 } },
+      )
+      if (reserved.modifiedCount === 0) {
+        res.status(400).json({ success: false, error: { code: 'SESSION_FULL', message: 'This session is fully booked' } }); return
+      }
+
+      let booking
+      try {
+        booking = await ClassBookingModel.create({
           userId:      new Types.ObjectId(userId),
           liveClassId: new Types.ObjectId(liveClassId),
           status:      'booked',
           bookedAt:    new Date(),
-        }),
-        LiveClassModel.findByIdAndUpdate(liveClassId, { $inc: { bookedCount: 1 } }),
-      ])
+        })
+      } catch (err) {
+        /* Booking row not created — give the reserved seat back */
+        await LiveClassModel.updateOne({ _id: liveClassId, bookedCount: { $gt: 0 } }, { $inc: { bookedCount: -1 } })
+        throw err
+      }
 
       bookingDoc = await booking.populate([
         { path: 'liveClassId', select: 'id title scheduledStart durationMins meetingUrl muxPlaybackId type' },
@@ -296,10 +330,20 @@ router.delete('/:id', authenticate, async (req: Request, res: Response, next: Ne
       res.status(400).json({ success: false, error: { code: 'CANNOT_CANCEL', message: 'Only active bookings can be cancelled' } }); return
     }
 
-    await Promise.all([
-      ClassBookingModel.findByIdAndUpdate(id, { status: 'cancelled', cancelledAt: new Date() }),
-      LiveClassModel.findByIdAndUpdate(booking.liveClassId, { $inc: { bookedCount: -1 } }),
-    ])
+    /* Atomic booked → cancelled transition — a repeated cancel of the same
+       booking modifies nothing, so the seat is released exactly once. */
+    const cancelled = await ClassBookingModel.updateOne(
+      { _id: id, userId, status: 'booked' },
+      { status: 'cancelled', cancelledAt: new Date() },
+    )
+    if (cancelled.modifiedCount === 0) {
+      res.status(400).json({ success: false, error: { code: 'CANNOT_CANCEL', message: 'Only active bookings can be cancelled' } }); return
+    }
+
+    await LiveClassModel.updateOne(
+      { _id: booking.liveClassId, bookedCount: { $gt: 0 } },
+      { $inc: { bookedCount: -1 } },
+    )
 
     sendSuccess(res, null, 'Booking cancelled')
 

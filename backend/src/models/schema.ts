@@ -9,8 +9,19 @@ import type { UserRole, CourseStatus, LessonType, EnrollmentStatus, QuestionType
    • Removes __v (version key)
 ───────────────────────────────────────────────────── */
 const baseTransform = (_doc: Document, ret: Record<string, unknown>) => {
-  ret['id'] = (ret['_id'] as Types.ObjectId).toString()
-  delete ret['_id']
+  /* `_id` is not guaranteed. This transform runs on SUBDOCUMENTS too, and five
+     of them are declared `{ _id: false }` — support-ticket messages among them.
+     Serialising one threw "undefined is not an object (evaluating
+     'ret._id.toString')", which surfaced as a 500 on an ordinary action:
+     posting a reply to your own support ticket. A projection that excludes
+     `_id` reaches here the same way.
+
+     Guarding costs nothing and cannot change the output for a document that
+     does have an id. */
+  if (ret['_id'] != null) {
+    ret['id'] = (ret['_id'] as Types.ObjectId).toString()
+    delete ret['_id']
+  }
   delete ret['__v']
   return ret
 }
@@ -100,6 +111,10 @@ export interface IUser extends Document {
   /* Two-factor authentication (TOTP) */
   twoFactorEnabled: boolean
   twoFactorSecret?: string   // base32-encoded TOTP secret; select:false
+  /* Per-day AI chat usage (L-09). `day` is the local calendar date in the
+     app's timezone (Asia/Dubai), so the allowance resets at local midnight
+     rather than at an arbitrary UTC hour. */
+  aiUsage?: { day: string; count: number }
   /* Custom role (fine-grained permissions) */
   customRoleId?: Types.ObjectId
   /* Multi-org — which academy this user belongs to (omitted for super_admin) */
@@ -151,6 +166,7 @@ const UserSchema = new Schema<IUser>(
     lockedUntil:  { type: Date },
     twoFactorEnabled: { type: Boolean, default: false },
     twoFactorSecret:  { type: String, select: false },
+    aiUsage:          { day: { type: String }, count: { type: Number, default: 0 } },
     customRoleId:   { type: Schema.Types.ObjectId, ref: 'Role' },
     organizationId: { type: Schema.Types.ObjectId, ref: 'Organization' },
     program:        { type: String, enum: ['ai', 'digital_marketing', 'forex'] },
@@ -373,6 +389,14 @@ export interface ICourse extends Document {
   thumbnailUrl?:  string
   previewUrl?:    string
   price:          number
+  /* Per-currency overrides (B-01). `price` is the USD figure Stripe charges;
+     these are what the AED and INR gateways charge when set. Both were read by
+     order.service.ts and settable from the admin form long before they existed
+     here — Mongoose runs strict, so every value an admin typed was silently
+     dropped on save and every non-USD order fell back to a conversion rate.
+     Absent still means "fall back", so existing courses are unaffected. */
+  priceAED?:      number
+  priceINR?:      number
   isFree:         boolean
   status:         CourseStatus
   level?:         string
@@ -399,6 +423,8 @@ const CourseSchema = new Schema<ICourse>(
     thumbnailUrl:  { type: String },
     previewUrl:    { type: String },
     price:         { type: Number, default: 0, min: 0 },
+    priceAED:      { type: Number, min: 0 },
+    priceINR:      { type: Number, min: 0 },
     isFree:        { type: Boolean, default: false },
     status:        { type: String, enum: ['draft', 'published', 'archived'], default: 'draft' },
     level:         { type: String, enum: ['beginner', 'intermediate', 'advanced'] },
@@ -1048,42 +1074,68 @@ export const UserStreakModel = mongoose.model<IUserStreak>('UserStreak', UserStr
    COUPON — discount codes for paid courses
    ─────────────────────────────────────────────────────
    discountType 'percent': discountValue is 1–100 (%)
-   discountType 'fixed':   discountValue is USD dollars
-   appliesTo: [] means all published courses
+   discountType 'fixed':   discountValue is MAJOR UNITS OF `currency` — the
+     owning academy's currency, stamped at create time from Organization.
+     It was previously documented as USD and applied as bare minor units to
+     whatever the gateway happened to charge in, so "50" took 50 AED off an
+     Abzer checkout and 50 INR off a Razorpay one — values ~22x apart, and
+     neither the documented $50 (N-01). Redemption now requires the checkout
+     currency to match; see CouponService.applyDiscount().
+   appliesTo: [] means all published courses in the coupon's organization
+
+   TENANCY — coupons are PER-ORGANIZATION. `organizationId` is required and
+   `code` is unique *within* an organization, not globally, so Dubai and
+   Bangalore can both run "SUMMER20" on their own catalogues at their own
+   currency. There is deliberately no cross-org / "global" coupon: the two
+   academies price in AED and INR respectively, and a fixed-amount discount
+   carries no exchange rate, so one code spanning both cannot be made correct.
 ───────────────────────────────────────────────────── */
 export type CouponDiscountType = 'percent' | 'fixed'
 
+/** Currencies an academy prices in. Mirrors Organization.currency. */
+export type CouponCurrency = 'AED' | 'INR'
+
 export interface ICoupon extends Document {
   id:           string
-  code:         string          // UPPERCASE, unique
+  code:         string          // UPPERCASE, unique per organization
   discountType: CouponDiscountType
   discountValue: number
+  /* The currency `discountValue` is denominated in, for discountType 'fixed'.
+     Inherited from the owning organisation at create time and never editable —
+     a coupon cannot change academy, so it cannot change currency either.
+     Optional on the interface only for rows that predate the field; the boot
+     backfill in index.ts stamps them. */
+  currency?:    CouponCurrency
   maxUses:      number          // 0 = unlimited
   usedCount:    number
   expiresAt?:   Date
   isActive:        boolean
-  appliesTo:       Types.ObjectId[]   // empty = all courses in org
-  organizationId?: Types.ObjectId    // null = global (all orgs)
+  appliesTo:       Types.ObjectId[]   // empty = all courses in the org
+  organizationId:  Types.ObjectId     // required — the owning academy
   createdAt:       Date
   updatedAt:       Date
 }
 
 const CouponSchema = new Schema<ICoupon>(
   {
-    code:          { type: String, required: true, unique: true, uppercase: true, trim: true, maxlength: 50 },
+    code:          { type: String, required: true, uppercase: true, trim: true, maxlength: 50 },
     discountType:  { type: String, enum: ['percent', 'fixed'], required: true },
     discountValue: { type: Number, required: true, min: 0 },
+    currency:      { type: String, enum: ['AED', 'INR'] },
     maxUses:        { type: Number, default: 0, min: 0 },
     usedCount:      { type: Number, default: 0, min: 0 },
     expiresAt:      { type: Date },
     isActive:       { type: Boolean, default: true },
     appliesTo:      [{ type: Schema.Types.ObjectId, ref: 'Course' }],
-    organizationId: { type: Schema.Types.ObjectId, ref: 'Organization' },
+    organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true },
   },
   baseSchemaOptions,
 )
 
-CouponSchema.index({ code: 1 })
+/* Unique per (code, organization) — NOT globally. The legacy single-field
+   unique index `code_1` is dropped at boot in index.ts; without that drop it
+   would still reject a second academy reusing a code. */
+CouponSchema.index({ code: 1, organizationId: 1 }, { unique: true })
 CouponSchema.index({ isActive: 1 })
 CouponSchema.index({ organizationId: 1 })
 
@@ -1363,6 +1415,10 @@ export interface ILearningPath extends Document {
   status:         LearningPathStatus
   courses:        ILearningPathCourse[]
   enrolledCount:  number
+  /* Owning academy (P-22). Optional on the interface only for rows that
+     predate the field — the boot backfill in index.ts stamps them, and the
+     `{org} OR {null}` filter convention keeps any stragglers reachable. */
+  organizationId?: Types.ObjectId
   createdAt:      Date
   updatedAt:      Date
 }
@@ -1387,6 +1443,7 @@ const LearningPathSchema = new Schema<ILearningPath>(
     status:        { type: String, enum: ['draft', 'published'], default: 'draft' },
     courses:       [LearningPathCourseSchema],
     enrolledCount: { type: Number, default: 0, min: 0 },
+    organizationId: { type: Schema.Types.ObjectId, ref: 'Organization' },
   },
   baseSchemaOptions,
 )
@@ -1395,17 +1452,75 @@ LearningPathSchema.index({ slug: 1 }, { unique: true })
 LearningPathSchema.index({ status: 1 })
 LearningPathSchema.index({ instructorId: 1 })
 LearningPathSchema.index({ categoryId: 1 })
+LearningPathSchema.index({ organizationId: 1 })
 
 export const LearningPathModel = mongoose.model<ILearningPath>('LearningPath', LearningPathSchema)
 
 /* ─────────────────────────────────────────────────────
    AUDIT LOG — admin action trail (8.11)
 ───────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────
+   IMPERSONATION SESSION  (M-04)
+   ─────────────────────────────────────────────────────
+   Impersonation used to be a bare JWT: no record of WHO was impersonating,
+   and no way to stop it once issued. The token was the whole session, so
+   "end impersonation" only meant the browser threw its copy away — anyone
+   holding it kept full access to the target account until it expired.
+
+   This record is the session. The token carries its id, every request
+   re-checks it, and revoking the row ends the session immediately — for
+   every holder of that token, not just the one who clicked the button.
+
+   Rows are kept after they end, because the point of the actor trail is
+   answering "who was in that account, and when" long after the fact.
+───────────────────────────────────────────────────── */
+export interface IImpersonationSession extends Document {
+  id:             string
+  actorId:        Types.ObjectId    // the staff member doing the impersonating
+  actorEmail:     string            // denormalised — survives the actor being deleted
+  targetId:       Types.ObjectId    // the account being impersonated
+  targetEmail:    string
+  organizationId?: Types.ObjectId
+  expiresAt:      Date
+  revokedAt?:     Date
+  revokedBy?:     Types.ObjectId
+  ip?:            string
+  userAgent?:     string
+  createdAt:      Date
+  updatedAt:      Date
+}
+
+const ImpersonationSessionSchema = new Schema<IImpersonationSession>(
+  {
+    actorId:        { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    actorEmail:     { type: String, required: true },
+    targetId:       { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    targetEmail:    { type: String, required: true },
+    organizationId: { type: Schema.Types.ObjectId, ref: 'Organization' },
+    expiresAt:      { type: Date, required: true },
+    revokedAt:      { type: Date },
+    revokedBy:      { type: Schema.Types.ObjectId, ref: 'User' },
+    ip:             { type: String },
+    userAgent:      { type: String },
+  },
+  baseSchemaOptions,
+)
+
+/* Looked up on EVERY request made with an impersonation token, so it must be
+   an indexed point read. Deliberately no TTL index: an expired session is
+   still evidence, and the expiry is enforced in code. */
+ImpersonationSessionSchema.index({ actorId: 1, createdAt: -1 })
+ImpersonationSessionSchema.index({ targetId: 1, createdAt: -1 })
+
+export const ImpersonationSessionModel =
+  mongoose.model<IImpersonationSession>('ImpersonationSession', ImpersonationSessionSchema)
+
 export type AuditAction =
   | 'course.create'   | 'course.update'   | 'course.delete'
   | 'course.publish'  | 'course.archive'
   | 'user.create'     | 'user.ban'        | 'user.unban'      | 'user.roleChange'
-  | 'user.delete'     | 'user.impersonate'
+  | 'user.delete'     | 'user.impersonate' | 'user.reset2fa'
+  | 'user.impersonate.revoke'
   | 'review.delete'
   | 'coupon.create'   | 'coupon.delete'
   | 'order.refund'
@@ -1424,6 +1539,10 @@ export interface IAuditLog extends Document {
   meta?:      Record<string, unknown>   // extra context (e.g. old/new values)
   ip?:        string
   userAgent?: string
+  /* Which academy the acting staff member belonged to (H-12). Optional: rows
+     written before the field existed have none, and stay visible to everyone —
+     `bun run migrate-audit-org` backfills them from the actor's record. */
+  organizationId?: Types.ObjectId
   createdAt:  Date
 }
 
@@ -1438,11 +1557,13 @@ const AuditLogSchema = new Schema<IAuditLog>(
     meta:       { type: Schema.Types.Mixed },
     ip:         { type: String },
     userAgent:  { type: String },
+    organizationId: { type: Schema.Types.ObjectId, ref: 'Organization' },
   },
   { timestamps: { createdAt: true, updatedAt: false }, toJSON: { virtuals: true }, toObject: { virtuals: true } },
 )
 
 AuditLogSchema.index({ actorId: 1 })
+AuditLogSchema.index({ organizationId: 1, createdAt: -1 })
 AuditLogSchema.index({ action: 1 })
 AuditLogSchema.index({ createdAt: -1 })
 AuditLogSchema.index({ entity: 1, entityId: 1 })

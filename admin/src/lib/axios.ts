@@ -53,6 +53,18 @@ api.interceptors.response.use(
     if (typeof window === 'undefined') return Promise.reject(err)
     if (window.location.pathname === '/login') return Promise.reject(err)
 
+    /* An expired IMPERSONATION token cannot be refreshed: /admin/auth/refresh
+       renews the admin's own cookie, and the request would just be retried
+       with the same dead Bearer. Before M-02 this was invisible because the
+       token lived as long as a session; with short-lived tokens it surfaces as
+       an unrecoverable 401 loop. End impersonation and return the admin to
+       their own identity instead. */
+    if (useImpersonationStore.getState().token) {
+      useImpersonationStore.getState().endImpersonation()
+      window.location.href = '/users?impersonation=expired'
+      return Promise.reject(err)
+    }
+
     original._retry = true
 
     if (isRefreshing) {

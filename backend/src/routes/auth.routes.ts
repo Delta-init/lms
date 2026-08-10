@@ -4,6 +4,7 @@ import { AuthController } from '@/controllers/auth.controller.ts'
 import { validate } from '@/middleware/validate.middleware.ts'
 import { authenticate } from '@/middleware/auth.middleware.ts'
 import { authRateLimit } from '@/middleware/rateLimit.middleware.ts'
+import { documentRef, requiredDocumentRef } from '@/utils/documentRef.ts'
 import totpRoutes from './totp.routes.ts'
 
 const router = Router()
@@ -25,9 +26,9 @@ const enrollmentAppSchema = z.object({
   villa:              z.string().max(120).optional(),
   city:               z.string().max(80).optional(),
   addressCountry:     z.string().max(80).optional(),
-  passportUrl:        z.string().url().optional().or(z.literal('')),
-  idDocUrl:           z.string().url().optional().or(z.literal('')),
-  photoUrl:           z.string().url().optional().or(z.literal('')),
+  passportUrl:        documentRef,
+  idDocUrl:           documentRef,
+  photoUrl:           documentRef,
   experienceLevel:    z.enum(['Beginner', 'Intermediate', 'Advanced']).optional(),
   preferredStartDate: z.string().optional(),
   hearAboutUs:        z.string().max(80).optional(),
@@ -54,6 +55,13 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 })
 
+/* Second login step for accounts with 2FA enabled — the challenge handed
+   back by /login plus the 6-digit code from the authenticator app. */
+const loginTwoFactorSchema = z.object({
+  challengeToken: z.string().min(20, 'Challenge token is required'),
+  code:           z.string().trim().length(6, 'Code must be 6 digits').regex(/^\d+$/, 'Code must be 6 digits'),
+})
+
 /* ─── Reset / verify schemas ─────────────────────── */
 const forgotSchema = z.object({
   email: z.string().email().toLowerCase(),
@@ -75,6 +83,9 @@ const verifySchema = z.object({
 // Public
 router.post('/register',         authRateLimit, validate(registerSchema), auth.register)
 router.post('/login',            authRateLimit, validate(loginSchema),    auth.login)
+router.post('/login/2fa',        authRateLimit, validate(loginTwoFactorSchema), auth.loginTwoFactor)
+/* The admin portal's second factor lives beside its own login, at
+   /api/v1/admin/auth/login/2fa (see admin.routes.ts). */
 router.post('/refresh',          authRateLimit, auth.refresh)
 router.post('/logout',           authRateLimit, auth.logout)
 router.post('/forgot-password',  authRateLimit, validate(forgotSchema),   auth.forgotPassword)
@@ -90,11 +101,12 @@ const updateMeSchema = z.object({
   websiteUrl: z.string().url().or(z.literal('')).optional(),
 })
 
-/* Enrollment docs update (passport + id doc + photo URLs after upload) */
+/* Enrollment docs update — identity scans arrive as a `kyc/` key (H-11), the
+   profile photo as a URL on our own storage. See utils/documentRef.ts. */
 const enrollmentDocsSchema = z.object({
-  passportUrl: z.string().url().optional().or(z.literal('')),
-  idDocUrl:    z.string().url().optional().or(z.literal('')),
-  photoUrl:    z.string().url().optional().or(z.literal('')),
+  passportUrl: documentRef,
+  idDocUrl:    documentRef,
+  photoUrl:    documentRef,
 })
 
 /* Complete registration — express users upgrading to full enrollment */
@@ -112,9 +124,9 @@ const completeRegistrationSchema = z.object({
   villa:              z.string().max(120).optional().or(z.literal('')),
   city:               z.string().min(1).max(80),
   addressCountry:     z.string().max(80),
-  passportUrl:        z.string().url(),
-  idDocUrl:           z.string().url(),
-  photoUrl:           z.string().url().optional().or(z.literal('')),
+  passportUrl:        requiredDocumentRef,
+  idDocUrl:           requiredDocumentRef,
+  photoUrl:           documentRef,
   experienceLevel:    z.enum(['Beginner', 'Intermediate', 'Advanced']),
   preferredStartDate: z.string().min(1),
   hearAboutUs:        z.string().max(80),
@@ -147,11 +159,11 @@ router.get   ('/me',                  authenticate, auth.me)
 router.patch ('/me',                       authenticate, validate(updateMeSchema), auth.updateMe)
 router.patch ('/me/enrollment-docs',       authenticate, validate(enrollmentDocsSchema), auth.updateEnrollmentDocs)
 router.patch ('/me/complete-registration', authenticate, validate(completeRegistrationSchema), auth.completeRegistration)
-router.patch ('/me/password',         authenticate, validate(changePasswordSchema), auth.changePassword)
-router.post  ('/resend-verification', authenticate, auth.resendVerification)
+router.patch ('/me/password',         authRateLimit, authenticate, validate(changePasswordSchema), auth.changePassword)
+router.post  ('/resend-verification', authRateLimit, authenticate, auth.resendVerification)
 router.get   ('/sessions',            authenticate, auth.listSessions)
 router.delete('/sessions/:id',        authenticate, auth.revokeSession)
-router.post  ('/deactivate',          authenticate, validate(reauthSchema), auth.deactivateAccount)
-router.delete('/account',             authenticate, validate(reauthSchema), auth.deleteAccount)
+router.post  ('/deactivate',          authRateLimit, authenticate, validate(reauthSchema), auth.deactivateAccount)
+router.delete('/account',             authRateLimit, authenticate, validate(reauthSchema), auth.deleteAccount)
 
 export default router

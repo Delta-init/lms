@@ -2,7 +2,128 @@ import type { Request, Response, NextFunction } from 'express'
 import { verifyAccessToken } from '@/utils/jwt.ts'
 import { sendError } from '@/utils/response.ts'
 import { ACCESS_COOKIE, ADMIN_ACCESS_COOKIE } from '@/utils/authCookies.ts'
+import { logger } from '@/utils/logger.ts'
 import type { UserRole, ProgramType } from '@/types/index.ts'
+
+/* ─────────────────────────────────────────────────────
+   Account state — checked on every authenticated request  (P-06)
+   ─────────────────────────────────────────────────────
+   The access token carries `role`, and these guards used to trust it and never
+   look at the account behind it. But revocation only ever touched REFRESH
+   tokens: UserService.adminUpdate({isActive:false}), adminDelete(),
+   deactivateAccount(), deleteAccount() and changePassword() all call
+   revokeAllForUser() and nothing else. So blocking, deleting or demoting
+   someone left their current access token fully usable for the rest of its
+   lifetime — JWT_ACCESS_EXPIRES_IN, currently 1h, and 7d on any deployment
+   that has not taken that change.
+
+   N-04 fixed exactly one guard (assertSameOrganization); routes without a
+   tenancy check inherited nothing. This closes it centrally.
+
+   The lookup is not new work: authenticate() and authenticateAdmin() already
+   queried the same document for organizationId. It now also selects role and
+   isActive, and a missing or disabled record is refused instead of tolerated.
+   `role` is taken from the RECORD rather than the token, so a demotion takes
+   effect on the next request instead of at token expiry.
+───────────────────────────────────────────────────── */
+interface AccountState {
+  role:            UserRole
+  isActive:        boolean
+  organizationId?: string
+  program?:        ProgramType
+  customRoleId?:   string
+}
+
+async function loadAccountState(userId: string | undefined): Promise<AccountState | null> {
+  if (!userId) return null
+  const { Types } = await import('mongoose')
+  if (!Types.ObjectId.isValid(userId)) return null
+
+  const { UserModel } = await import('@/models/schema.ts')
+  const user = await UserModel.findById(userId)
+    .select('role isActive organizationId program customRoleId')
+    .lean()
+  if (!user) return null
+
+  const u = user as {
+    role?: UserRole; isActive?: boolean; organizationId?: unknown
+    program?: unknown; customRoleId?: unknown
+  }
+  return {
+    role:           u.role as UserRole,
+    /* Absent means true — the schema default, and legacy rows predate the field. */
+    isActive:       u.isActive !== false,
+    organizationId: u.organizationId ? String(u.organizationId) : undefined,
+    program:        (u.program as ProgramType | undefined) ?? undefined,
+    /* P-10: only fetched, never acted on here. requirePermission() resolves the
+       matrix, and only for accounts that actually carry a custom role — which
+       is why this costs nothing for everyone else. */
+    customRoleId:   u.customRoleId ? String(u.customRoleId) : undefined,
+  }
+}
+
+/* ─────────────────────────────────────────────────────
+   Impersonation session check  (M-04)
+   ─────────────────────────────────────────────────────
+   A token carrying `isn` is only as valid as the session row it names. That
+   row is what makes impersonation revocable: before this, the JWT *was* the
+   session, so "end impersonation" merely meant the browser discarded its copy
+   — anyone else holding the token kept full access until it expired.
+
+   Re-read on every request, deliberately. Caching it would reintroduce exactly
+   the window revocation exists to close.
+───────────────────────────────────────────────────── */
+async function applyImpersonation(
+  req: Request,
+  res: Response,
+  payload: { isn?: string; act?: { sub: string; email: string } },
+): Promise<boolean> {
+  if (!payload.isn) return true          /* an ordinary session */
+
+  const { Types } = await import('mongoose')
+  if (!Types.ObjectId.isValid(payload.isn)) {
+    sendError(res, 'IMPERSONATION_INVALID', 'This impersonation session is not valid.', 401)
+    return false
+  }
+
+  const { ImpersonationSessionModel } = await import('@/models/schema.ts')
+  const session = await ImpersonationSessionModel.findById(payload.isn)
+    .select('revokedAt expiresAt actorId actorEmail').lean()
+
+  if (!session) {
+    sendError(res, 'IMPERSONATION_INVALID', 'This impersonation session is not valid.', 401)
+    return false
+  }
+  if (session.revokedAt) {
+    sendError(res, 'IMPERSONATION_REVOKED', 'This impersonation session has been ended.', 401)
+    return false
+  }
+  if (session.expiresAt.getTime() <= Date.now()) {
+    sendError(res, 'IMPERSONATION_EXPIRED', 'This impersonation session has expired.', 401)
+    return false
+  }
+
+  /* The actor is recorded on the request but never replaces req.user: every
+     authorisation decision must still judge the impersonated account, or
+     impersonating a student would grant the admin's own privileges. */
+  req.user!.impersonatorId    = String(session.actorId)
+  req.user!.impersonatorEmail = session.actorEmail
+  req.user!.impersonationId   = String(payload.isn)
+  return true
+}
+
+/** Reject a caller whose account is gone or disabled. Returns false when handled. */
+function denyIfUnusable(res: Response, account: AccountState | null): boolean {
+  if (!account) {
+    sendError(res, 'ACCOUNT_GONE', 'This account no longer exists.', 401)
+    return false
+  }
+  if (!account.isActive) {
+    sendError(res, 'ACCOUNT_DISABLED', 'This account has been disabled.', 401)
+    return false
+  }
+  return true
+}
 
 /* ─────────────────────────────────────────────────────
    authenticate
@@ -29,18 +150,21 @@ export async function authenticate(
   }
 
   try {
-    const payload = await verifyAccessToken(token)
+    const payload = await verifyAccessToken(token, 'client')
+
+    /* The account, not just the token (P-06) — same query that used to fetch
+       only organizationId, now also refusing deleted and disabled accounts. */
+    const account = await loadAccountState(payload.sub)
+    if (!denyIfUnusable(res, account)) return
+
     req.user = {
       id:    payload.sub!,
       email: payload.email,
-      role:  payload.role,
+      role:  account!.role,          /* record wins over the token */
     }
-    // Load org context from DB (same approach as authenticateAdmin)
-    const { UserModel } = await import('@/models/schema.ts')
-    const user = await UserModel.findById(payload.sub).select('organizationId').lean()
-    if (user && (user as any).organizationId) {
-      req.user.organizationId = (user as any).organizationId.toString()
-    }
+    if (account!.organizationId) req.user.organizationId = account!.organizationId
+    if (account!.customRoleId) req.user.customRoleId = account!.customRoleId
+    if (!(await applyImpersonation(req, res, payload))) return
     next()
   } catch (err: any) {
     const isExpired = err?.code === 'ERR_JWT_EXPIRED'
@@ -78,7 +202,19 @@ export async function authenticateAny(
 
   try {
     const payload = await verifyAccessToken(token)
-    req.user = { id: payload.sub!, email: payload.email, role: payload.role }
+
+    /* Same account check as the other two guards (P-06). This also populates
+       organizationId, which authenticateAny never did — the gap that let a
+       neighbouring academy's admin read identity documents (N-07) and that
+       every route mounted here had to work around by hand. */
+    const account = await loadAccountState(payload.sub)
+    if (!denyIfUnusable(res, account)) return
+
+    req.user = { id: payload.sub!, email: payload.email, role: account!.role }
+    if (account!.organizationId) req.user.organizationId = account!.organizationId
+    if (account!.program)        req.user.program        = account!.program
+    if (account!.customRoleId) req.user.customRoleId = account!.customRoleId
+    if (!(await applyImpersonation(req, res, payload))) return
     next()
   } catch (err: any) {
     const isExpired = err?.code === 'ERR_JWT_EXPIRED'
@@ -88,6 +224,86 @@ export async function authenticateAny(
       isExpired ? 'Access token expired' : 'Invalid access token',
       401,
     )
+  }
+}
+
+/* ─────────────────────────────────────────────────────
+   requirePermission(resource, action)  —  P-10
+   ─────────────────────────────────────────────────────
+   The Roles & Permissions screen wrote `customRoleId` and a full permission
+   matrix to the database, and NOTHING read either. Every access decision came
+   from `req.user.role` alone, so building a "Read-only Support" role, ticking
+   only `read`, and assigning it changed precisely nothing. That is worse than
+   having no such screen: it invites someone to rely on a control that does not
+   exist.
+
+   TWO RULES, and the first is the security-critical one:
+
+   1. A custom role can only ever NARROW. It is applied AFTER requireRole, so
+      the base role still gates the route and this can only take away. If it
+      REPLACED the base check, `PATCH /admin/users/:id/assign-role` would
+      become a privilege-escalation primitive — hand a student the "Super
+      Admin" custom role and they would inherit it. Intersection makes that
+      impossible: the student still fails requireRole first.
+
+   2. An account with NO custom role is untouched. Almost nobody has one
+      (0 of 79 accounts when this shipped), so this is a no-op in practice and
+      starts working the moment a role is actually assigned — which is the
+      behaviour the screen always implied.
+
+   super_admin bypasses, matching every other guard in this codebase.
+
+   PERMISSIONS_MODE=report logs what WOULD be denied without denying it, so the
+   blast radius of assigning roles can be measured on real traffic before
+   anyone is locked out. Default is enforce, which is safe precisely because
+   rule 2 makes it inert until a role is assigned.
+───────────────────────────────────────────────────── */
+export type PermissionAction =
+  'create' | 'read' | 'update' | 'delete' | 'list' | 'list_basic' | 'impersonate'
+
+const permissionsMode = (): 'enforce' | 'report' | 'off' => {
+  const raw = process.env['PERMISSIONS_MODE']
+  return raw === 'report' || raw === 'off' ? raw : 'enforce'
+}
+
+export function requirePermission(resource: string, action: PermissionAction) {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user) { sendError(res, 'UNAUTHORIZED', 'Authentication required', 401); return }
+      if (permissionsMode() === 'off')          { next(); return }
+      if (req.user.role === 'super_admin')      { next(); return }
+      if (!req.user.customRoleId)               { next(); return }   /* rule 2 */
+
+      const { RoleModel } = await import('@/models/schema.ts')
+      const role = await RoleModel.findById(req.user.customRoleId).select('name permissions').lean()
+
+      /* A dangling customRoleId (role deleted mid-session) must not silently
+         grant everything. RolesController.delete unsets the field on every
+         holder, so this is the torn-write case, and denying is the safe read. */
+      if (!role) {
+        sendError(res, 'ROLE_NOT_FOUND', 'Your assigned role no longer exists. Contact an administrator.', 403)
+        return
+      }
+
+      const entry = (role as { permissions?: { resource: string }[] }).permissions
+        ?.find(p => p.resource === resource) as Record<string, unknown> | undefined
+      const allowed = entry?.[action] === true
+
+      if (allowed) { next(); return }
+
+      if (permissionsMode() === 'report') {
+        logger.warn(
+          { userId: req.user.id, role: (role as { name?: string }).name, resource, action },
+          'PERMISSIONS_MODE=report — this request WOULD be denied under enforcement',
+        )
+        next(); return
+      }
+
+      sendError(
+        res, 'PERMISSION_DENIED',
+        `Your role does not permit ${action} on ${resource}.`, 403,
+      )
+    } catch (err) { next(err) }
   }
 }
 
@@ -128,6 +344,25 @@ export const requireAnyAdmin   = requireRole('super_admin', 'admin', 'sub_admin'
 
 /** Teaching staff + above */
 export const requireInstructor = requireRole('super_admin', 'admin', 'sub_admin', 'support', '4x_admin', 'digital_marketing_admin', 'ai_admin', 'instructor')
+
+/* Roles that may AUTHOR a course (B-07).
+   ─────────────────────────────────────────────────────────────────────────
+   POST /admin/courses carried no role gate at all, so every role the admin
+   router admits could create one — including `support`, the lowest-privilege
+   staff role. Measured, not inferred: a support account created a course with
+   status 'published' and it appeared on the PUBLIC catalogue to an anonymous
+   visitor, reachable by slug. It could then neither edit nor delete it,
+   because assertCourseEditable refuses support — so a help-desk account could
+   publish to the marketing site and be unable to take it back down.
+
+   This list is deliberately the same set assertCourseEditable can authorise:
+   you may only create a course you could afterwards manage. If sub_admin or
+   ai_admin are meant to author courses, the fix is to add them to
+   assertCourseEditable — one line in section.service.ts — rather than to
+   reopen creation to roles that cannot maintain what they create. */
+export const requireCourseAuthor = requireRole(
+  'super_admin', 'admin', '4x_admin', 'digital_marketing_admin', 'instructor',
+)
 
 /** Any authenticated user */
 export const requireStudent    = requireRole('super_admin', 'admin', 'sub_admin', 'support', '4x_admin', 'digital_marketing_admin', 'ai_admin', 'instructor', 'student')
@@ -187,29 +422,47 @@ export async function authenticateAdmin(
   }
 
   try {
-    const payload = await verifyAccessToken(token)
+    const payload = await verifyAccessToken(token, 'admin')
+
+    /* The account, not just the token (P-06). Applies to super_admin too —
+       a deleted or disabled super_admin token was previously never checked at
+       all, because the org lookup was skipped for that role. */
+    const account = await loadAccountState(payload.sub)
+    if (!denyIfUnusable(res, account)) return
+
     req.user = {
       id:    payload.sub!,
       email: payload.email,
-      role:  payload.role,
+      role:  account!.role,          /* record wins over the token */
     }
 
-    // Load org context from DB for non-super_admin users
-    if (payload.role !== 'super_admin') {
-      const { UserModel } = await import('@/models/schema.ts')
-      const user = await UserModel.findById(payload.sub).select('organizationId program').lean()
-      if (user) {
-        if ((user as any).organizationId) req.user.organizationId = (user as any).organizationId.toString()
-        if ((user as any).program)        req.user.program        = (user as any).program as ProgramType
-      }
+    if (req.user.role !== 'super_admin') {
+      if (account!.organizationId) req.user.organizationId = account!.organizationId
+      if (account!.program)        req.user.program        = account!.program
     } else {
-      // super_admin selects active org via X-Organization-Id header
+      /* super_admin selects the active org via X-Organization-Id.
+         Validated as an ObjectId before it is trusted (B-05): it flows into
+         Mongoose queries downstream, where a malformed value throws a
+         CastError and surfaces as a 500 rather than a 400. A header that is
+         not an id is refused outright instead of being ignored, because
+         silently falling back to "all academies" is the opposite of what a
+         caller narrowing their scope intended. */
       const orgHeader = req.headers['x-organization-id']
-      if (orgHeader && typeof orgHeader === 'string') {
-        req.user.organizationId = orgHeader
+      if (orgHeader !== undefined) {
+        const raw = Array.isArray(orgHeader) ? orgHeader[0] : orgHeader
+        if (typeof raw === 'string' && raw.trim() !== '') {
+          const { Types } = await import('mongoose')
+          if (!Types.ObjectId.isValid(raw.trim())) {
+            sendError(res, 'INVALID_ORGANIZATION', 'X-Organization-Id is not a valid organization id.', 400)
+            return
+          }
+          req.user.organizationId = raw.trim()
+        }
       }
     }
 
+    if (account!.customRoleId) req.user.customRoleId = account!.customRoleId
+    if (!(await applyImpersonation(req, res, payload))) return
     next()
   } catch (err: any) {
     const isExpired = err?.code === 'ERR_JWT_EXPIRED'
@@ -298,6 +551,57 @@ export async function requireEnrollmentApproval(
   next()
 }
 
+/* ─────────────────────────────────────────────────────
+   requireCheckoutEligibility  (B-03)
+   ─────────────────────────────────────────────────────
+   Five checkout routes, one of which behaved differently from the other four.
+   `POST /checkout/` (Stripe) carried requireEnrollmentApproval; Razorpay,
+   Tabby, Abzer and Tamara did not. That mattered because paying is a
+   DESIGNED path to approval — order.service's _autoApproveViaPayment()
+   promotes a viewer *or a rejected user*, clears rejectionReason, and records
+   the approval as 'Paid Enrollment'. So the four unguarded routes matched the
+   intent and Stripe was the outlier: a pending applicant was refused by the
+   one gateway on the flow built to approve them.
+
+   All five now share this guard, so the behaviour is the same whichever
+   gateway an academy uses. It permits `pending` deliberately — that is the
+   pay-to-enrol flow — and leaves `rejected`/`cancelled` alone by default,
+   which is exactly what the four majority routes already did.
+
+   CHECKOUT_BLOCK_REJECTED=true makes a rejection final: an applicant an admin
+   explicitly turned away can no longer buy their way back in. That is a
+   product decision rather than a bug, so it ships off — off is today's
+   behaviour on four of the five routes, and turning it on changes nothing for
+   pending or approved users. Blocking with isActive:false is separate and
+   still absolute; it stops login outright.
+───────────────────────────────────────────────────── */
+export async function requireCheckoutEligibility(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  if (!req.user || req.user.role !== 'student') { next(); return }
+  if (process.env['CHECKOUT_BLOCK_REJECTED'] !== 'true') { next(); return }
+
+  const { UserModel } = await import('@/models/schema.ts')
+  const user = await UserModel.findById(req.user.id)
+    .select('enrollmentStatus rejectionReason enrollmentCancellationReason').lean()
+  if (!user) { next(); return }
+
+  const status = (user as { enrollmentStatus?: string }).enrollmentStatus
+  if (status === 'rejected' || status === 'cancelled') {
+    res.status(403).json({
+      success: false,
+      error: {
+        code:    'ACCESS_REJECTED',
+        message: 'Your access request was not approved, so this purchase cannot continue.',
+        reason:  (user as any).rejectionReason ?? (user as any).enrollmentCancellationReason ?? '',
+      },
+    }); return
+  }
+  next()
+}
+
 export async function optionalAuthenticate(
   req: Request,
   _res: Response,
@@ -310,17 +614,17 @@ export async function optionalAuthenticate(
 
   if (token) {
     try {
-      const payload = await verifyAccessToken(token)
-      req.user = {
-        id:    payload.sub!,
-        email: payload.email,
-        role:  payload.role,
-      }
-      // Load org context from DB
-      const { UserModel } = await import('@/models/schema.ts')
-      const user = await UserModel.findById(payload.sub).select('organizationId').lean()
-      if (user && (user as any).organizationId) {
-        req.user.organizationId = (user as any).organizationId.toString()
+      const payload = await verifyAccessToken(token, 'client')
+      /* A deleted or disabled account is simply anonymous here — this guard
+         never rejects, it only personalises (P-06). */
+      const account = await loadAccountState(payload.sub)
+      if (account?.isActive) {
+        req.user = {
+          id:    payload.sub!,
+          email: payload.email,
+          role:  account.role,
+        }
+        if (account.organizationId) req.user.organizationId = account.organizationId
       }
     } catch {
       /* expired / invalid — treat as unauthenticated */

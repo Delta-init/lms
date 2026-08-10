@@ -5,7 +5,6 @@ import {
   PERMISSION_RESOURCES, type IResourcePermission,
 } from '@/models/schema.ts'
 import { sendSuccess } from '@/utils/response.ts'
-import { signAccessToken } from '@/utils/jwt.ts'
 
 /* ── Helpers ────────────────────────────────────────────────── */
 
@@ -141,23 +140,12 @@ export class RolesController {
     } catch (err) { next(err) }
   }
 
-  /* POST /admin/users/:userId/impersonate — generate short-lived token for a user */
-  impersonate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const userId = String(req.params['userId'] ?? '')
-      const target = await UserModel.findById(userId)
-      if (!target) { res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'User not found' } }); return }
-      if (target.role === 'admin') {
-        res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Cannot impersonate admin users' } }); return
-      }
-
-      /* Short-lived access token (2 h) for the target user */
-      const token = await signAccessToken({ id: target.id, email: target.email, role: target.role })
-
-      sendSuccess(res, {
-        token,
-        user: { id: target.id, name: target.name, email: target.email, role: target.role },
-      })
-    } catch (err) { next(err) }
-  }
+  /* Impersonation used to have a second implementation here, reachable at
+     POST /admin/users/:userId/impersonate — except Express matched the earlier
+     registration of the same path, so it never ran (P-25). Its route is gone,
+     and the handler is removed with it rather than left as an unreachable
+     second way to mint a session token: it applied different rules to the most
+     sensitive endpoint in the system, and minted tokens with no audience
+     claim, which would have broken the moment JWT_ENFORCE_AUDIENCE was set
+     (L-06). The live implementation is AdminController.impersonateUser. */
 }

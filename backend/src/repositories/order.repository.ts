@@ -54,49 +54,55 @@ export class OrderRepository {
     return OrderModel.findOne({ tamaraOrderId }).exec()
   }
 
+  /* ─── Fulfilment — conditional, exactly-once ─────────
+     `status: { $ne: 'paid' }` lives in the FILTER so a gateway webhook racing
+     the client return-URL verify (or a retried webhook) cannot fulfil twice.
+     Each returns true only for the caller that actually flipped the order;
+     the loser must skip enrolment / emails / coupon side effects. */
+
   /* Stripe fulfillment */
-  async fulfill(id: string, paymentIntentId: string, invoiceUrl?: string): Promise<IOrder | null> {
-    return OrderModel.findByIdAndUpdate(
-      id,
+  async fulfill(id: string, paymentIntentId: string, invoiceUrl?: string): Promise<boolean> {
+    const result = await OrderModel.updateOne(
+      { _id: id, status: { $ne: 'paid' } },
       { $set: { status: 'paid', stripePaymentIntentId: paymentIntentId, ...(invoiceUrl && { stripeInvoiceUrl: invoiceUrl }) } },
-      { new: true },
     ).exec()
+    return result.modifiedCount === 1
   }
 
   /* Razorpay fulfillment */
-  async fulfillRazorpay(id: string, paymentId: string, signature: string): Promise<IOrder | null> {
-    return OrderModel.findByIdAndUpdate(
-      id,
+  async fulfillRazorpay(id: string, paymentId: string, signature: string): Promise<boolean> {
+    const result = await OrderModel.updateOne(
+      { _id: id, status: { $ne: 'paid' } },
       { $set: { status: 'paid', razorpayPaymentId: paymentId, razorpaySignature: signature } },
-      { new: true },
     ).exec()
+    return result.modifiedCount === 1
   }
 
   /* Tabby fulfillment */
-  async fulfillTabby(id: string, paymentId: string): Promise<IOrder | null> {
-    return OrderModel.findByIdAndUpdate(
-      id,
+  async fulfillTabby(id: string, paymentId: string): Promise<boolean> {
+    const result = await OrderModel.updateOne(
+      { _id: id, status: { $ne: 'paid' } },
       { $set: { status: 'paid', tabbyPaymentId: paymentId } },
-      { new: true },
     ).exec()
+    return result.modifiedCount === 1
   }
 
   /* Abzer fulfillment */
-  async fulfillAbzer(id: string, paymentId: string): Promise<IOrder | null> {
-    return OrderModel.findByIdAndUpdate(
-      id,
+  async fulfillAbzer(id: string, paymentId: string): Promise<boolean> {
+    const result = await OrderModel.updateOne(
+      { _id: id, status: { $ne: 'paid' } },
       { $set: { status: 'paid', abzerPaymentId: paymentId } },
-      { new: true },
     ).exec()
+    return result.modifiedCount === 1
   }
 
   /* Tamara fulfillment */
-  async fulfillTamara(id: string, tamaraOrderId: string): Promise<IOrder | null> {
-    return OrderModel.findByIdAndUpdate(
-      id,
+  async fulfillTamara(id: string, tamaraOrderId: string): Promise<boolean> {
+    const result = await OrderModel.updateOne(
+      { _id: id, status: { $ne: 'paid' } },
       { $set: { status: 'paid', tamaraPaymentId: tamaraOrderId } },
-      { new: true },
     ).exec()
+    return result.modifiedCount === 1
   }
 
   async markRefunded(id: string): Promise<IOrder | null> {
@@ -107,12 +113,14 @@ export class OrderRepository {
     ).exec()
   }
 
-  async markCancelled(id: string): Promise<IOrder | null> {
-    return OrderModel.findByIdAndUpdate(
-      id,
+  /* Conditional for the same reason as the fulfil methods — true only for the
+     caller that actually cancelled, so a reserved coupon slot is released once. */
+  async markCancelled(id: string): Promise<boolean> {
+    const result = await OrderModel.updateOne(
+      { _id: id, status: 'pending' },
       { $set: { status: 'cancelled', cancelledAt: new Date() } },
-      { new: true },
     ).exec()
+    return result.modifiedCount === 1
   }
 
   async listForUser(userId: string): Promise<IOrder[]> {

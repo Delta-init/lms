@@ -9,6 +9,7 @@ export interface Course {
   thumbnailUrl?: string
   previewUrl?:   string
   price:         number
+  priceAED?:     number
   priceINR?:     number
   isFree:        boolean
   status:        CourseStatus
@@ -37,6 +38,7 @@ export interface CourseFormValues {
   thumbnailUrl: string
   previewUrl:   string
   price:        number
+  priceAED?:    number
   priceINR?:    number
   isFree:       boolean
   status:       CourseStatus

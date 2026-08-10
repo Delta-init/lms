@@ -4,13 +4,16 @@ import { AdminController } from '@/controllers/admin.controller.ts'
 import { AuthController } from '@/controllers/auth.controller.ts'
 import { LiveClassController } from '@/controllers/liveClass.controller.ts'
 import { RolesController } from '@/controllers/roles.controller.ts'
-import { authenticateAdmin, requireRole, requireAdmin, requireAnyAdmin, requireInstructor, injectCategoryScope } from '@/middleware/auth.middleware.ts'
+import { authenticateAdmin, requireRole, requireAdmin, requireAnyAdmin, requireInstructor, requireCourseAuthor, injectCategoryScope, requirePermission } from '@/middleware/auth.middleware.ts'
 import { validate } from '@/middleware/validate.middleware.ts'
+import { authRateLimit } from '@/middleware/rateLimit.middleware.ts'
 import { QuizService } from '@/services/quiz.service.ts'
 import { AssignmentService } from '@/services/assignment.service.ts'
 import { SectionService } from '@/services/section.service.ts'
 import { OrderService } from '@/services/order.service.ts'
 import { CouponService } from '@/services/coupon.service.ts'
+import { requireSameOrgUser, callerMayAccess } from '@/utils/tenancy.ts'
+import { documentRef } from '@/utils/documentRef.ts'
 import { UserService } from '@/services/user.service.ts'
 import { sendSuccess, buildPaginationMeta, parsePagination } from '@/utils/response.ts'
 import { audit } from '@/middleware/audit.middleware.ts'
@@ -32,9 +35,22 @@ const userSvc    = new UserService()
    These use lms_admin_at / lms_admin_rt so the admin session is fully
    independent from the client-portal session (lms_at / lms_rt).
 ─────────────────────────────────────────────────────────────────────── */
-router.post('/auth/login',   authCtrl.adminLogin)
-router.post('/auth/refresh', authCtrl.adminRefresh)
-router.post('/auth/logout',  authCtrl.adminLogout)
+const adminLoginSchema = z.object({
+  email:    z.string().email().toLowerCase(),
+  password: z.string().min(1, 'Password is required'),
+})
+
+/* Second login step for admin accounts with 2FA enabled — the challenge
+   handed back by /auth/login plus the 6-digit authenticator code. */
+const adminLoginTwoFactorSchema = z.object({
+  challengeToken: z.string().min(20, 'Challenge token is required'),
+  code:           z.string().trim().length(6, 'Code must be 6 digits').regex(/^\d+$/, 'Code must be 6 digits'),
+})
+
+router.post('/auth/login',   authRateLimit, validate(adminLoginSchema), authCtrl.adminLogin)
+router.post('/auth/login/2fa', authRateLimit, validate(adminLoginTwoFactorSchema), authCtrl.adminLoginTwoFactor)
+router.post('/auth/refresh', authRateLimit, authCtrl.adminRefresh)
+router.post('/auth/logout',  authRateLimit, authCtrl.adminLogout)
 router.get ('/auth/me',      authenticateAdmin, authCtrl.me)
 
 /* Admin routes are open to admins and instructors. Per-resource
@@ -50,6 +66,9 @@ const courseCreateSchema = z.object({
   thumbnailUrl: z.string().url().or(z.literal('')).optional(),
   previewUrl:   z.string().url().or(z.literal('')).optional(),
   price:        z.coerce.number().min(0),
+  /* Per-currency overrides (B-01). Blank means "use the conversion rate",
+     which is what every course did before these were storable. */
+  priceAED:     z.coerce.number().min(0).optional(),
   priceINR:     z.coerce.number().min(0).optional(),
   isFree:       z.boolean(),
   status:       z.enum(['draft', 'published', 'archived']),
@@ -119,29 +138,45 @@ router.post(
       const objectIds = ids.filter(id => Types.ObjectId.isValid(id)).map(id => new Types.ObjectId(id))
       if (objectIds.length === 0) { sendSuccess(res, { affected: 0 }); return }
 
+      /* Tenancy — a bulk action must never reach another org's courses.
+         super_admin is unrestricted; courses that predate organizationId
+         stay in scope so legacy data is still manageable. */
+      const filter: Record<string, unknown> = { _id: { $in: objectIds } }
+      const orgId = req.user!.organizationId
+      if (req.user!.role !== 'super_admin' && orgId && Types.ObjectId.isValid(orgId)) {
+        filter['$or'] = [
+          { organizationId: new Types.ObjectId(orgId) },
+          { organizationId: null },
+          { organizationId: { $exists: false } },
+        ]
+      }
+
+      let affected: number
       if (action === 'delete') {
-        await CourseModel.deleteMany({ _id: { $in: objectIds } })
+        const result = await CourseModel.deleteMany(filter)
+        affected = result.deletedCount ?? 0
       } else {
         const status = action === 'publish' ? 'published' : 'archived'
-        await CourseModel.updateMany({ _id: { $in: objectIds } }, { $set: { status } })
+        const result = await CourseModel.updateMany(filter, { $set: { status } })
+        affected = result.matchedCount ?? 0
       }
-      sendSuccess(res, { affected: objectIds.length })
+      sendSuccess(res, { affected })
     } catch (err) { next(err) }
   },
 )
 
 /* ─── Courses ─────────────────────────────────────── */
-router.get   ('/courses',        ctrl.listCourses)
+router.get   ('/courses', requirePermission('courses','list'),        ctrl.listCourses)
 router.get   ('/courses/:id',    ctrl.getCourse)
-router.post  ('/courses',        validate(courseCreateSchema), audit('course.create', 'Course'), ctrl.createCourse)
-router.patch ('/courses/:id',    validate(courseUpdateSchema), audit('course.update', 'Course', r => String(r.params['id'] ?? '')), ctrl.updateCourse)
-router.delete('/courses/:id',    audit('course.delete', 'Course', r => String(r.params['id'] ?? '')), ctrl.deleteCourse)
+router.post  ('/courses', requirePermission('courses','create'),        requireCourseAuthor, validate(courseCreateSchema), audit('course.create', 'Course'), ctrl.createCourse)
+router.patch ('/courses/:id', requirePermission('courses','update'),    validate(courseUpdateSchema), audit('course.update', 'Course', r => String(r.params['id'] ?? '')), ctrl.updateCourse)
+router.delete('/courses/:id', requirePermission('courses','delete'),    audit('course.delete', 'Course', r => String(r.params['id'] ?? '')), ctrl.deleteCourse)
 
 /* ─── Categories (admin-only writes) ──────────────── */
 router.get   ('/categories',     ctrl.listCategories)
-router.post  ('/categories',     requireAdmin, validate(categoryCreateSchema), audit('category.create', 'Category'), ctrl.createCategory)
-router.patch ('/categories/:id', requireAdmin, validate(categoryUpdateSchema), audit('category.update', 'Category', r => String(r.params['id'] ?? '')), ctrl.updateCategory)
-router.delete('/categories/:id', requireAdmin, audit('category.delete', 'Category', r => String(r.params['id'] ?? '')), ctrl.deleteCategory)
+router.post  ('/categories', requirePermission('categories','create'),     requireAdmin, validate(categoryCreateSchema), audit('category.create', 'Category'), ctrl.createCategory)
+router.patch ('/categories/:id', requirePermission('categories','update'), requireAdmin, validate(categoryUpdateSchema), audit('category.update', 'Category', r => String(r.params['id'] ?? '')), ctrl.updateCategory)
+router.delete('/categories/:id', requirePermission('categories','delete'), requireAdmin, audit('category.delete', 'Category', r => String(r.params['id'] ?? '')), ctrl.deleteCategory)
 
 /* ─── Users (admin-only) ──────────────────────────── */
 const userUpdateSchema = z.object({
@@ -174,7 +209,7 @@ const userCreateSchema = z.object({
   })).optional(),
 })
 
-router.get  ('/users',
+router.get  ('/users', requirePermission('users','list'),
   validate(usersQuerySchema, 'query'),
   (req: Request, res: Response, next: NextFunction) => {
     if (req.user!.role === 'instructor') {
@@ -184,7 +219,7 @@ router.get  ('/users',
     next()
   },
   ctrl.listUsers)
-router.post ('/users',          validate(userCreateSchema), audit('user.create', 'User'),
+router.post ('/users', requirePermission('users','create'),          validate(userCreateSchema), audit('user.create', 'User'),
   async (req, res, next) => {
     const role       = req.user!.role
     const targetRole = (req.body as { role?: string }).role ?? 'instructor'
@@ -247,8 +282,9 @@ router.post ('/users',          validate(userCreateSchema), audit('user.create',
     } catch (err) { next(err) }
   },
 )
-router.patch ('/users/:id',
+router.patch ('/users/:id', requirePermission('users','update'),
   requireAdmin,
+  requireSameOrgUser('id'),
   (req: Request, res: Response, next: NextFunction) => {
     if (req.user!.role === 'admin' && (req.body as any).role === 'super_admin') {
       res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Only super admins can grant super admin access.' } })
@@ -260,8 +296,97 @@ router.patch ('/users/:id',
   audit('user.roleChange', 'User', r => String(r.params['id'] ?? '')),
   ctrl.updateUser,
 )
-router.delete('/users/:id',           requireAdmin, audit('user.delete', 'User', r => String(r.params['id'] ?? '')), ctrl.deleteUser)
-router.post  ('/users/:id/impersonate', requireRole('super_admin'), audit('user.impersonate', 'User', r => String(r.params['id'] ?? '')), ctrl.impersonateUser)
+router.delete('/users/:id', requirePermission('users','delete'),           requireAdmin, requireSameOrgUser('id'), audit('user.delete', 'User', r => String(r.params['id'] ?? '')), ctrl.deleteUser)
+
+/* POST /admin/users/:id/reset-2fa — clear a user's second factor.
+   For the lost-device case. Nothing else in the codebase could write
+   twoFactorEnabled, so a user who lost their authenticator had no route back
+   short of database surgery (NEW-01). Tenancy-scoped and audited; this hands
+   back the ability to sign in with a password alone, so it is a real
+   privilege and treated as one. */
+router.post('/users/:id/reset-2fa', requireAdmin, requireSameOrgUser('id'),
+  audit('user.reset2fa', 'User', r => String(r.params['id'] ?? '')),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { TotpService } = await import('@/services/totp.service.ts')
+      await new TotpService().adminReset(String(req.params['id'] ?? ''))
+      sendSuccess(res, null, 'Two-factor authentication reset for this user.')
+    } catch (err) { next(err) }
+  })
+router.post  ('/users/:id/impersonate', requirePermission('users','impersonate'), requireRole('super_admin'), audit('user.impersonate', 'User', r => String(r.params['id'] ?? '')), ctrl.impersonateUser)
+
+/* ── Impersonation sessions (M-04) ────────────────────────────────────
+   Impersonation is a session record now, not a bare token, so it can be
+   listed and stopped. Reading the trail is deliberately broader than
+   creating one: any full admin should be able to see who has been in which
+   account, while only super_admin can start or stop a session.
+──────────────────────────────────────────────────────────────────────── */
+router.get('/impersonation-sessions', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { ImpersonationSessionModel } = await import('@/models/schema.ts')
+    const { Types } = await import('mongoose')
+    const { page, per_page } = parsePagination(req.query as Record<string, unknown>)
+
+    /* Scoped like every other admin listing: an org admin sees their own
+       academy's sessions, super_admin sees all. */
+    const filter: Record<string, unknown> = {}
+    const orgId = req.user!.organizationId
+    if (req.user!.role !== 'super_admin' && orgId && Types.ObjectId.isValid(orgId)) {
+      filter['organizationId'] = new Types.ObjectId(orgId)
+    }
+    if (req.query['active'] === 'true') {
+      filter['revokedAt'] = { $exists: false }
+      filter['expiresAt'] = { $gt: new Date() }
+    }
+
+    const [docs, totalCount] = await Promise.all([
+      ImpersonationSessionModel.find(filter).sort({ createdAt: -1 })
+        .skip((page - 1) * per_page).limit(per_page).lean({ virtuals: true }),
+      ImpersonationSessionModel.countDocuments(filter),
+    ])
+    sendSuccess(res, (docs as any[]).map(d => ({ ...d, id: d.id ?? String(d._id) })),
+      undefined, 200, buildPaginationMeta(totalCount, page, per_page))
+  } catch (err) { next(err) }
+})
+
+/* Ends ONE session. Idempotent — revoking an already-revoked session is not
+   an error, because the useful outcome is "it is off", not "I was first". */
+router.delete('/impersonation-sessions/:id', requireRole('super_admin'),
+  audit('user.impersonate.revoke', 'ImpersonationSession', r => String(r.params['id'] ?? '')),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { ImpersonationSessionModel } = await import('@/models/schema.ts')
+      const { Types } = await import('mongoose')
+      const id = String(req.params['id'] ?? '')
+      if (!Types.ObjectId.isValid(id)) {
+        res.status(400).json({ success: false, error: { code: 'INVALID_ID', message: 'Invalid session id' } }); return
+      }
+      const existing = await ImpersonationSessionModel.findById(id).select('_id').lean()
+      if (!existing) {
+        res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Session not found' } }); return
+      }
+      await ImpersonationSessionModel.updateOne(
+        { _id: id, revokedAt: { $exists: false } },
+        { $set: { revokedAt: new Date(), revokedBy: req.user!.id } },
+      )
+      sendSuccess(res, null, 'Impersonation session ended')
+    } catch (err) { next(err) }
+  })
+
+/* The kill switch. Ends every live impersonation session at once — the thing
+   you reach for when you do not yet know which one is the problem. */
+router.post('/impersonation-sessions/revoke-all', requireRole('super_admin'),
+  audit('user.impersonate.revoke', 'ImpersonationSession'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { ImpersonationSessionModel } = await import('@/models/schema.ts')
+      const result = await ImpersonationSessionModel.updateMany(
+        { revokedAt: { $exists: false }, expiresAt: { $gt: new Date() } },
+        { $set: { revokedAt: new Date(), revokedBy: req.user!.id } },
+      )
+      sendSuccess(res, { revoked: result.modifiedCount }, 'All impersonation sessions ended')
+    } catch (err) { next(err) }
+  })
 
 /* ── Enrollment requests (student approval workflow) ─────────────────────
    4x_admin / digital_marketing_admin approve or cancel student signups
@@ -283,25 +408,29 @@ const rejectEnrollmentSchema = z.object({
 })
 
 router.get ('/enrollment-requests',
+  requireAnyAdmin,
   validate(enrollmentRequestQuerySchema, 'query'),
   ctrl.listEnrollmentRequests,
 )
-router.patch('/enrollment-requests/:userId/approve',         requireAnyAdmin, validate(approveEnrollmentSchema), ctrl.approveEnrollment)
-router.patch('/enrollment-requests/:userId/reject',          requireAnyAdmin, validate(rejectEnrollmentSchema),  ctrl.rejectEnrollment)
-router.patch('/enrollment-requests/:userId/cancel',          requireAnyAdmin, validate(rejectEnrollmentSchema),  ctrl.rejectEnrollment)
-router.patch('/enrollment-requests/:userId/revoke-to-viewer', requireAnyAdmin, ctrl.revokeToViewer)
+router.patch('/enrollment-requests/:userId/approve',         requireAnyAdmin, requireSameOrgUser('userId'), validate(approveEnrollmentSchema), ctrl.approveEnrollment)
+router.patch('/enrollment-requests/:userId/reject',          requireAnyAdmin, requireSameOrgUser('userId'), validate(rejectEnrollmentSchema),  ctrl.rejectEnrollment)
+router.patch('/enrollment-requests/:userId/cancel',          requireAnyAdmin, requireSameOrgUser('userId'), validate(rejectEnrollmentSchema),  ctrl.rejectEnrollment)
+router.patch('/enrollment-requests/:userId/revoke-to-viewer', requireAnyAdmin, requireSameOrgUser('userId'), ctrl.revokeToViewer)
 
 const removeCategorySchema = z.object({
   category: z.enum(['4x-trading', 'digital-marketing', 'ai']),
 })
-router.patch('/enrollment-requests/:userId/remove-category', requireAnyAdmin, validate(removeCategorySchema), ctrl.removeEnrollmentCategory)
+router.patch('/enrollment-requests/:userId/remove-category', requireAnyAdmin, requireSameOrgUser('userId'), validate(removeCategorySchema), ctrl.removeEnrollmentCategory)
 
+/* Identity scans arrive as a `kyc/` key (H-11), the photo as a URL on our own
+   storage. `z.string().url()` here rejected every key the upload endpoint
+   returns, so admin re-uploads answered 422. See utils/documentRef.ts. */
 const enrollmentDocsAdminSchema = z.object({
-  passportUrl: z.string().url().optional().or(z.literal('')),
-  idDocUrl:    z.string().url().optional().or(z.literal('')),
-  photoUrl:    z.string().url().optional().or(z.literal('')),
+  passportUrl: documentRef,
+  idDocUrl:    documentRef,
+  photoUrl:    documentRef,
 })
-router.patch('/enrollment-requests/:userId/docs', requireAnyAdmin, validate(enrollmentDocsAdminSchema), ctrl.updateStudentDocs)
+router.patch('/enrollment-requests/:userId/docs', requireAnyAdmin, requireSameOrgUser('userId'), validate(enrollmentDocsAdminSchema), ctrl.updateStudentDocs)
 
 /* ─── Express Members ─────────────────────────────── */
 const expressMembersQuerySchema = z.object({
@@ -311,8 +440,8 @@ const expressMembersQuerySchema = z.object({
   search:   z.string().trim().optional(),
 })
 router.get   ('/express-members',            requireAnyAdmin, validate(expressMembersQuerySchema, 'query'), ctrl.listExpressMembers)
-router.patch ('/express-members/:userId/block', requireAnyAdmin, ctrl.blockExpressMember)
-router.delete('/express-members/:userId',    requireAdmin,    ctrl.deleteExpressMember)
+router.patch ('/express-members/:userId/block', requireAnyAdmin, requireSameOrgUser('userId'), ctrl.blockExpressMember)
+router.delete('/express-members/:userId',    requireAdmin,    requireSameOrgUser('userId'), ctrl.deleteExpressMember)
 
 /* ── Category-scope guards for enrollment management ──────────────
    Full admins (super_admin/admin) are unrestricted. Category-scoped
@@ -342,8 +471,63 @@ async function studentMatchesScope(studentId: string, scope: string): Promise<bo
   return cats.includes(scope)
 }
 
+/* ── May this caller act on this live session? ────────────────────
+   The same two gates LiveClassController.#canManage applies, in the same
+   order — academy first for everyone below super_admin, then ownership for
+   instructors — reachable from the routes in THIS file that address a session
+   indirectly (a booking id, a feedback id). Those routes had no check at all,
+   so any instructor or staff account in either academy could rewrite another
+   academy's attendance or read its feedback (P-05, P-12).
+
+   The session's own instructorId is the sole authority; the parent course's
+   owner is consulted only when the session names nobody, which is legacy data
+   from before the field was populated (N-10). */
+async function callerMayManageSession(req: Request, liveClassId: unknown): Promise<boolean> {
+  if (req.user!.role === 'super_admin') return true
+
+  const { LiveClassModel, CourseModel } = await import('@/models/schema.ts')
+  const { Types } = await import('mongoose')
+
+  const id = String(liveClassId ?? '')
+  if (!Types.ObjectId.isValid(id)) return false
+
+  const live = await LiveClassModel.findById(id)
+    .select('instructorId courseId organizationId').lean()
+  if (!live) return false
+
+  if (!(await callerMayAccess(req, (live as { organizationId?: unknown }).organizationId))) {
+    return false
+  }
+
+  if (req.user!.role !== 'instructor') return true
+
+  const userId = String(req.user!.id)
+  if (live.instructorId) return String(live.instructorId) === userId
+  if (live.courseId) {
+    const course = await CourseModel.findById(String(live.courseId)).select('instructorId').lean()
+    return String((course as any)?.instructorId ?? '') === userId
+  }
+  return false
+}
+
+/* ── May this caller act on this student's records? ───────────────
+   Wraps callerMayAccess for the routes that reach a user indirectly (via an
+   enrolment, a booking). requireSameOrgUser already covers the routes that
+   take a user id in the path. */
+async function callerMayAccessUser(req: Request, userId: unknown): Promise<boolean> {
+  const { UserModel } = await import('@/models/schema.ts')
+  const { Types } = await import('mongoose')
+
+  const id = String(userId ?? '')
+  if (!Types.ObjectId.isValid(id)) return false
+
+  const target = await UserModel.findById(id).select('organizationId').lean()
+  if (!target) return false
+  return callerMayAccess(req, (target as { organizationId?: unknown }).organizationId)
+}
+
 /* GET /admin/users/:id/enrollments — list a student's course enrollments */
-router.get('/users/:id/enrollments', requireAnyAdmin,
+router.get('/users/:id/enrollments', requireAnyAdmin, requireSameOrgUser('id'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { EnrollmentModel } = await import('@/models/schema.ts')
@@ -369,15 +553,13 @@ router.get('/users/:id/enrollments', requireAnyAdmin,
 )
 
 /* GET /admin/users/:id/orders — list a student's purchase history */
-router.get('/users/:id/orders', requireAdmin,
+/* Tenancy is enforced by requireSameOrgUser — previously hand-rolled here,
+   which made it a fifth copy of the same rule and one that missed the
+   deleted-account case. */
+router.get('/users/:id/orders', requireAdmin, requireSameOrgUser('id'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { Types } = await import('mongoose')
-      if (!Types.ObjectId.isValid(req.params['id'] as string)) {
-        res.status(400).json({ success: false, error: { code: 'INVALID_ID', message: 'Invalid user ID' } })
-        return
-      }
-      const orders = await orderSvc.listForUser(req.params['id'] as string)
+      const orders = await orderSvc.listForUser(String(req.params['id'] ?? ''))
       sendSuccess(res, orders)
     } catch (err) { next(err) }
   },
@@ -386,7 +568,7 @@ router.get('/users/:id/orders', requireAdmin,
 /* POST /admin/users/:id/enrollments — enroll student in a course */
 const enrollCreateSchema = z.object({ courseId: z.string().min(1) })
 
-router.post('/users/:id/enrollments', requireAnyAdmin, validate(enrollCreateSchema),
+router.post('/users/:id/enrollments', requireAnyAdmin, requireSameOrgUser('id'), validate(enrollCreateSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { EnrollmentModel } = await import('@/models/schema.ts')
@@ -436,6 +618,15 @@ router.delete('/enrollments/:id', requireAnyAdmin,
         res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Enrollment not found' } })
         return
       }
+      /* TENANCY FIRST (P-11). The programme check below is skipped entirely by
+         isFullAdmin — which includes the org-scoped `admin` role — so without
+         this a Dubai admin could revoke a Bangalore student's paid access by
+         id. Same shape as N-11: a guard that exempts `admin` before academy is
+         ever considered. */
+      if (!(await callerMayAccessUser(req, existing.userId))) {
+        res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Enrollment not found' } })
+        return
+      }
       if (!isFullAdmin(req.user!.role)) {
         const scope = req.user!.categoryScope
         const ok = !!scope
@@ -467,6 +658,13 @@ router.patch('/enrollments/:id', requireAnyAdmin, validate(enrollmentUpdateSchem
         res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Enrollment not found' } })
         return
       }
+      /* TENANCY FIRST (P-11) — see the DELETE route above. blockedLessons is
+         what gates module-level access, so this is a write to another
+         academy's access control, not just to a record. */
+      if (!(await callerMayAccessUser(req, existing.userId))) {
+        res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Enrollment not found' } })
+        return
+      }
       if (!isFullAdmin(req.user!.role)) {
         const scope = req.user!.categoryScope
         const ok = !!scope
@@ -492,8 +690,8 @@ router.patch('/enrollments/:id', requireAnyAdmin, validate(enrollmentUpdateSchem
 )
 
 /* ─── Reviews (admin-only) ────────────────────────── */
-router.get   ('/reviews',     requireAdmin, ctrl.listReviews)
-router.delete('/reviews/:id', requireAdmin, audit('review.delete', 'Review', r => String(r.params['id'] ?? '')), ctrl.deleteReview)
+router.get   ('/reviews', requirePermission('reviews','list'),     requireAdmin, ctrl.listReviews)
+router.delete('/reviews/:id', requirePermission('reviews','delete'), requireAdmin, audit('review.delete', 'Review', r => String(r.params['id'] ?? '')), ctrl.deleteReview)
 
 /* ─── Sections + Lessons (admin + own-course instructor) ─── */
 const sectionCreateSchema = z.object({
@@ -582,15 +780,15 @@ const liveUpdateSchema = z.object({
 router.get   ('/courses/:courseId/live-classes',          live.adminListForCourse)
 router.get   ('/live-classes',                            live.adminListAll)
 router.get   ('/live-classes/:id',                        live.adminGetById)
-router.post  ('/live-classes',                            validate(liveCreateSchema), live.adminCreate)
+router.post  ('/live-classes', requirePermission('live-classes','create'),                            validate(liveCreateSchema), live.adminCreate)
 const liveRepeatSchema = z.object({ weeks: z.coerce.number().int().min(1).max(52) })
 router.post  ('/live-classes/:id/repeat',                 validate(liveRepeatSchema), live.adminRepeat)
-router.patch ('/live-classes/:id',                        validate(liveUpdateSchema), live.adminUpdate)
-router.delete('/live-classes/:id',                        live.adminDelete)
+router.patch ('/live-classes/:id', requirePermission('live-classes','update'),                        validate(liveUpdateSchema), live.adminUpdate)
+router.delete('/live-classes/:id', requirePermission('live-classes','delete'),                        live.adminDelete)
 router.post  ('/live-classes/:id/start',                  live.adminStart)
 router.post  ('/live-classes/:id/end',                    live.adminEnd)
 router.post  ('/live-classes/:id/recreate',               live.adminRecreate)
-router.get   ('/live-classes/:id/stream-credentials',     live.adminGetStreamCredentials)
+router.get   ('/live-classes/:id/stream-credentials',     ctrl.guardStreamCredentials, live.adminGetStreamCredentials)
 
 /* ─── Admin book-for-student (offline classes only) ──── */
 const bookForStudentSchema = z.object({
@@ -615,6 +813,13 @@ router.post('/bookings/book-for-student', requireAnyAdmin, validate(bookForStude
       res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Session not found' } }); return
     }
 
+    /* Tenancy on BOTH sides (P-14) — the session and the student. Without it a
+       Dubai admin could consume a seat in a Bangalore class and email a
+       student in an academy they do not administer. */
+    if (!(await callerMayManageSession(req, liveClassId))) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Session not found' } }); return
+    }
+
     if ((session as any).isOnline !== false) {
       res.status(400).json({ success: false, error: { code: 'ONLINE_CLASS', message: 'Admin booking is only available for offline (in-person) classes' } }); return
     }
@@ -629,6 +834,9 @@ router.post('/bookings/book-for-student', requireAnyAdmin, validate(bookForStude
 
     const student = await UserModel.findById(studentId).lean()
     if (!student || (student as any).role !== 'student') {
+      res.status(404).json({ success: false, error: { code: 'STUDENT_NOT_FOUND', message: 'Student not found' } }); return
+    }
+    if (!(await callerMayAccessUser(req, studentId))) {
       res.status(404).json({ success: false, error: { code: 'STUDENT_NOT_FOUND', message: 'Student not found' } }); return
     }
 
@@ -654,6 +862,8 @@ router.post('/bookings/book-for-student', requireAnyAdmin, validate(bookForStude
       }
     }
 
+    /* Capacity fast-check — the authoritative check is the atomic seat
+       reservation below, which is what actually enforces the cap. */
     if (session.bookedCount >= session.sessionCapacity) {
       res.status(400).json({ success: false, error: { code: 'SESSION_FULL', message: 'This session is fully booked' } }); return
     }
@@ -666,26 +876,63 @@ router.post('/bookings/book-for-student', requireAnyAdmin, validate(bookForStude
     let bookingDoc
     if (existing) {
       if (existing.status === 'cancelled') {
-        await ClassBookingModel.findByIdAndUpdate(existing._id, {
-          status: 'booked', bookedAt: new Date(), cancelledAt: undefined,
-          reminderDayBeforeSent: false, reminderDayOfSent: false,
-          reminderPreSessionSent: false, reminder5MinSent: false, reminderAtTimeSent: false,
-        })
-        await LiveClassModel.findByIdAndUpdate(liveClassId, { $inc: { bookedCount: 1 } })
+        /* Reserve the seat atomically — the cap is re-evaluated inside the
+           filter, so concurrent bookings can never oversell the session. */
+        const reserved = await LiveClassModel.updateOne(
+          { _id: liveClassId, $expr: { $lt: ['$bookedCount', '$sessionCapacity'] } },
+          { $inc: { bookedCount: 1 } },
+        )
+        if (reserved.modifiedCount === 0) {
+          res.status(400).json({ success: false, error: { code: 'SESSION_FULL', message: 'This session is fully booked' } }); return
+        }
+        /* The status:'cancelled' term makes the transition conditional, so
+           two concurrent re-books cannot both succeed and leak a seat. */
+        let rebooked
+        try {
+          rebooked = await ClassBookingModel.updateOne({ _id: existing._id, status: 'cancelled' }, {
+            status: 'booked', bookedAt: new Date(), cancelledAt: undefined,
+            reminderDayBeforeSent: false, reminderDayOfSent: false,
+            reminderPreSessionSent: false, reminder5MinSent: false, reminderAtTimeSent: false,
+          })
+        } catch (err) {
+          /* Re-book failed — give the reserved seat back */
+          await LiveClassModel.updateOne({ _id: liveClassId, bookedCount: { $gt: 0 } }, { $inc: { bookedCount: -1 } })
+          throw err
+        }
+        if (rebooked.modifiedCount === 0) {
+          /* Another request re-booked it first — give the seat back */
+          await LiveClassModel.updateOne({ _id: liveClassId, bookedCount: { $gt: 0 } }, { $inc: { bookedCount: -1 } })
+          res.status(409).json({ success: false, error: { code: 'ALREADY_BOOKED', message: 'Student already has a booking for this session' } }); return
+        }
         bookingDoc = await ClassBookingModel.findById(existing._id).lean({ virtuals: true })
       } else {
         res.status(409).json({ success: false, error: { code: 'ALREADY_BOOKED', message: 'Student already has a booking for this session' } }); return
       }
     } else {
-      const [booking] = await Promise.all([
-        ClassBookingModel.create({
+      /* Reserve the seat atomically — the cap is re-evaluated inside the
+         filter, so concurrent bookings can never oversell the session. */
+      const reserved = await LiveClassModel.updateOne(
+        { _id: liveClassId, $expr: { $lt: ['$bookedCount', '$sessionCapacity'] } },
+        { $inc: { bookedCount: 1 } },
+      )
+      if (reserved.modifiedCount === 0) {
+        res.status(400).json({ success: false, error: { code: 'SESSION_FULL', message: 'This session is fully booked' } }); return
+      }
+
+      let booking
+      try {
+        booking = await ClassBookingModel.create({
           userId:      new Types.ObjectId(studentId),
           liveClassId: new Types.ObjectId(liveClassId),
           status:      'booked',
           bookedAt:    new Date(),
-        }),
-        LiveClassModel.findByIdAndUpdate(liveClassId, { $inc: { bookedCount: 1 } }),
-      ])
+        })
+      } catch (err) {
+        /* Booking row not created — give the reserved seat back */
+        await LiveClassModel.updateOne({ _id: liveClassId, bookedCount: { $gt: 0 } }, { $inc: { bookedCount: -1 } })
+        throw err
+      }
+
       bookingDoc = await booking.populate([
         { path: 'liveClassId', select: 'id title scheduledStart durationMins meetingUrl type' },
       ])
@@ -816,8 +1063,15 @@ router.get('/lessons/:lessonId/assignment/submissions', async (req: Request, res
 /* Grade a submission */
 router.patch('/submissions/:id/grade', validate(gradeSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const { AssignmentSubmissionModel } = await import('@/models/schema.ts')
+    const submissionId = String(req.params['id'] ?? '')
+    const existing = await AssignmentSubmissionModel.findById(submissionId).select('courseId').lean()
+    if (!existing) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Submission not found' } }); return
+    }
+    await sectionSvc.assertCourseEditable(String(existing.courseId), req.user!.id, req.user!.role, req.user!.categoryScope)
     const submission = await assignSvc.grade(
-      String(req.params['id'] ?? ''),
+      submissionId,
       req.user!.id,
       req.body as { grade: number; feedback?: string },
     )
@@ -845,7 +1099,7 @@ const ordersQuerySchema = z.object({
   status:   z.enum(['pending', 'paid', 'refunded', 'cancelled', 'all']).default('all'),
 })
 
-router.get('/orders', requireAdmin, validate(ordersQuerySchema, 'query'), async (req: Request, res: Response, next: NextFunction) => {
+router.get('/orders', requireAdmin, requirePermission('orders','list'), validate(ordersQuerySchema, 'query'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { page, per_page, status } = req.query as any
     const { docs, totalCount } = await orderSvc.adminList(
@@ -855,9 +1109,32 @@ router.get('/orders', requireAdmin, validate(ordersQuerySchema, 'query'), async 
   } catch (err) { next(err) }
 })
 
-router.post('/orders/:id/refund', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/orders/:id/refund', requireAdmin, requirePermission('orders','update'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    await orderSvc.refund(String(req.params['id'] ?? ''))
+    const { Types } = await import('mongoose')
+    const orderId   = String(req.params['id'] ?? '')
+    if (!Types.ObjectId.isValid(orderId)) {
+      res.status(400).json({ success: false, error: { code: 'INVALID_ID', message: 'Invalid order ID' } }); return
+    }
+    /* Tenancy — a real gateway refund must never be issued against another
+       org's order. super_admin is unrestricted; orders that predate
+       organizationId stay refundable. */
+    const orgId = req.user!.organizationId
+    if (req.user!.role !== 'super_admin' && orgId && Types.ObjectId.isValid(orgId)) {
+      const { OrderModel } = await import('@/models/schema.ts')
+      const owned = await OrderModel.findOne({
+        _id: new Types.ObjectId(orderId),
+        $or: [
+          { organizationId: new Types.ObjectId(orgId) },
+          { organizationId: null },
+          { organizationId: { $exists: false } },
+        ],
+      }).select('_id').lean()
+      if (!owned) {
+        res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Order not found' } }); return
+      }
+    }
+    await orderSvc.refund(orderId)
     sendSuccess(res, null, 'Order refunded')
   } catch (err) { next(err) }
 })
@@ -876,7 +1153,7 @@ const couponUpdateSchema = couponCreateSchema.partial().extend({
   expiresAt: z.string().datetime().nullable().optional(),
 })
 
-router.get('/coupons', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/coupons', requireAdmin, requirePermission('coupons','list'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { page, per_page } = parsePagination(req.query as Record<string, unknown>)
     const { docs, totalCount } = await couponSvc.list(page, per_page, req.user!.organizationId)
@@ -884,23 +1161,23 @@ router.get('/coupons', requireAdmin, async (req: Request, res: Response, next: N
   } catch (err) { next(err) }
 })
 
-router.post('/coupons', requireAdmin, validate(couponCreateSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/coupons', requireAdmin, requirePermission('coupons','create'), validate(couponCreateSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const coupon = await couponSvc.create({ ...req.body, organizationId: req.user!.organizationId })
     sendSuccess(res, coupon, 'Coupon created', 201)
   } catch (err) { next(err) }
 })
 
-router.patch('/coupons/:id', requireAdmin, validate(couponUpdateSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.patch('/coupons/:id', requireAdmin, requirePermission('coupons','update'), validate(couponUpdateSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const coupon = await couponSvc.update(String(req.params['id'] ?? ''), req.body)
+    const coupon = await couponSvc.update(String(req.params['id'] ?? ''), req.body, req.user!.organizationId)
     sendSuccess(res, coupon, 'Coupon updated')
   } catch (err) { next(err) }
 })
 
-router.delete('/coupons/:id', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+router.delete('/coupons/:id', requireAdmin, requirePermission('coupons','delete'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    await couponSvc.remove(String(req.params['id'] ?? ''))
+    await couponSvc.remove(String(req.params['id'] ?? ''), req.user!.organizationId)
     sendSuccess(res, null, 'Coupon deleted')
   } catch (err) { next(err) }
 })
@@ -947,6 +1224,15 @@ router.get('/mentors/:id/availability', requireInstructor, async (req: Request, 
   try {
     const { MentorAvailabilityModel } = await import('@/models/schema.ts')
     const mentorId = String(req.params['id'] ?? '')
+    // Instructors can only read their own availability
+    if (req.user!.role === 'instructor' && req.user!.id !== mentorId) {
+      res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Cannot view another mentor\'s availability' } }); return
+    }
+    /* The self-check above only binds instructors — every other staff role
+       fell through to any mentor in either academy (P-17). */
+    if (req.user!.id !== mentorId && !(await callerMayAccessUser(req, mentorId))) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Mentor not found' } }); return
+    }
     const avail = await MentorAvailabilityModel.findOne({ mentorId }).lean({ virtuals: true })
     sendSuccess(res, avail ?? { mentorId, slots: [] })
   } catch (err) { next(err) }
@@ -959,6 +1245,11 @@ router.put('/mentors/:id/availability', requireInstructor, validate(availability
     // Instructors can only update their own availability
     if (req.user!.role === 'instructor' && req.user!.id !== mentorId) {
       res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Cannot edit another mentor\'s availability' } }); return
+    }
+    /* PUT REPLACES the whole schedule, so an unscoped staff role could wipe a
+       neighbouring academy's mentor calendar with no undo (P-17). */
+    if (req.user!.id !== mentorId && !(await callerMayAccessUser(req, mentorId))) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Mentor not found' } }); return
     }
     const { slots } = req.body as { slots: Array<{ dayOfWeek: number; startTime: string; endTime: string }> }
     const avail = await MentorAvailabilityModel.findOneAndUpdate(
@@ -1008,13 +1299,18 @@ const bookingQuerySchema = z.object({
   instructorId: z.string().optional(),
   courseId:     z.string().optional(),
   language:     z.string().optional(),
-  dateFrom:     z.string().optional(),
-  dateTo:       z.string().optional(),
+  /* Parseable dates only. These are handed straight to `new Date()` and then
+     into a Mongo range query; an unparseable string becomes an Invalid Date,
+     which Mongoose rejects with a CastError, which is not a registered error
+     class — so `?dateFrom=notadate` answered 500 "An unexpected error
+     occurred" instead of telling the caller the date was wrong. */
+  dateFrom:     z.string().refine(s => !Number.isNaN(Date.parse(s)), 'Invalid date').optional(),
+  dateTo:       z.string().refine(s => !Number.isNaN(Date.parse(s)), 'Invalid date').optional(),
   page:         z.coerce.number().int().min(1).default(1),
   per_page:     z.coerce.number().int().min(1).max(200).default(50),
 })
 
-router.get('/bookings', requireInstructor, validate(bookingQuerySchema, 'query'), async (req: Request, res: Response, next: NextFunction) => {
+router.get('/bookings', requireInstructor, requirePermission('bookings','list'), validate(bookingQuerySchema, 'query'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { ClassBookingModel, LiveClassModel } = await import('@/models/schema.ts')
     const { Types } = await import('mongoose')
@@ -1074,9 +1370,24 @@ router.get('/bookings', requireInstructor, validate(bookingQuerySchema, 'query')
       filter['liveClassId'] = { $in: matchingLcIds.map((l: any) => l._id) }
     }
 
-    // Direct liveClassId override (more specific than instructor/date scope)
+    /* Narrow to one session — but INTERSECT with the scoped set, never replace
+       it (P-04). This used to assign straight over `filter['liveClassId']`,
+       discarding the organisation and instructor scoping resolved above, so
+       passing another academy's session id returned its full roster with every
+       student's name and email. "More specific" has to mean narrower. */
     if (q.liveClassId && Types.ObjectId.isValid(q.liveClassId)) {
-      filter['liveClassId'] = new Types.ObjectId(q.liveClassId)
+      const requested = new Types.ObjectId(q.liveClassId)
+      const scoped    = filter['liveClassId'] as { $in?: unknown[] } | undefined
+      const inScope   = !scoped?.$in || scoped.$in.some(id => String(id) === String(requested))
+      if (!inScope) {
+        res.json({
+          success: true,
+          data: [],
+          meta: { page: Number(q.page) || 1, per_page: Number(q.per_page) || 50, total_count: 0, total_pages: 0 },
+        })
+        return
+      }
+      filter['liveClassId'] = requested
     }
     if (q.userId && Types.ObjectId.isValid(q.userId)) filter['userId'] = new Types.ObjectId(q.userId)
     if (q.status) filter['status'] = q.status
@@ -1125,11 +1436,22 @@ const attendanceUpdateSchema = z.object({
   status: z.enum(['attended', 'missed']),
 })
 
-router.patch('/bookings/:id/attendance', requireInstructor, validate(attendanceUpdateSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.patch('/bookings/:id/attendance', requireInstructor, requirePermission('bookings','update'), validate(attendanceUpdateSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { ClassBookingModel } = await import('@/models/schema.ts')
     const id = String(req.params['id'] ?? '')
     const { status } = req.body as { status: 'attended' | 'missed' }
+
+    /* Tenancy + ownership before the write (P-05). Attendance is not cosmetic:
+       'attended' feeds the 2×-attendance cap in POST /bookings, so a forged
+       mark can lock a student out of a class they never took — and the
+       response carries their name and email. Answers 404 across an academy
+       boundary so the endpoint never confirms the id exists elsewhere. */
+    const existing = await ClassBookingModel.findById(id).select('liveClassId').lean()
+    if (!existing || !(await callerMayManageSession(req, existing.liveClassId))) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Booking not found' } }); return
+    }
+
     const booking = await ClassBookingModel.findByIdAndUpdate(
       id,
       { status },
@@ -1144,7 +1466,7 @@ router.patch('/bookings/:id/attendance', requireInstructor, validate(attendanceU
    REPORTS
    GET /admin/reports/attendance?from=&to=
 ─────────────────────────────────────────────────────── */
-router.get('/reports/attendance', requireInstructor, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/reports/attendance', requireInstructor, requirePermission('reports','read'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { ClassBookingModel, LiveClassModel } = await import('@/models/schema.ts')
     const { Types } = await import('mongoose')
@@ -1155,12 +1477,22 @@ router.get('/reports/attendance', requireInstructor, async (req: Request, res: R
       if (from) filter['bookedAt']['$gte'] = new Date(from)
       if (to)   filter['bookedAt']['$lte'] = new Date(to)
     }
-    // Org isolation — resolve live-class IDs belonging to this org first
+    /* Scope the sessions this caller may report on, then resolve to ids.
+       Org isolation was here; the INSTRUCTOR scope was not (P-13), so an
+       instructor received every student's attendance across the whole academy
+       — name, email and per-session counts — where /admin/bookings correctly
+       narrows them to their own classes. Reports is admin-only in the sidebar,
+       so this closes the direct-API path without changing any screen. */
+    const lcScope: Record<string, unknown> = {}
     if (req.user!.organizationId && Types.ObjectId.isValid(req.user!.organizationId)) {
-      const orgClassIds = await LiveClassModel.find(
-        { organizationId: new Types.ObjectId(req.user!.organizationId) }, '_id',
-      ).lean()
-      filter['liveClassId'] = { $in: orgClassIds.map((l: any) => l._id) }
+      lcScope['organizationId'] = new Types.ObjectId(req.user!.organizationId)
+    }
+    if (req.user!.role === 'instructor') {
+      lcScope['instructorId'] = new Types.ObjectId(req.user!.id)
+    }
+    if (Object.keys(lcScope).length > 0) {
+      const scopedClassIds = await LiveClassModel.find(lcScope, '_id').lean()
+      filter['liveClassId'] = { $in: scopedClassIds.map((l: any) => l._id) }
     }
     const bookings = await ClassBookingModel.find(filter)
       .populate('userId', 'id name email')
@@ -1186,7 +1518,7 @@ router.get('/reports/attendance', requireInstructor, async (req: Request, res: R
    REPORTS — Mentor Schedule
    GET /admin/reports/mentor-schedule?from=&to=&mentorId=
 ─────────────────────────────────────────────────────── */
-router.get('/reports/mentor-schedule', requireInstructor, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/reports/mentor-schedule', requireInstructor, requirePermission('reports','read'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { LiveClassModel } = await import('@/models/schema.ts')
     const { Types } = await import('mongoose')
@@ -1262,10 +1594,38 @@ const gradeHomeworkSchema = z.object({
   feedback: z.string().max(2000).optional(),
 })
 
-router.post('/live-classes/:id/homework', requireRole('admin', 'instructor'), validate(homeworkCreateSchema), async (req: Request, res: Response, next: NextFunction) => {
+/* Ownership: the session's own mentor manages its homework; everyone else
+   falls back to the course-level check (full admins pass, instructors must
+   own the course). Returns false when the session cannot be resolved so the
+   caller can answer 404. */
+async function assertLiveClassEditable(liveClassId: string, req: Request): Promise<boolean> {
+  const { LiveClassModel } = await import('@/models/schema.ts')
+  const { Types }          = await import('mongoose')
+  if (!Types.ObjectId.isValid(liveClassId)) return false
+  const session = await LiveClassModel.findById(liveClassId).select('courseId instructorId').lean()
+  if (!session) return false
+  if (String(session.instructorId) === req.user!.id) return true
+  await sectionSvc.assertCourseEditable(String(session.courseId), req.user!.id, req.user!.role, req.user!.categoryScope)
+  return true
+}
+
+/* Same check, resolved through a homework document → live class → course. */
+async function assertHomeworkEditable(homeworkId: string, req: Request): Promise<boolean> {
+  const { SessionHomeworkModel } = await import('@/models/schema.ts')
+  const { Types }                = await import('mongoose')
+  if (!Types.ObjectId.isValid(homeworkId)) return false
+  const hw = await SessionHomeworkModel.findById(homeworkId).select('liveClassId').lean()
+  if (!hw) return false
+  return assertLiveClassEditable(String(hw.liveClassId), req)
+}
+
+router.post('/live-classes/:id/homework', requireRole('super_admin', 'admin', 'instructor'), validate(homeworkCreateSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { SessionHomeworkModel } = await import('@/models/schema.ts')
     const liveClassId = String(req.params['id'] ?? '')
+    if (!(await assertLiveClassEditable(liveClassId, req))) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Session not found' } }); return
+    }
     const { title, description, dueDate } = req.body as { title: string; description: string; dueDate?: string }
     const hw = await SessionHomeworkModel.create({
       liveClassId,
@@ -1278,19 +1638,25 @@ router.post('/live-classes/:id/homework', requireRole('admin', 'instructor'), va
   } catch (err) { next(err) }
 })
 
-router.get('/live-classes/:id/homework', requireRole('admin', 'instructor'), async (req: Request, res: Response, next: NextFunction) => {
+router.get('/live-classes/:id/homework', requireRole('super_admin', 'admin', 'instructor'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { SessionHomeworkModel } = await import('@/models/schema.ts')
     const liveClassId = String(req.params['id'] ?? '')
+    if (!(await assertLiveClassEditable(liveClassId, req))) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Session not found' } }); return
+    }
     const list = await SessionHomeworkModel.find({ liveClassId }).populate('assignedBy', 'id name').lean({ virtuals: true })
     sendSuccess(res, (list as any[]).map(d => ({ ...d, id: d.id ?? String(d._id) })))
   } catch (err) { next(err) }
 })
 
-router.get('/live-classes/:id/homework/submissions', requireRole('admin', 'instructor'), async (req: Request, res: Response, next: NextFunction) => {
+router.get('/live-classes/:id/homework/submissions', requireRole('super_admin', 'admin', 'instructor'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { SessionHomeworkModel, HomeworkSubmissionModel } = await import('@/models/schema.ts')
     const liveClassId = String(req.params['id'] ?? '')
+    if (!(await assertLiveClassEditable(liveClassId, req))) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Session not found' } }); return
+    }
     const homeworks = await SessionHomeworkModel.find({ liveClassId }).lean({ virtuals: true })
     const hwIds = homeworks.map(h => h._id)
     const submissions = await HomeworkSubmissionModel.find({ homeworkId: { $in: hwIds } })
@@ -1302,29 +1668,44 @@ router.get('/live-classes/:id/homework/submissions', requireRole('admin', 'instr
   } catch (err) { next(err) }
 })
 
-router.patch('/homework/:id', requireRole('admin', 'instructor'), validate(homeworkUpdateSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.patch('/homework/:id', requireRole('super_admin', 'admin', 'instructor'), validate(homeworkUpdateSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { SessionHomeworkModel } = await import('@/models/schema.ts')
     const id = String(req.params['id'] ?? '')
-    const hw = await SessionHomeworkModel.findByIdAndUpdate(id, req.body, { new: true }).lean({ virtuals: true })
+    if (!(await assertHomeworkEditable(id, req))) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Homework not found' } }); return
+    }
+    const { title, description, dueDate } = req.body as { title?: string; description?: string; dueDate?: string }
+    const update: Record<string, unknown> = {}
+    if (title       !== undefined) update['title']       = title
+    if (description !== undefined) update['description'] = description
+    if (dueDate     !== undefined) update['dueDate']     = new Date(dueDate)
+    const hw = await SessionHomeworkModel.findByIdAndUpdate(id, update, { new: true }).lean({ virtuals: true })
     if (!hw) { res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Homework not found' } }); return }
     sendSuccess(res, hw, 'Homework updated')
   } catch (err) { next(err) }
 })
 
-router.delete('/homework/:id', requireRole('admin', 'instructor'), async (req: Request, res: Response, next: NextFunction) => {
+router.delete('/homework/:id', requireRole('super_admin', 'admin', 'instructor'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { SessionHomeworkModel } = await import('@/models/schema.ts')
     const id = String(req.params['id'] ?? '')
+    if (!(await assertHomeworkEditable(id, req))) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Homework not found' } }); return
+    }
     await SessionHomeworkModel.findByIdAndDelete(id)
     sendSuccess(res, null, 'Homework deleted')
   } catch (err) { next(err) }
 })
 
-router.patch('/homework-submissions/:id/grade', requireRole('admin', 'instructor'), validate(gradeHomeworkSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.patch('/homework-submissions/:id/grade', requireRole('super_admin', 'admin', 'instructor'), validate(gradeHomeworkSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { HomeworkSubmissionModel } = await import('@/models/schema.ts')
     const id = String(req.params['id'] ?? '')
+    const existing = await HomeworkSubmissionModel.findById(id).select('homeworkId').lean()
+    if (!existing || !(await assertHomeworkEditable(String(existing.homeworkId), req))) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Submission not found' } }); return
+    }
     const { grade, feedback } = req.body as { grade: number; feedback?: string }
     const sub = await HomeworkSubmissionModel.findByIdAndUpdate(
       id,
@@ -1344,6 +1725,13 @@ router.get('/live-classes/:id/feedback', requireInstructor, async (req: Request,
     const liveClassId = String(req.params['id'] ?? '')
     if (!Types.ObjectId.isValid(liveClassId)) {
       res.status(400).json({ success: false, error: { code: 'INVALID_ID', message: 'Invalid id' } }); return
+    }
+    /* Tenancy + ownership (P-12). Every other by-id live-class route runs this
+       gate; this one was missed, so any instructor in either academy could read
+       a colleague's session feedback — with the reviewing students' names and
+       email addresses attached. */
+    if (!(await callerMayManageSession(req, liveClassId))) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Live class not found' } }); return
     }
     const docs = await ClassFeedbackModel.find({ liveClassId: new Types.ObjectId(liveClassId) })
       .populate('userId', 'id name email avatarUrl')
@@ -1391,6 +1779,11 @@ router.patch ('/roles/:id',                  requireRole('super_admin'), validat
 router.patch ('/roles/:id/permissions',      requireRole('super_admin'), validate(permissionsBodySchema), roleCtrl.updatePermissions)
 router.delete('/roles/:id',                  requireRole('super_admin'), roleCtrl.delete)
 router.patch ('/users/:userId/assign-role',  requireRole('super_admin'), validate(assignRoleSchema), roleCtrl.assignRole)
-router.post  ('/users/:userId/impersonate',  requireRole('super_admin'), roleCtrl.impersonate)
+/* NOTE: impersonation is registered ONCE, at POST /users/:id/impersonate above
+   (~line 300) — the audited, TTL-bounded handler in AdminController. A second
+   registration used to sit here pointing at RolesController.impersonate; Express
+   matches the first, so it was unreachable code that nonetheless implemented
+   different rules for the most sensitive endpoint in the system (P-25). Removed
+   rather than left for a future edit to accidentally activate. */
 
 export default router

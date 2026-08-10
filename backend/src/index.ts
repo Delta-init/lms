@@ -33,6 +33,19 @@ async function bootstrap() {
     // Index already gone or collection doesn't exist yet — no action needed
   }
 
+  /* 1b-pre2. Drop the legacy globally-unique index on coupon.code. Coupon codes
+     are unique PER ORGANIZATION now (compound index in the schema), so the old
+     single-field unique index would still reject a second academy reusing a
+     code. Idempotent — swallowed when the index is already gone. */
+  try {
+    const { CouponModel } = await import('@/models/schema.ts')
+    await CouponModel.collection.dropIndex('code_1')
+    await CouponModel.syncIndexes()
+    logger.info('✅  Re-indexed coupons: code is now unique per organization')
+  } catch {
+    // Index already dropped or collection doesn't exist yet — no action needed
+  }
+
   /* 1b. Migrate legacy student accounts that predate the enrollmentStatus field */
   const migrated = await UserModel.updateMany(
     { role: 'student', enrollmentStatus: { $exists: false } },
@@ -50,7 +63,13 @@ async function bootstrap() {
     const noOrg  = { organizationId: { $exists: false } }
     const setOrg = { $set: { organizationId: orgId } }
 
-    const [users, courses, classes, enrollments, orders, coupons, tickets] = await Promise.all([
+    /* LearningPathModel joined this list with P-22, which gave learning paths
+       an organizationId. Rows created before that have none, and the
+       `{org} OR {null}` filters keep them visible either way — this just
+       stops them lingering as permanently unscoped. */
+    const { LearningPathModel } = await import('@/models/schema.ts')
+
+    const [users, courses, classes, enrollments, orders, coupons, tickets, paths] = await Promise.all([
       UserModel.updateMany({ ...noOrg, role: { $ne: 'super_admin' } }, setOrg),
       CourseModel.updateMany(noOrg, setOrg),
       LiveClassModel.updateMany(noOrg, setOrg),
@@ -58,14 +77,71 @@ async function bootstrap() {
       OrderModel.updateMany(noOrg, setOrg),
       CouponModel.updateMany(noOrg, setOrg),
       SupportTicketModel.updateMany(noOrg, setOrg),
+      LearningPathModel.updateMany(noOrg, setOrg),
     ])
 
     const total = users.modifiedCount + courses.modifiedCount + classes.modifiedCount
-      + enrollments.modifiedCount + orders.modifiedCount + coupons.modifiedCount + tickets.modifiedCount
+      + enrollments.modifiedCount + orders.modifiedCount + coupons.modifiedCount
+      + tickets.modifiedCount + paths.modifiedCount
 
     if (total > 0) {
       logger.info(`✅  Org backfill: assigned ${total} record(s) → Dubai Academy`)
     }
+  }
+
+  /* 1d. Coupon currency backfill (N-01) — stamp each coupon with its academy's
+     currency so a fixed-amount discount has a defined unit.
+
+     `discountValue` used to be documented as USD but applied as bare minor
+     units against whatever the gateway charged in, so one "50" coupon meant
+     50 AED through Abzer and 50 INR through Razorpay. Redemption now requires
+     the currencies to match, and a fixed coupon with no currency on record is
+     refused outright — so this backfill is what keeps existing coupons usable.
+
+     Idempotent: only touches rows that have no currency yet. Percent coupons
+     are stamped too (harmless, and it keeps the field uniform) — a ratio is
+     currency-neutral so their behaviour is unchanged either way. */
+  const orgs = await OrganizationModel.find().select('_id currency').lean()
+  let stamped = 0
+  for (const org of orgs) {
+    if (!org.currency) continue
+    const res = await CouponModel.updateMany(
+      { organizationId: org._id, currency: { $exists: false } },
+      { $set: { currency: org.currency } },
+    )
+    stamped += res.modifiedCount
+  }
+  if (stamped > 0) {
+    logger.info(`✅  Coupon currency backfill: stamped ${stamped} coupon(s) from their academy`)
+  }
+  /* Anything still unstamped has no resolvable academy — surface it, because
+     every fixed coupon in this state will be refused at checkout. */
+  /* 1e. Verification-first signup (M-05).
+     This used to log an error on every boot: the flag issues no session at
+     signup, and the full signup form uploaded its identity documents AFTER
+     registering using exactly that session, so turning it on silently lost
+     every applicant's passport and ID.
+
+     That blocker is gone — the documents now go up before registration via
+     POST /uploads/signup-doc and travel in with the register payload, so a
+     signup completes without a session on either side. What remains is a
+     product trade-off rather than a defect, so this is informational. */
+  if (process.env['SIGNUP_REQUIRE_VERIFICATION'] === 'true') {
+    logger.info(
+      'ℹ️  SIGNUP_REQUIRE_VERIFICATION is ON — new accounts get no session until the ' +
+      'emailed link is followed. Identity documents are stored before registration, so ' +
+      'full signups complete normally. Deliverability now gates first sign-in.',
+    )
+  }
+
+  const orphaned = await CouponModel.countDocuments({
+    currency: { $exists: false }, discountType: 'fixed',
+  })
+  if (orphaned > 0) {
+    logger.error(
+      { orphaned },
+      '⚠️  Fixed-amount coupons with no currency on record — these will be REFUSED at checkout until re-created (N-01)',
+    )
   }
 
   /* 2. Start HTTP server.
@@ -78,8 +154,13 @@ async function bootstrap() {
   const instanceId = Number(process.env.NODE_APP_INSTANCE ?? 0)
   const listenPort = env.PORT + instanceId
   process.env.PORT = String(listenPort) // so /health reports the real port
-  const server = app.listen(listenPort, () => {
-    logger.info(`🚀  Server running on http://localhost:${listenPort} (instance ${instanceId})`)
+  /* Bind loopback only — nginx dials 127.0.0.1:4000-4003 (see nginx.lms.conf),
+     so a public bind would let anyone reach the API directly and skip TLS, the
+     WAF and the edge rate limits. Set BIND_HOST=0.0.0.0 when the proxy lives in
+     a different container/host and loopback is not reachable. */
+  const bindHost = process.env.BIND_HOST ?? '127.0.0.1'
+  const server = app.listen(listenPort, bindHost, () => {
+    logger.info(`🚀  Server running on http://${bindHost}:${listenPort} (instance ${instanceId})`)
     logger.info(`📡  API prefix: /api/v1`)
     logger.info(`🌍  Environment: ${env.NODE_ENV}`)
   })
@@ -94,6 +175,20 @@ async function bootstrap() {
     logger.info('⏰  Reminder cron jobs started (primary instance)')
   } else {
     logger.info(`⏸️   Reminder cron jobs skipped (instance ${process.env.NODE_APP_INSTANCE})`)
+  }
+
+  /* H-11 — identity scans must live in storage with no public access.
+     pub-*.r2.dev exposes an entire bucket, so the main media bucket cannot
+     hold them. Loud on every boot until a private bucket is configured. */
+  {
+    const { isKycStoragePrivate, isR2Configured } = await import('@/services/r2.service.ts')
+    if (!isKycStoragePrivate()) {
+      logger.error(
+        'R2_KYC_BUCKET_NAME is not set to a separate PRIVATE bucket — passport and ID scans remain publicly readable (H-11).',
+      )
+    } else if (isR2Configured()) {
+      logger.info('🔐  Identity scans stored in a private bucket')
+    }
   }
 
   /* Register Tabby webhook (idempotent — safe to call every boot) */

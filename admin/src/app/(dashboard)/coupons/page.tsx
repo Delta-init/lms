@@ -108,15 +108,22 @@ function CouponFormModal({
               onChange={e => setForm(f => ({ ...f, discountType: e.target.value as 'percent' | 'fixed' }))}
               className={inputCls} style={inputStyle}>
               <option value="percent">Percent (%)</option>
-              <option value="fixed">Fixed ($)</option>
+              <option value="fixed">Fixed amount</option>
             </select>
           ))}
-          {field('Value', (
-            <input type="number" value={form.discountValue}
-              onChange={e => setForm(f => ({ ...f, discountValue: e.target.value }))}
-              placeholder={form.discountType === 'percent' ? '20' : '10'}
-              className={inputCls} style={inputStyle} min={0} />
-          ))}
+          {/* A fixed amount is in the ACADEMY's currency, not USD (N-01). Say so
+              on the label, because the number is otherwise ambiguous and the
+              old "$" was wrong for every gateway actually in use. */}
+          {field(
+            form.discountType === 'fixed' && initial?.currency
+              ? `Value (${initial.currency})`
+              : 'Value',
+            (
+              <input type="number" value={form.discountValue}
+                onChange={e => setForm(f => ({ ...f, discountValue: e.target.value }))}
+                placeholder={form.discountType === 'percent' ? '20' : '100'}
+                className={inputCls} style={inputStyle} min={0} />
+            ))}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -225,7 +232,14 @@ export default function AdminCouponsPage() {
                   <span className="font-mono font-bold text-white">{c.code}</span>
                 </td>
                 <td className="px-4 py-3 text-white font-semibold">
-                  {c.discountType === 'percent' ? `${c.discountValue}%` : `$${c.discountValue}`}
+                  {/* Fixed amounts are in the owning academy's currency, not USD (N-01).
+                      A coupon with no currency on record is refused at checkout, so
+                      flag it here rather than rendering a misleading figure. */}
+                  {c.discountType === 'percent'
+                    ? `${c.discountValue}%`
+                    : c.currency
+                      ? `${c.currency} ${c.discountValue}`
+                      : `${c.discountValue} ⚠️`}
                 </td>
                 <td className="px-4 py-3 tabular-nums" style={{ color: 'rgba(255,255,255,0.6)' }}>
                   {c.usedCount}{c.maxUses > 0 ? ` / ${c.maxUses}` : ''}

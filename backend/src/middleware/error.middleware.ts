@@ -23,6 +23,8 @@ import { BookmarkError } from '@/services/bookmark.service.ts'
 import { LearningPathError } from '@/services/learningpath.service.ts'
 import { AIError } from '@/services/ai.service.ts'
 import { SupportError } from '@/services/support.service.ts'
+import { TotpError } from '@/services/totp.service.ts'
+import { TranscriptError } from '@/services/transcript.service.ts'
 
 /* ─────────────────────────────────────────────────────
    Global error handler
@@ -36,6 +38,41 @@ export function errorMiddleware(
   res: Response,
   _next: NextFunction,
 ): void {
+  /* ── A value that cannot be an id is a BAD REQUEST, not a server fault ──
+     Mongoose throws a CastError when a non-ObjectId reaches findById or a
+     query on an ObjectId path. It is not one of the domain error classes
+     below, so it fell all the way through to the generic handler: a mistyped
+     URL answered 500 "An unexpected error occurred" and logged a stack trace.
+
+     B-06 fixed this in BaseRepository, which covers every repository — but a
+     dozen services call the Mongoose models directly (quiz, assignment,
+     certificate, auth), and those bypassed it entirely. Handling the error
+     class itself is the only place that covers all of them, including the
+     next one somebody writes.
+
+     404 rather than 400: the caller asked for a thing that cannot exist, and
+     answering "not found" avoids distinguishing a malformed id from a real
+     one that is simply absent.
+
+     There are TWO error shapes, and catching only the first is why the initial
+     version of this branch changed nothing for quizzes and assignments:
+
+       • CastError  — Mongoose casting a bad value for a query path.
+       • BSONError  — the driver rejecting `new Types.ObjectId(bad)`, which is
+                      what services do when they build the id themselves.
+                      Message: "input must be a 24 character hex string…".
+                      Older driver versions call it BSONTypeError.
+
+     The second was found by catching a real one and printing its constructor,
+     rather than by assuming which class Mongoose throws. */
+  const errName = err && typeof err === 'object' ? (err as { name?: string }).name : undefined
+  if (errName === 'CastError' || errName === 'BSONError' || errName === 'BSONTypeError') {
+    const path = (err as { path?: string }).path ?? 'id'
+    logger.debug({ err, path, url: req.originalUrl }, 'Malformed identifier rejected')
+    sendError(res, 'NOT_FOUND', `No record matches that ${path}.`, 404)
+    return
+  }
+
   /* ── Domain errors (auth, business logic) ──────── */
   if (err instanceof AuthError) {
     sendError(res, err.code, err.message, err.statusCode)
@@ -118,6 +155,14 @@ export function errorMiddleware(
     return
   }
   if (err instanceof AIError) {
+    sendError(res, err.code, err.message, err.statusCode)
+    return
+  }
+  if (err instanceof TotpError) {
+    sendError(res, err.code, err.message, err.statusCode)
+    return
+  }
+  if (err instanceof TranscriptError) {
     sendError(res, err.code, err.message, err.statusCode)
     return
   }

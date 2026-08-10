@@ -18,6 +18,18 @@ export interface AuthUser {
   categoryScope?:  ProgramCategory
   organizationId?: string    // ObjectId as string — set by authenticateAdmin; undefined for super_admin with no org header
   program?:        ProgramType  // sub_admin only
+  /* Present ONLY when this request is being made through an impersonation
+     token (M-04). `id`/`email`/`role` remain the impersonated user — that is
+     what authorisation must judge — while these record who is really behind
+     the request, so the audit trail names the operator rather than the
+     account they borrowed. */
+  impersonatorId?:    string
+  impersonatorEmail?: string
+  impersonationId?:   string   // the ImpersonationSession being used
+  /* A custom role assigned to this account (P-10). Only NARROWS what the base
+     role already permits — see requirePermission(). Undefined for almost
+     everyone, which is why resolving the matrix costs nothing in practice. */
+  customRoleId?:      string
 }
 
 /* ─────────────────────────────────────────────────────
@@ -107,6 +119,12 @@ export interface AccessTokenPayload {
   email: string
   role: UserRole
   type: 'access'
+  /* Impersonation only (M-04). `act` follows RFC 8693's "actor" idea: the
+     party genuinely making the request, as distinct from `sub`, the party it
+     is made as. `isn` names the ImpersonationSession, which is re-checked on
+     every request so revoking the row ends the session immediately. */
+  act?: { sub: string; email: string }
+  isn?: string
 }
 
 export interface RefreshTokenPayload {

@@ -5,6 +5,7 @@
  * route handler instead.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { pickClientIp } from '@/lib/clientIp'
 
 const BACKEND = process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
@@ -27,8 +28,31 @@ async function proxy(req: NextRequest, ctx: Context): Promise<NextResponse> {
   const orgId = req.headers.get('x-organization-id')
   if (orgId) fwdHeaders.set('x-organization-id', orgId)
 
+  /* Relay the admin's real address so the backend can rate-limit per person
+     instead of per proxy (M-11). This fetch is server-to-server, so without it
+     every admin looks like this server and they all share one bucket.
+
+     A dedicated header + shared secret is the only relay that survives the hop:
+     nginx rewrites X-Real-IP and appends to X-Forwarded-For, and any header a
+     browser can set is forgeable by anyone calling the API directly. With
+     PROXY_SHARED_SECRET unset nothing is sent and behaviour is unchanged. */
+  const proxySecret = process.env.PROXY_SHARED_SECRET
+  if (proxySecret) {
+    const clientIp = pickClientIp(req.headers)
+    if (clientIp) {
+      fwdHeaders.set('x-lms-client-ip', clientIp)
+      fwdHeaders.set('x-lms-proxy-secret', proxySecret)
+    }
+  }
+
+  /* arrayBuffer(), NOT text(): multipart uploads carry raw binary, and decoding
+     those bytes as UTF-8 replaces every invalid sequence with U+FFFD. That
+     destroyed the leading magic bytes of every JPEG/PNG/PDF the admin panel
+     uploaded, so the backend's signature check rejected them with a message
+     that blamed the file rather than this line. The client proxy always did
+     this correctly; this one had drifted. */
   const hasBody = req.method !== 'GET' && req.method !== 'HEAD'
-  const body    = hasBody ? await req.text() : undefined
+  const body    = hasBody ? await req.arrayBuffer() : undefined
 
   let backendRes: Response
   try {

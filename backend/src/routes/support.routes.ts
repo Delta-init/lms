@@ -22,6 +22,7 @@ import {
   authenticateAdmin,
   authenticateAny,
   requireAnyAdmin,
+  requirePermission,
   injectCategoryScope,
 } from '@/middleware/auth.middleware.ts'
 import { validate } from '@/middleware/validate.middleware.ts'
@@ -40,8 +41,8 @@ const statusSchema  = z.object({ status: z.enum(['open', 'pending', 'resolved', 
 /* ── Admin portal (cookie `lms_admin_at`) — declared before "/:id" ── */
 router.get('/admin/performance', authenticateAdmin, requireAnyAdmin, ctrl.performance)
 router.get('/admin/stats',       authenticateAdmin, requireAnyAdmin, injectCategoryScope, ctrl.stats)
-router.get('/admin',             authenticateAdmin, requireAnyAdmin, injectCategoryScope, ctrl.listAll)
-router.patch('/:id/status', authenticateAdmin, requireAnyAdmin, validate(statusSchema), ctrl.setStatus)
+router.get('/admin',             authenticateAdmin, requireAnyAdmin, requirePermission('support','list'), injectCategoryScope, ctrl.listAll)
+router.patch('/:id/status', authenticateAdmin, requireAnyAdmin, requirePermission('support','update'), validate(statusSchema), ctrl.setStatus)
 
 /* ── Client portal (cookie `lms_at`) ── */
 router.post('/', authenticate, validate(createSchema), ctrl.create)

@@ -58,3 +58,8 @@ bun.lockb
 # ─── Uploads / Media (local dev only) ────────────────
 uploads/
 public/uploads/
+
+# Stale editor/backup artefacts
+*.tmp
+*.bak
+*.orig

@@ -16,10 +16,25 @@ const submitSchema = z.object({
   message: 'Provide a URL or text submission',
 })
 
-/* GET /assignments/lessons/:lessonId — get assignment details */
+/* GET /assignments/lessons/:lessonId — get assignment details.
+   Enrolment-gated (P-20): submitting was checked, reading was not, so any
+   authenticated account — including an unapproved viewer and the other
+   academy's students — could pull a paid course's assignment instructions by
+   lesson id. Staff read freely; the admin editor uses its own route. */
 router.get('/lessons/:lessonId', authenticate, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const assignment = await assignSvc.getByLesson(String(req.params['lessonId'] ?? ''))
+    if (assignment && req.user!.role === 'student') {
+      const { EnrollmentRepository } = await import('@/repositories/enrollment.repository.ts')
+      const enrolled = await new EnrollmentRepository()
+        .findByUserCourse(req.user!.id, assignment.courseId.toString())
+      if (!enrolled) {
+        res.status(403).json({
+          success: false,
+          error: { code: 'NOT_ENROLLED', message: 'You must be enrolled to view this assignment' },
+        }); return
+      }
+    }
     sendSuccess(res, assignment ?? null)
   } catch (err) { next(err) }
 })

@@ -132,6 +132,9 @@ export interface AdminCoupon {
   code:          string
   discountType:  'percent' | 'fixed'
   discountValue: number
+  /* For discountType 'fixed', the currency discountValue is denominated in —
+     the owning academy's, stamped by the backend at create time (N-01). */
+  currency?:     'AED' | 'INR'
   maxUses:       number
   usedCount:     number
   expiresAt?:    string | null

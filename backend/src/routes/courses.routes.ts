@@ -5,6 +5,7 @@ import { EnrollmentController } from '@/controllers/enrollment.controller.ts'
 import { ReviewController } from '@/controllers/review.controller.ts'
 import { LiveClassController } from '@/controllers/liveClass.controller.ts'
 import { authenticate, optionalAuthenticate, requireEnrollmentApproval } from '@/middleware/auth.middleware.ts'
+import { searchRateLimit } from '@/middleware/rateLimit.middleware.ts'
 import { validate } from '@/middleware/validate.middleware.ts'
 
 const router  = Router()
@@ -40,7 +41,7 @@ router.get ('/',                       optionalAuthenticate, validate(listQueryS
    "by-id" as a slug and the wrong handler fires. */
 router.get ('/by-id/:id',              optionalAuthenticate, courses.getById)
 router.get ('/:slug',                   optionalAuthenticate, courses.getBySlug)
-router.get ('/:slug/ai-notes',          courses.getAINotes)
+router.get ('/:slug/ai-notes',          searchRateLimit, authenticate, courses.getAINotes)
 router.get ('/:slug/recommendations',   courses.getRecommendations)
 router.get ('/:slug/rating-histogram', courses.getRatingHistogram)
 router.get ('/:slug/live-classes',     optionalAuthenticate, live.listForCourseSlug)

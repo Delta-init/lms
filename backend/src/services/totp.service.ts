@@ -5,6 +5,9 @@
  *   1. POST /auth/2fa/setup   → returns { secret, otpauthUrl }
  *   2. POST /auth/2fa/enable  { code } → verifies code, sets twoFactorEnabled=true
  *   3. POST /auth/2fa/disable { password } → re-auth, clears secret
+ *
+ * Sign-in step (AuthService.loginTwoFactor → verifyLoginCode):
+ *   POST /auth/login → challenge, then POST /auth/login/2fa { challengeToken, code }
  */
 import { createHmac, randomBytes } from 'crypto'
 import { UserModel } from '@/models/schema.ts'
@@ -100,12 +103,32 @@ export class TotpError extends Error {
 /* ─── Service ────────────────────────────────────────────── */
 export class TotpService {
 
-  /* ── Setup: generate secret, return otpauth:// URL ──── */
-  async setup(userId: string): Promise<{ secret: string; otpauthUrl: string }> {
-    const user = await UserModel.findById(userId).exec()
+  /* ── Setup: generate secret, return otpauth:// URL ────
+       RE-AUTHENTICATES WITH THE PASSWORD, exactly as disable() does (NEW-01).
+
+       It used to require only a live session, while disable() required the
+       password — and that asymmetry was the bug. Anyone holding a session they
+       did not own (a shared computer, an unlocked laptop) could ask for the
+       secret, put it in their own authenticator, enable 2FA, and walk away.
+       The real owner is then locked out of their own account with no way back:
+       disabling needs a login they can no longer complete, a password reset
+       leaves twoFactorEnabled untouched, and no admin endpoint writes the
+       field either — recovery meant editing the database by hand.
+
+       Gating setup() is sufficient on its own: enable() needs a valid code,
+       and a code needs the secret, which only this method hands out. So one
+       password prompt closes the whole path rather than two. */
+  async setup(userId: string, password: string): Promise<{ secret: string; otpauthUrl: string }> {
+    const user = await UserModel.findById(userId).select('+passwordHash').exec()
     if (!user) throw new TotpError('USER_NOT_FOUND', 'Account not found.', 404)
     if (user.twoFactorEnabled) {
       throw new TotpError('ALREADY_ENABLED', '2FA is already enabled on this account.', 409)
+    }
+    if (!user.passwordHash) {
+      throw new TotpError('OAUTH_ACCOUNT', 'Social-login accounts cannot use TOTP.', 400)
+    }
+    if (!(await comparePassword(password, user.passwordHash))) {
+      throw new TotpError('WRONG_PASSWORD', 'Password is incorrect.', 401)
     }
 
     /* 20 bytes = 160 bits — same as Google Authenticator default */
@@ -138,6 +161,16 @@ export class TotpService {
     logger.info({ userId }, '2FA enabled')
   }
 
+  /* ── Verify a code at sign-in (login second factor) ───
+       Keeps twoFactorSecret inside this service — callers
+       only learn whether the code matched. Returns false
+       for accounts that don't actually have 2FA active. */
+  async verifyLoginCode(userId: string, token: string): Promise<boolean> {
+    const user = await UserModel.findById(userId).select('+twoFactorSecret').exec()
+    if (!user || !user.twoFactorEnabled || !user.twoFactorSecret) return false
+    return verifyTotp(user.twoFactorSecret, token.trim())
+  }
+
   /* ── Disable: re-authenticate with password ──────────── */
   async disable(userId: string, password: string): Promise<void> {
     const user = await UserModel.findById(userId).select('+passwordHash +twoFactorSecret').exec()
@@ -164,5 +197,28 @@ export class TotpService {
     const user = await UserModel.findById(userId).select('twoFactorEnabled').exec()
     if (!user) throw new TotpError('USER_NOT_FOUND', 'Account not found.', 404)
     return { enabled: user.twoFactorEnabled ?? false }
+  }
+
+  /* ── Admin: clear 2FA for a user who has lost their device ──
+       The user-facing disable() requires the account's own password and a live
+       session, which is right — but it leaves nobody able to help someone whose
+       phone is gone. Before this, no endpoint anywhere wrote twoFactorEnabled
+       except the two above, so that recovery meant editing the database.
+
+       Deliberately NOT wired into the password-reset flow: clearing 2FA on
+       reset would mean anyone who can read the user's email defeats the second
+       factor entirely, which is the opposite of what it is for. Recovery
+       belongs with a human who can verify identity out of band. */
+  async adminReset(targetUserId: string): Promise<void> {
+    const user = await UserModel.findById(targetUserId).select('twoFactorEnabled').exec()
+    if (!user) throw new TotpError('USER_NOT_FOUND', 'User not found.', 404)
+    if (!user.twoFactorEnabled) {
+      throw new TotpError('NOT_ENABLED', '2FA is not enabled on this account.', 400)
+    }
+    await UserModel.findByIdAndUpdate(targetUserId, {
+      $set:   { twoFactorEnabled: false },
+      $unset: { twoFactorSecret: 1 },
+    }).exec()
+    logger.warn({ targetUserId }, '2FA reset by an administrator')
   }
 }

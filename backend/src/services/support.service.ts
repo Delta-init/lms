@@ -35,6 +35,29 @@ const isStaff = (r: Requester) =>
   r.role === 'admin' || r.role === 'super_admin' || r.role === 'sub_admin' || r.role === 'support'
   || r.role === '4x_admin' || r.role === 'digital_marketing_admin' || r.role === 'ai_admin'
 
+/* ─── Tenant isolation ─────────────────────────────────
+   Returns the org predicate for a caller, or null when no
+   scoping applies:
+     • super_admin sees every organization
+     • a caller with no org context is not scoped
+   Tickets that predate organizationId stay visible to everyone. */
+const orgScope = (r?: Requester): Record<string, unknown> | null => {
+  if (!r || r.role === 'super_admin')                                   return null
+  if (!r.organizationId || !Types.ObjectId.isValid(r.organizationId))   return null
+  return {
+    $or: [
+      { organizationId: new Types.ObjectId(r.organizationId) },
+      { organizationId: null },
+      { organizationId: { $exists: false } },
+    ],
+  }
+}
+
+/** Upper bound on a free-text search term before it reaches $regex. */
+const MAX_SEARCH_LEN = 100
+/** Hard ceiling on messages per ticket — keeps the doc well under Mongo's 16 MB limit. */
+const MAX_MESSAGES   = 200
+
 const notifSvc = new NotificationService()
 
 export class SupportService {
@@ -77,14 +100,16 @@ export class SupportService {
   }
 
   /* ── Admin: list all tickets (scoped by program and org if set) */
-  async listAll(filter: { status?: string; search?: string; program?: string; organizationId?: string } = {}): Promise<ISupportTicket[]> {
+  async listAll(filter: { status?: string; search?: string; program?: string } = {}, requester?: Requester): Promise<ISupportTicket[]> {
     const query: Record<string, unknown> = {}
     if (filter.status && filter.status !== 'all') query['status'] = filter.status
-    if (filter.search?.trim()) query['subject'] = { $regex: filter.search.trim(), $options: 'i' }
-    if (filter.program) query['program'] = filter.program
-    if (filter.organizationId && Types.ObjectId.isValid(filter.organizationId)) {
-      query['organizationId'] = new Types.ObjectId(filter.organizationId)
+    if (filter.search?.trim()) {
+      const escaped = filter.search.trim().slice(0, MAX_SEARCH_LEN).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      query['subject'] = { $regex: escaped, $options: 'i' }
     }
+    if (filter.program) query['program'] = filter.program
+    const scoped = orgScope(requester)
+    if (scoped) Object.assign(query, scoped)
     return SupportTicketModel
       .find(query)
       .sort({ lastMessageAt: -1 })
@@ -94,11 +119,10 @@ export class SupportService {
   }
 
   /* ── Admin: status counts (scoped by program and org if set) ── */
-  async adminStats(program?: string, organizationId?: string): Promise<{ open: number; pending: number; resolved: number; closed: number; unread: number; total: number }> {
+  async adminStats(program?: string, requester?: Requester): Promise<{ open: number; pending: number; resolved: number; closed: number; unread: number; total: number }> {
     const base: Record<string, unknown> = program ? { program } : {}
-    if (organizationId && Types.ObjectId.isValid(organizationId)) {
-      base['organizationId'] = new Types.ObjectId(organizationId)
-    }
+    const scoped = orgScope(requester)
+    if (scoped) Object.assign(base, scoped)
     const [open, pending, resolved, closed, unread, total] = await Promise.all([
       SupportTicketModel.countDocuments({ ...base, status: 'open' }),
       SupportTicketModel.countDocuments({ ...base, status: 'pending' }),
@@ -131,6 +155,7 @@ export class SupportService {
     if (!ticket) throw new SupportError('NOT_FOUND', 'Ticket not found', 404)
     this.assertAccess(ticket, requester)
     if (ticket.status === 'closed') throw new SupportError('TICKET_CLOSED', 'This ticket is closed. Open a new one if you still need help.', 400)
+    if (ticket.messages.length >= MAX_MESSAGES) throw new SupportError('TICKET_MESSAGE_LIMIT', `This ticket has reached its ${MAX_MESSAGES}-message limit. Open a new one to continue.`, 400)
 
     const staff = isStaff(requester)
     ticket.messages.push({
@@ -159,14 +184,13 @@ export class SupportService {
   }
 
   /* ── Admin: change ticket status ───────────────────── */
-  async setStatus(ticketId: string, status: SupportTicketStatus): Promise<ISupportTicket> {
+  async setStatus(ticketId: string, status: SupportTicketStatus, requester: Requester): Promise<ISupportTicket> {
     if (!Types.ObjectId.isValid(ticketId)) throw new SupportError('INVALID_ID', 'Invalid ticket id', 400)
-    const ticket = await SupportTicketModel.findByIdAndUpdate(
-      ticketId,
-      { $set: { status } },
-      { new: true },
-    )
+    const ticket = await SupportTicketModel.findById(ticketId)
     if (!ticket) throw new SupportError('NOT_FOUND', 'Ticket not found', 404)
+    this.assertAccess(ticket, requester)
+    ticket.status = status
+    await ticket.save()
     return this.populate(ticketId)
   }
 
@@ -207,6 +231,12 @@ export class SupportService {
         throw new SupportError('FORBIDDEN', 'You do not have access to this ticket', 403)
       }
       return
+    }
+    // staff are confined to their own organization; tickets with no
+    // organizationId predate the field and stay readable by everyone
+    const scoped = orgScope(requester)
+    if (scoped && ticket.organizationId && String(ticket.organizationId) !== requester.organizationId) {
+      throw new SupportError('FORBIDDEN', 'You do not have access to this ticket', 403)
     }
     // category-scoped admins can only see their program's tickets
     if (requester.categoryScope) {

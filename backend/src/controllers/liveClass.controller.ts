@@ -1,5 +1,7 @@
 import type { Request, Response, NextFunction } from 'express'
+import { logger } from '@/utils/logger.ts'
 import { LiveClassService } from '@/services/liveClass.service.ts'
+import { SectionService } from '@/services/section.service.ts'
 import { verifyWebhookSignature } from '@/services/mux.service.ts'
 import { createGoogleMeetLink } from '@/services/googleMeet.service.ts'
 import { sendSuccess } from '@/utils/response.ts'
@@ -9,7 +11,13 @@ function isPopulated(v: unknown): v is Record<string, unknown> & { id: string } 
   return !!v && typeof v === 'object' && typeof (v as { id?: unknown }).id === 'string'
 }
 
-function toDTO(doc: any) {
+/* `entitled` gates every field that hands the caller the session itself.
+   Mux playback ids are minted with a public playback policy, so the
+   image.mux.com thumbnail — which embeds that id — is as good as the stream
+   URL and is gated alongside it. Defaults to true: admin/instructor callers
+   see everything. `mentorNotes` is deliberately never emitted — it is private
+   post-session staff commentary. */
+function toDTO(doc: any, entitled = true) {
   const j              = doc.toJSON ? doc.toJSON() : doc
   const courseRef      = j.courseId
   const instructorRef  = j.instructorId
@@ -32,17 +40,17 @@ function toDTO(doc: any) {
     status:         j.status ?? 'scheduled',
 
     /* External-only */
-    meetingUrl:     !isInternal ? j.meetingUrl : undefined,
+    meetingUrl:     !isInternal && entitled ? j.meetingUrl : undefined,
 
     /* Internal-only (public fields — no muxStreamKey) */
-    muxPlaybackId:  isInternal ? j.muxPlaybackId  : undefined,
-    playbackUrl:    isInternal && j.muxPlaybackId
+    muxPlaybackId:  isInternal && entitled ? j.muxPlaybackId : undefined,
+    playbackUrl:    isInternal && entitled && j.muxPlaybackId
                       ? `https://stream.mux.com/${j.muxPlaybackId}.m3u8`
                       : undefined,
-    thumbnailUrl:   isInternal && j.muxPlaybackId
+    thumbnailUrl:   isInternal && entitled && j.muxPlaybackId
                       ? `https://image.mux.com/${j.muxPlaybackId}/thumbnail.jpg?time=0`
                       : undefined,
-    recordingUrl:   j.recordingUrl  ?? undefined,
+    recordingUrl:   entitled ? (j.recordingUrl ?? undefined) : undefined,
     viewerCount:    j.viewerCount   ?? 0,
     startedAt:      j.startedAt,
     endedAt:        j.endedAt,
@@ -71,8 +79,134 @@ function toDTO(doc: any) {
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   notifyBookedStudents — one place that tells everyone holding a booking
+
+   Previously this lived inline in adminUpdate and only sent EMAIL. Two things
+   were wrong with that:
+
+     • An instructor change produced nothing at all. A student books a session
+       because of who is teaching it; changing that silently is the surprise
+       this feature exists to remove.
+     • Nothing appeared in the in-app notification bell. Email is the channel
+       people miss; the bell is the one they actually see when they next open
+       the app. Both now fire for every change.
+
+   Cancelled takes precedence over the rest — if the session is gone, the fact
+   the instructor also changed is noise. A reschedule and an instructor change
+   in the same edit produce one message each, because they are separate facts.
+
+   Deliberately fire-and-forget: an SMTP outage must not fail the admin's save.
+   Each send is caught individually so one bad address cannot stop the rest —
+   the loop used to share a single catch, so the first failure silently
+   dropped every student after it.
+───────────────────────────────────────────────────────────────────────── */
+export interface BookingChangeNotice {
+  liveClassId:       string
+  title:             string
+  oldStart?:         Date | string
+  newStart?:         Date | string
+  wasCancelled:      boolean
+  wasRescheduled:    boolean
+  instructorChanged: boolean
+  oldInstructorId?:  string
+  newInstructorId?:  string
+}
+
+export async function notifyBookedStudents(notice: BookingChangeNotice): Promise<{
+  recipients: number; notified: number; emailed: number
+}> {
+  const { ClassBookingModel, UserModel } = await import('@/models/schema.ts')
+  const { NotificationService } = await import('@/services/notification.service.ts')
+  const email = await import('@/services/email.service.ts')
+  const notifications = new NotificationService()
+
+  /* A cancelled booking is not a recipient — that student already withdrew. */
+  const bookings = await ClassBookingModel.find({
+    liveClassId: notice.liveClassId,
+    status:      { $in: ['booked', 'attended'] },
+  }).select('userId').lean()
+
+  if (bookings.length === 0) return { recipients: 0, notified: 0, emailed: 0 }
+
+  /* One query for every recipient rather than one per booking. */
+  const userIds = bookings.map(b => b.userId)
+  const users   = await UserModel.find({ _id: { $in: userIds } }).select('name email').lean()
+
+  const instructorIds = [notice.oldInstructorId, notice.newInstructorId].filter(Boolean)
+  const instructors   = instructorIds.length
+    ? await UserModel.find({ _id: { $in: instructorIds } }).select('name').lean()
+    : []
+  const nameOf = (id?: string) =>
+    (instructors.find(i => String(i._id) === id) as { name?: string } | undefined)?.name ?? 'your instructor'
+
+  const oldStart = notice.oldStart ?? new Date()
+  const newStart = notice.newStart ?? new Date()
+
+  /* Same calendar day → a delay; a different day → a full reschedule. */
+  const day = (d: Date | string) => new Date(d).toLocaleDateString('en-US', { timeZone: 'Asia/Dubai' })
+  const isReschedule = day(oldStart) !== day(newStart)
+
+  let notified = 0, emailed = 0
+  for (const user of users) {
+    const u = user as { _id: unknown; name?: string; email?: string }
+    const messages: { title: string; body: string; send?: () => Promise<void> }[] = []
+
+    if (notice.wasCancelled) {
+      messages.push({
+        title: `Class cancelled: ${notice.title}`,
+        body:  'The session you booked has been cancelled.',
+        send:  () => email.sendCancelledNotification(u.email!, u.name ?? '', notice.title, oldStart),
+      })
+    } else {
+      if (notice.wasRescheduled) {
+        messages.push({
+          title: `Class rescheduled: ${notice.title}`,
+          body:  `The session has moved to ${new Date(newStart).toLocaleString('en-US', { timeZone: 'Asia/Dubai' })}.`,
+          send:  () => isReschedule
+            ? email.sendRescheduledNotification(u.email!, u.name ?? '', notice.title, oldStart, newStart)
+            : email.sendDelayNotification(u.email!, u.name ?? '', notice.title, newStart),
+        })
+      }
+      if (notice.instructorChanged) {
+        messages.push({
+          title: `Instructor changed: ${notice.title}`,
+          body:  `${nameOf(notice.oldInstructorId)} has been replaced by ${nameOf(notice.newInstructorId)}.`,
+          send:  () => email.sendInstructorChangedNotification(
+            u.email!, u.name ?? '', notice.title,
+            nameOf(notice.oldInstructorId), nameOf(notice.newInstructorId), newStart,
+          ),
+        })
+      }
+    }
+
+    for (const m of messages) {
+      try {
+        await notifications.create(String(u._id), {
+          kind:  'system',
+          title: m.title,
+          body:  m.body,
+          link:  `/live-classes/${notice.liveClassId}/watch`,
+        })
+        notified++
+      } catch (err) {
+        logger.error({ err, userId: String(u._id) }, 'booking change: in-app notification failed')
+      }
+      if (u.email && m.send) {
+        try { await m.send(); emailed++ }
+        catch (err) { logger.error({ err, to: u.email }, 'booking change: email failed') }
+      }
+    }
+  }
+
+  logger.info({ liveClassId: notice.liveClassId, recipients: users.length, notified, emailed },
+    'booking change notifications sent')
+  return { recipients: users.length, notified, emailed }
+}
+
 export class LiveClassController {
-  private readonly service = new LiveClassService()
+  private readonly service  = new LiveClassService()
+  private readonly sections = new SectionService()
 
   /* GET /courses/:slug/live-classes — optionally authenticated */
   listForCourseSlug = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -81,7 +215,10 @@ export class LiveClassController {
       const userId = req.user?.id
       const docs   = await this.service.listForCourseSlug(slug, userId)
       sendSuccess(res, docs.map(d => {
-        const dto = toDTO(d)
+        /* Anonymous and non-entitled callers get no Mux-derived thumbnail and
+           no recording — the playback id embedded in the thumbnail URL is
+           enough to watch the stream. */
+        const dto = toDTO(d, (d as any).isEntitled ?? false)
         /* Strip meeting URL and stream credentials from the course listing.
            Students receive the join link via email after booking a session. */
         delete (dto as any).meetingUrl
@@ -101,7 +238,24 @@ export class LiveClassController {
       const user     = await UserModel.findById(req.user!.id).select('category').lean()
       const category = (user as any)?.category as string | undefined
       const docs     = await this.service.listUpcomingForUser(req.user!.id, limit, category)
-      sendSuccess(res, docs.map(toDTO))
+      sendSuccess(res, docs.map(d => {
+        const isEnrolled = (d as any).isEnrolled ?? false
+        /* Entitlement is enrolment MINUS any module the admin blocked for this
+           student — a blocked module must not hand out the join/stream fields. */
+        const isEntitled = (d as any).isEntitled ?? false
+        const dto        = toDTO(d, isEntitled)
+        /* The feed lists every upcoming session, enrolled or not — but only
+           entitled students receive the join/stream fields. */
+        if (!isEntitled) {
+          delete (dto as any).meetingUrl
+          delete (dto as any).muxPlaybackId
+          delete (dto as any).playbackUrl
+          delete (dto as any).thumbnailUrl
+          delete (dto as any).recordingUrl
+        }
+        ;(dto as any).isEnrolled = isEnrolled
+        return dto
+      }))
     } catch (err) { next(err) }
   }
 
@@ -139,6 +293,71 @@ export class LiveClassController {
 
   /* ── Admin handlers ─────────────────────────────── */
 
+  /* Ownership gate — an instructor may only touch sessions they own (either
+     assigned to the session or owning its course). Every other admin role
+     (super_admin / admin / sub_admin / support) passes straight through.
+     Returns false once a response has already been sent. */
+  /* May this caller act on this session at all?
+     Two gates, in order:
+       1. TENANCY — everyone below super_admin is confined to their own
+          academy. Without this an admin of one academy can rewrite or delete
+          the other's sessions purely by knowing an id.
+       2. OWNERSHIP — an instructor is further confined to their own sessions.
+     Answers 404 rather than 403 across an academy boundary, so the endpoint
+     never confirms that an id exists elsewhere. */
+  #canManage = async (req: Request, res: Response, id: string): Promise<boolean> => {
+    const role = req.user?.role
+    if (role === 'super_admin') return true
+
+    const { LiveClassModel, CourseModel } = await import('@/models/schema.ts')
+    const { Types } = await import('mongoose')
+
+    if (!Types.ObjectId.isValid(id)) {
+      res.status(400).json({ success: false, error: { code: 'INVALID_ID', message: 'Invalid live class id' } }); return false
+    }
+    const live = await LiveClassModel.findById(id).select('instructorId courseId organizationId').lean()
+    if (!live) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Live class not found' } }); return false
+    }
+
+    /* 1. Tenancy. A caller with no academy on record, or a session that
+       predates the field, stays unscoped — same convention as every other
+       org guard in this codebase. */
+    const callerOrg = req.user?.organizationId
+    const liveOrg   = (live as { organizationId?: unknown }).organizationId
+    if (callerOrg && liveOrg && String(liveOrg) !== String(callerOrg)) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Live class not found' } }); return false
+    }
+
+    /* 2. Ownership applies only to teaching staff. */
+    if (role !== 'instructor') return true
+
+    const userId = String(req.user!.id)
+
+    /* A session names its own instructor, and that is the ONLY authority.
+       Owning the parent course does not grant control over a colleague's
+       session inside it — an admin who assigns Bob to teach one slot of
+       Alice's course must not thereby hand Alice the power to rewrite or
+       delete it.
+
+       The course owner is consulted only when the session names nobody,
+       which is legacy data from before instructorId was set. */
+    let owns: boolean
+    if (live.instructorId) {
+      owns = String(live.instructorId) === userId
+    } else if (live.courseId) {
+      const course = await CourseModel.findById(String(live.courseId)).select('instructorId').lean()
+      owns = String((course as any)?.instructorId ?? '') === userId
+    } else {
+      owns = false
+    }
+
+    if (!owns) {
+      res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'You can only manage your own live classes.' } }); return false
+    }
+    return true
+  }
+
   adminListAll = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const status = typeof req.query['status'] === 'string' ? req.query['status'] : 'all'
@@ -160,13 +379,14 @@ export class LiveClassController {
         organizationId: req.user?.organizationId,
         instructorId:   isInstructor ? req.user?.id : undefined,
       })
-      sendSuccess(res, docs.map(toDTO))
+      sendSuccess(res, docs.map(d => toDTO(d)))
     } catch (err) { next(err) }
   }
 
   adminGetById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const id    = String(req.params['id'] ?? '')
+      if (!(await this.#canManage(req, res, id))) return
       const scope = req.user?.categoryScope as string | undefined
       const live  = await this.service.getById(id)
       if (scope) {
@@ -193,7 +413,17 @@ export class LiveClassController {
         }
       }
       const docs = await this.service.listForCourseId(courseId)
-      sendSuccess(res, docs.map(toDTO))
+
+      /* An instructor sees only their own sessions, even inside a course they
+         own — matching adminListAll and the by-id guard. Without this, opening
+         a course exposes every colleague's session for it. Filtered here
+         rather than in the query because the set is one course's worth of
+         rows and it keeps the repository signature untouched. */
+      const visible = req.user?.role === 'instructor'
+        ? docs.filter(d => String((d as { instructorId?: unknown }).instructorId ?? '') === String(req.user!.id))
+        : docs
+
+      sendSuccess(res, visible.map(d => toDTO(d)))
     } catch (err) { next(err) }
   }
 
@@ -246,14 +476,38 @@ export class LiveClassController {
       const instructor = await UserModel.findById(instructorId).select('email').lean()
       const instructorEmail = (instructor as any)?.email as string | undefined
 
-      const meet = await createGoogleMeetLink({
-        title:            dto.title,
-        startISO:         String(dto.scheduledStart),
-        durationMins:     dto.durationMins,
-        instructorEmail,
-      })
-      meetingUrl     = meet.meetingUrl
-      googleMeetCode = meet.meetingCode || undefined
+      /* Google is a third party in the critical path of scheduling a class,
+         and this call had no error handling: a rate limit, an expired token or
+         a network blip threw straight past the error middleware and the admin
+         saw "An unexpected error occurred" with no idea what to do. It showed
+         up as an INTERMITTENT 500 — the suite passed six times standalone and
+         failed inside the full chain, where the call is more likely to be
+         throttled.
+
+         The session is deliberately still NOT created on failure, matching the
+         previous behaviour: a live class with no join link would strand the
+         students who booked it. What changes is that the caller now gets a
+         specific, actionable error instead of a generic one, and the cause is
+         logged. Whether a Google outage should instead create the session and
+         let an admin attach a link later (there is already a /recreate
+         endpoint for that) is a product decision, not a code one. */
+      try {
+        const meet = await createGoogleMeetLink({
+          title:            dto.title,
+          startISO:         String(dto.scheduledStart),
+          durationMins:     dto.durationMins,
+          instructorEmail,
+        })
+        meetingUrl     = meet.meetingUrl
+        googleMeetCode = meet.meetingCode || undefined
+      } catch (err) {
+        logger.error({ err, title: dto.title, instructorEmail },
+          'Google Meet link generation failed — live class not created')
+        throw Object.assign(
+          new Error('Could not create the Google Meet link. Please try again in a moment.'),
+          { statusCode: 503, code: 'MEET_LINK_UNAVAILABLE' },
+        )
+      }
     }
 
     const live = await this.service.create({
@@ -307,7 +561,20 @@ export class LiveClassController {
 
   adminCreate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { live } = await this.#createOne(req.body, req)
+      const body = { ...(req.body as Record<string, unknown>) } as any
+      /* Ownership gate — categoryScope alone is not one: it is only set for
+         three admin categories, so an instructor with no category slipped past
+         every check in #createOne and could schedule inside any course (and
+         mass-notify its students). An instructor may only target a course they
+         own, and is always the instructor of record — a caller-supplied
+         instructorId is ignored (mirrors course create in admin.controller.ts). */
+      if (req.user?.role === 'instructor') {
+        await this.sections.assertCourseEditable(
+          String(body.courseId ?? ''), req.user.id, req.user.role, req.user.categoryScope,
+        )
+        body.instructorId = req.user.id
+      }
+      const { live } = await this.#createOne(body, req)
       sendSuccess(res, toDTO(live), 'Live class scheduled', 201)
     } catch (err: any) {
       if (err?.statusCode) {
@@ -341,6 +608,7 @@ export class LiveClassController {
         res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Live class not found' } })
         return
       }
+      if (!(await this.#canManage(req, res, sourceId))) return
 
       let seriesId = (source as any).seriesId ? String((source as any).seriesId) : undefined
       if (!seriesId) {
@@ -384,6 +652,7 @@ export class LiveClassController {
   adminUpdate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const id    = String(req.params['id'] ?? '')
+      if (!(await this.#canManage(req, res, id))) return
       const scope = req.user?.categoryScope as string | undefined
       if (scope) {
         const existing = await this.service.getById(id)
@@ -405,8 +674,36 @@ export class LiveClassController {
       if (typeof dto['status']            === 'string')  data.status            = dto['status'] as any
       if (typeof dto['sessionCapacity']   === 'number')  data.sessionCapacity   = dto['sessionCapacity']
       if (typeof dto['mentorNotes']       === 'string')  data.mentorNotes       = dto['mentorNotes']
-      if (typeof dto['instructorId']      === 'string')  data.instructorId      = dto['instructorId']
-      if (typeof dto['courseId']          === 'string')  data.courseId          = dto['courseId']
+      /* Re-parenting is validated against the TARGET, not just the current
+         session (P-16). #canManage above checked the session as it stands;
+         these two fields decide who may attend and who owns it, and were
+         copied from the body unchecked — so an instructor could attach their
+         session to any course on the platform, and an org admin could move one
+         across the academy boundary.
+
+         assertCourseEditable applies tenancy then ownership, so a legitimate
+         move between courses the caller already administers still passes. */
+      if (typeof dto['courseId'] === 'string') {
+        const existing      = await this.service.getById(id)
+        const currentCourse = isPopulated(existing.courseId as any)
+          ? (existing.courseId as any).id
+          : String(existing.courseId)
+        /* Only a genuine MOVE needs re-validating; re-submitting the course the
+           session already belongs to is a no-op the caller has already been
+           cleared for by #canManage. */
+        if (dto['courseId'] !== currentCourse) {
+          await this.sections.assertCourseEditable(
+            dto['courseId'], req.user!.id, req.user!.role, req.user!.categoryScope,
+          )
+        }
+        data.courseId = dto['courseId']
+      }
+
+      /* An instructor is always the instructor of record for their own
+         sessions — mirrors adminCreate, which forces the same thing. */
+      if (typeof dto['instructorId'] === 'string' && req.user?.role !== 'instructor') {
+        data.instructorId = dto['instructorId']
+      }
       if (typeof dto['sectionId']         === 'string')  data.sectionId         = dto['sectionId']
       if (typeof dto['language']          === 'string')  data.language          = dto['language']
       if (typeof dto['isOnline']          === 'boolean') data.isOnline          = dto['isOnline']
@@ -414,43 +711,38 @@ export class LiveClassController {
       if (typeof dto['room']              === 'string')  data.room              = dto['room']
       if (typeof dto['rescheduleReason']  === 'string')  data.rescheduledReason = dto['rescheduleReason']
 
-      /* Snapshot old session BEFORE update for notification comparison */
-      const { LiveClassModel, ClassBookingModel, UserModel } = await import('@/models/schema.ts')
+      /* ── Tell the people who booked (feature: change notifications) ──────
+         Snapshot BEFORE the update so old and new can be compared. Three
+         changes matter to somebody holding a booking: the session was
+         cancelled, the time moved, or the instructor changed.
+
+         The instructor case did not exist until now, and it is the one a
+         student is most likely to care about after the time — people book a
+         session because of who is teaching it. */
+      const { LiveClassModel } = await import('@/models/schema.ts')
       const oldSession = await LiveClassModel.findById(id).lean()
 
       const live = await this.service.update(id, data)
 
-      /* ── Trigger notifications on status/schedule changes (non-blocking) ── */
-      const wasCancelled    = oldSession?.status !== 'cancelled' && data.status === 'cancelled'
-      const wasRescheduled  = data.scheduledStart && oldSession?.scheduledStart &&
+      const wasCancelled   = oldSession?.status !== 'cancelled' && data.status === 'cancelled'
+      const wasRescheduled = !!data.scheduledStart && !!oldSession?.scheduledStart &&
         new Date(oldSession.scheduledStart).getTime() !== new Date(data.scheduledStart).getTime()
+      const oldInstructorId = oldSession?.instructorId ? String(oldSession.instructorId) : undefined
+      const instructorChanged = !!data.instructorId && !!oldInstructorId &&
+        String(data.instructorId) !== oldInstructorId
 
-      if (wasCancelled || wasRescheduled) {
-        ;(async () => {
-          try {
-            const { sendCancelledNotification, sendDelayNotification, sendRescheduledNotification } = await import('@/services/email.service.ts')
-            const bookings = await ClassBookingModel.find({
-              liveClassId: id, status: { $in: ['booked', 'attended'] },
-            }).lean()
-            const oldStart = oldSession?.scheduledStart ?? new Date()
-            const newStart = live.scheduledStart ?? new Date()
-            /* Same calendar day → delay; different day → full reschedule */
-            const oldDay = new Date(oldStart).toLocaleDateString('en-US', { timeZone: 'Asia/Dubai' })
-            const newDay = new Date(newStart).toLocaleDateString('en-US', { timeZone: 'Asia/Dubai' })
-            const isReschedule = oldDay !== newDay
-            for (const booking of bookings) {
-              const user = await UserModel.findById(booking.userId).lean()
-              if (!user?.email) continue
-              if (wasCancelled) {
-                sendCancelledNotification(user.email, user.name, live.title, oldStart).catch(() => {})
-              } else if (isReschedule) {
-                sendRescheduledNotification(user.email, user.name, live.title, oldStart, newStart).catch(() => {})
-              } else {
-                sendDelayNotification(user.email, user.name, live.title, newStart).catch(() => {})
-              }
-            }
-          } catch (e) { console.error('[Notification] update notification failed:', e) }
-        })()
+      if (wasCancelled || wasRescheduled || instructorChanged) {
+        void notifyBookedStudents({
+          liveClassId:   id,
+          title:         live.title,
+          oldStart:      oldSession?.scheduledStart ?? live.scheduledStart,
+          newStart:      live.scheduledStart,
+          wasCancelled,
+          wasRescheduled,
+          instructorChanged,
+          oldInstructorId,
+          newInstructorId: instructorChanged ? String(data.instructorId) : undefined,
+        }).catch(err => logger.error({ err, liveClassId: id }, 'live class change notification failed'))
       }
 
       sendSuccess(res, toDTO(live), 'Live class updated')
@@ -460,6 +752,7 @@ export class LiveClassController {
   adminDelete = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const id    = String(req.params['id'] ?? '')
+      if (!(await this.#canManage(req, res, id))) return
       const scope = req.user?.categoryScope as string | undefined
       if (scope) {
         const live = await this.service.getById(id)
@@ -477,14 +770,18 @@ export class LiveClassController {
 
   adminStart = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const live = await this.service.startStream(String(req.params['id'] ?? ''))
+      const id = String(req.params['id'] ?? '')
+      if (!(await this.#canManage(req, res, id))) return
+      const live = await this.service.startStream(id)
       sendSuccess(res, toDTO(live), 'Stream started')
     } catch (err) { next(err) }
   }
 
   adminEnd = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const live = await this.service.endStream(String(req.params['id'] ?? ''))
+      const id = String(req.params['id'] ?? '')
+      if (!(await this.#canManage(req, res, id))) return
+      const live = await this.service.endStream(id)
       sendSuccess(res, toDTO(live), 'Stream ended')
     } catch (err) { next(err) }
   }
@@ -498,7 +795,9 @@ export class LiveClassController {
 
   adminRecreate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const live = await this.service.recreateStream(String(req.params['id'] ?? ''))
+      const id = String(req.params['id'] ?? '')
+      if (!(await this.#canManage(req, res, id))) return
+      const live = await this.service.recreateStream(id)
       sendSuccess(res, toDTO(live), 'Stream credentials recreated')
     } catch (err) { next(err) }
   }

@@ -50,10 +50,27 @@ export class DiscussionService {
     })
   }
 
-  async listThreads(lessonId: string, page: number, perPage: number) {
+  /* Reading the Q&A is gated the same way posting to it already was (P-20).
+     Students must be enrolled; teaching and admin staff read freely, matching
+     createComment(). Verified UI-safe: DiscussionPanel renders only inside
+     /learn/[slug]/[lessonId], which enrolment is required to reach, so no
+     preview surface depends on the open read. */
+  async listThreads(lessonId: string, page: number, perPage: number, userId?: string, userRole?: string) {
     if (!Types.ObjectId.isValid(lessonId)) {
       throw new DiscussionError('INVALID_LESSON_ID', 'Invalid lesson id', 400)
     }
+
+    if (userRole === 'student' && userId) {
+      const lesson = await LessonModel.findById(lessonId).select('courseId isFree').exec()
+      if (!lesson) throw new DiscussionError('LESSON_NOT_FOUND', 'Lesson not found', 404)
+      if (!lesson.isFree) {
+        const enrolled = await this.enrollRepo.findByUserCourse(userId, lesson.courseId.toString())
+        if (!enrolled) {
+          throw new DiscussionError('NOT_ENROLLED', 'You must be enrolled to view this Q&A', 403)
+        }
+      }
+    }
+
     return this.threadRepo.listByLesson(lessonId, page, perPage)
   }
 
@@ -133,9 +150,20 @@ export class DiscussionService {
 
     await this.threadRepo.incrementCommentCount(threadId, 1)
 
-    /* Notify thread author on new top-level reply */
-    if (!dto.parentId && thread.authorId.toString() !== userId) {
-      void this.notifications.create(thread.authorId.toString(), {
+    /* Notify thread author on new top-level reply.
+
+       `thread.authorId` arrives POPULATED here, so `.toString()` returned the
+       inspected document — "{ name: 'Alice', role: 'student', id: '…' }" —
+       rather than the id. Two things broke silently as a result: every reply
+       notification failed Mongoose validation ("Cast to ObjectId failed"), so
+       thread authors were never told anyone had answered; and the
+       self-reply guard compared that same garbage against userId, so it never
+       matched and would have notified authors about their own replies. Both
+       are fire-and-forget, which is why it never surfaced as an error anyone
+       saw — it only showed up in the logs. */
+    const authorId = String((thread.authorId as any)?._id ?? thread.authorId)
+    if (!dto.parentId && authorId !== userId) {
+      void this.notifications.create(authorId, {
         kind:  'system',
         title: 'New reply to your question',
         body:  dto.body.slice(0, 100),

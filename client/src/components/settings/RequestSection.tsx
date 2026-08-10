@@ -10,6 +10,7 @@ import {
 import { api } from '@/lib/axios'
 import { useCurrentUser, useCompleteRegistration } from '@/lib/api/user'
 import Spinner from '@/components/ui/Spinner'
+import { useDocumentUrl } from '@/lib/api/documents'
 
 /* ── Constants ─────────────────────────────────────── */
 const COUNTRY_NAMES = [
@@ -69,6 +70,25 @@ const inputBlur = (el: HTMLElement) => {
 }
 
 /* ── Sub-components ─────────────────────────────────── */
+/* Identity scans are stored as bare keys and exchanged for a short-lived
+   signed link (H-11). Renders nothing until there is something to open. */
+function DocLink({ userId, field, stored, label }: {
+  userId?: string; field: 'passport' | 'idDoc'; stored?: string; label: string
+}) {
+  const url = useDocumentUrl(userId, field, stored)
+  if (!stored) return null
+  return (
+    <a href={url ?? undefined} target="_blank" rel="noreferrer"
+      aria-disabled={!url}
+      className="flex flex-col items-center gap-1.5 rounded-xl p-3 text-center transition-colors hover:bg-blue-50"
+      style={{ border: '1px solid #E5E7EB', opacity: url ? 1 : 0.5, pointerEvents: url ? 'auto' : 'none' }}>
+      <FileText size={20} style={{ color: '#0057b8' }} />
+      <span className="text-xs font-medium" style={{ color: '#374151' }}>{label}</span>
+      <Eye size={11} style={{ color: '#9CA3AF' }} />
+    </a>
+  )
+}
+
 function Field({ label, required, error, children }: {
   label: string; required?: boolean; error?: string; children: React.ReactNode
 }) {
@@ -499,12 +519,15 @@ export function RequestSection() {
   const [photoUrl, setPhotoUrl]           = useState(app?.photoUrl    ?? '')
   const [uploading, setUploading]         = useState({ passport: false, idDoc: false, photo: false })
 
-  const uploadFile = useCallback(async (file: File): Promise<string> => {
+  /* Identity scans go to /uploads/kyc, which is never served publicly and is
+     read back through /documents/:userId/:field (H-11). The profile photo
+     stays on /uploads/document because it doubles as the public avatar. */
+  const uploadFile = useCallback(async (file: File, kind: 'kyc' | 'document' = 'document'): Promise<string> => {
     const fd = new FormData()
     fd.append('file', file)
     /* Unset the default 'application/json' header so axios auto-sets
        'multipart/form-data; boundary=...' when it detects FormData */
-    const res = await api.post('/uploads/document', fd, {
+    const res = await api.post(`/uploads/${kind}`, fd, {
       headers: { 'Content-Type': undefined },
     })
     return res.data?.data?.url ?? res.data?.url ?? ''
@@ -636,13 +659,13 @@ export function RequestSection() {
       try {
         if (passportFile) {
           setUploading(u => ({ ...u, passport: true }))
-          const url = await uploadFile(passportFile)
+          const url = await uploadFile(passportFile, 'kyc')
           setPassportUrl(url)
           setUploading(u => ({ ...u, passport: false }))
         }
         if (idDocFile) {
           setUploading(u => ({ ...u, idDoc: true }))
-          const url = await uploadFile(idDocFile)
+          const url = await uploadFile(idDocFile, 'kyc')
           setIdDocUrl(url)
           setUploading(u => ({ ...u, idDoc: false }))
         }
@@ -794,24 +817,8 @@ export function RequestSection() {
 
           <p className="mb-3 mt-4 text-xs font-semibold uppercase tracking-wide" style={{ color: '#9CA3AF' }}>Documents</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {a?.passportUrl && (
-              <a href={a.passportUrl} target="_blank" rel="noreferrer"
-                className="flex flex-col items-center gap-1.5 rounded-xl p-3 text-center transition-colors hover:bg-blue-50"
-                style={{ border: '1px solid #E5E7EB' }}>
-                <FileText size={20} style={{ color: '#0057b8' }} />
-                <span className="text-xs font-medium" style={{ color: '#374151' }}>Passport</span>
-                <Eye size={11} style={{ color: '#9CA3AF' }} />
-              </a>
-            )}
-            {a?.idDocUrl && (
-              <a href={a.idDocUrl} target="_blank" rel="noreferrer"
-                className="flex flex-col items-center gap-1.5 rounded-xl p-3 text-center transition-colors hover:bg-blue-50"
-                style={{ border: '1px solid #E5E7EB' }}>
-                <FileText size={20} style={{ color: '#0057b8' }} />
-                <span className="text-xs font-medium" style={{ color: '#374151' }}>ID Document</span>
-                <Eye size={11} style={{ color: '#9CA3AF' }} />
-              </a>
-            )}
+            <DocLink userId={user?.id} field="passport" stored={a?.passportUrl} label="Passport" />
+            <DocLink userId={user?.id} field="idDoc" stored={a?.idDocUrl} label="ID Document" />
           </div>
 
           <p className="mb-3 mt-4 text-xs font-semibold uppercase tracking-wide" style={{ color: '#9CA3AF' }}>Program</p>

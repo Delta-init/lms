@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express'
-import { CourseService } from '@/services/course.service.ts'
+import { CourseService, CourseError } from '@/services/course.service.ts'
 import { CategoryService } from '@/services/category.service.ts'
 import { UserService } from '@/services/user.service.ts'
 import { ReviewService } from '@/services/review.service.ts'
@@ -10,7 +10,7 @@ import { LessonRepository } from '@/repositories/lesson.repository.ts'
 import { SectionRepository } from '@/repositories/section.repository.ts'
 import { sendSuccess, buildPaginationMeta, parsePagination } from '@/utils/response.ts'
 import { toCourseDTO } from '@/utils/courseDTO.ts'
-import { signAccessToken } from '@/utils/jwt.ts'
+import { signAccessToken, toSeconds } from '@/utils/jwt.ts'
 import type { UserRole } from '@/types/index.ts'
 
 export class AdminController {
@@ -23,6 +23,40 @@ export class AdminController {
   private readonly lessonService   = new LessonService()
   private readonly lessonRepo      = new LessonRepository()
   private readonly sectionRepo     = new SectionRepository()
+
+  /* ── Course author must be teachable-by and reachable-by the caller (B-04) ──
+     `instructorId` came straight off the request body for any admin role, with
+     nothing checking that the person named teaches at the caller's academy. It
+     was not exploitable — assertSameOrganization blocks the assignee from
+     editing a course in the other academy, so they gained nothing — but the
+     catalogue would then credit an instructor from the wrong academy, and a
+     nonexistent id produced a course whose author never resolves.
+
+     super_admin is unscoped, matching every other tenancy guard, and a caller
+     with no academy of their own stays unscoped too — the same `{org} OR
+     {null}` convention the rest of the admin routes use. */
+  private async assertAssignableInstructor(req: Request, instructorId: string): Promise<void> {
+    const { Types } = await import('mongoose')
+    if (!Types.ObjectId.isValid(instructorId)) {
+      throw new CourseError('INVALID_INSTRUCTOR', 'Invalid instructor id.', 400)
+    }
+    const { UserModel } = await import('@/models/schema.ts')
+    const target = await UserModel.findById(instructorId).select('role organizationId isActive').lean()
+    if (!target) {
+      throw new CourseError('INSTRUCTOR_NOT_FOUND', 'That instructor does not exist.', 404)
+    }
+    if ((target as { isActive?: boolean }).isActive === false) {
+      throw new CourseError('INSTRUCTOR_INACTIVE', 'That account is disabled and cannot be assigned a course.', 400)
+    }
+    if (req.user!.role === 'super_admin') return
+
+    const callerOrg = req.user!.organizationId
+    const targetOrg = (target as { organizationId?: unknown }).organizationId
+    if (!callerOrg || !targetOrg) return
+    if (String(callerOrg) !== String(targetOrg)) {
+      throw new CourseError('INSTRUCTOR_OTHER_ORG', 'That instructor belongs to another academy.', 403)
+    }
+  }
 
   /* ─── Dashboard stats ─────────────────────────── */
   stats = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -80,6 +114,8 @@ export class AdminController {
         thumbnailUrl?: string
         previewUrl?:   string
         price:         number
+        priceAED?:     number
+        priceINR?:     number
         isFree:        boolean
         status:        'draft' | 'published' | 'archived'
         level?:        'beginner' | 'intermediate' | 'advanced'
@@ -101,6 +137,11 @@ export class AdminController {
         ? (dto.instructorId ?? req.user!.id)
         : req.user!.id
 
+      /* Only when an id was actually supplied — defaulting to the caller needs
+         no check, and re-validating it would refuse a super_admin who has no
+         academy of their own (B-04). */
+      if (isAdmin && dto.instructorId) await this.assertAssignableInstructor(req, dto.instructorId)
+
       const scope = req.user!.categoryScope
 
       const course = await this.courseService.create({
@@ -110,6 +151,8 @@ export class AdminController {
         thumbnailUrl:   dto.thumbnailUrl,
         previewUrl:     dto.previewUrl,
         price:          dto.price,
+        priceAED:       dto.priceAED,
+        priceINR:       dto.priceINR,
         isFree:         dto.isFree,
         status:         dto.status,
         level:          dto.level,
@@ -132,6 +175,9 @@ export class AdminController {
       /* Instructors cannot reassign their course to a different author. */
       const isAdmin = ['super_admin', 'admin', 'sub_admin', 'support', '4x_admin', 'digital_marketing_admin', 'ai_admin'].includes(req.user!.role)
       if (!isAdmin) delete dto['instructorId']
+      else if (typeof dto['instructorId'] === 'string') {
+        await this.assertAssignableInstructor(req, dto['instructorId'])
+      }
       /* Category-scoped admins cannot override their program scope */
       const scope = req.user!.categoryScope
       if (scope) dto['program'] = scope
@@ -251,9 +297,45 @@ export class AdminController {
       const target = await this.userService.findById(targetId)
       if (!target) { sendSuccess(res, null, 'User not found', 404); return }
 
-      const token = await signAccessToken({ id: String(target._id), email: target.email, role: target.role })
+      /* Impersonation gets its own budget rather than the session TTL (M-02).
+         It is a bare Bearer token with no refresh counterpart, so inheriting a
+         15-minute session TTL would strand the admin mid-task with 401s the
+         client cannot recover from — /admin/auth/refresh renews the admin's
+         cookie, not this token. Override with IMPERSONATION_EXPIRES_IN. */
+      const ttl   = process.env['IMPERSONATION_EXPIRES_IN']?.trim() || '30m'
+
+      /* A session ROW is created first, and the token merely names it (M-04).
+         The token used to BE the session: nothing recorded who was
+         impersonating, and "end impersonation" only meant the browser dropped
+         its copy — anyone else holding that token kept full access to the
+         account until it expired. Every request now re-checks this row, so
+         revoking it ends the session for every holder at once. */
+      const { ImpersonationSessionModel } = await import('@/models/schema.ts')
+      const session = await ImpersonationSessionModel.create({
+        actorId:        req.user!.id,
+        actorEmail:     req.user!.email,
+        targetId:       String(target._id),
+        targetEmail:    target.email,
+        organizationId: req.user!.organizationId,
+        expiresAt:      new Date(Date.now() + toSeconds(ttl) * 1000),
+        ip:             (req.ip ?? req.socket?.remoteAddress) || undefined,
+        userAgent:      req.headers['user-agent'] || undefined,
+      })
+
+      /* Audience 'admin' (L-06): this token is handed to the admin app and
+         presented as a Bearer on its requests, which land on authenticateAdmin.
+         Minting it as 'client' would make impersonation stop working the
+         moment JWT_ENFORCE_AUDIENCE is switched on. */
+      const token = await signAccessToken(
+        { id: String(target._id), email: target.email, role: target.role },
+        ttl,
+        'admin',
+        { actorId: req.user!.id, actorEmail: req.user!.email, sessionId: String(session._id) },
+      )
       sendSuccess(res, {
         token,
+        expiresIn:       toSeconds(ttl),
+        impersonationId: String(session._id),
         user: { id: String(target._id), name: target.name, email: target.email, role: target.role, avatarUrl: target.avatarUrl },
       }, 'Impersonation token issued')
     } catch (err) { next(err) }
@@ -632,6 +714,7 @@ export class AdminController {
   listSections = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const courseId = String(req.params['courseId'] ?? '')
+      await this.sectionService.assertCourseEditable(courseId, req.user!.id, req.user!.role, req.user!.categoryScope)
       const sections = await this.sectionService.list(courseId)
       sendSuccess(res, sections)
     } catch (err) { next(err) }
@@ -751,6 +834,7 @@ export class AdminController {
   getOutline = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const courseId = String(req.params['id'] ?? '')
+      await this.sectionService.assertCourseEditable(courseId, req.user!.id, req.user!.role, req.user!.categoryScope)
       const [sections, lessons] = await Promise.all([
         this.sectionRepo.findByCourseOrdered(courseId),
         this.lessonRepo.findByCourseOrdered(courseId),
@@ -778,5 +862,64 @@ export class AdminController {
 
   completionStats = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try { sendSuccess(res, await this.admin.completionStats(req.user!.organizationId)) } catch (err) { next(err) }
+  }
+
+  /* ─── Live-class stream credentials guard ─────── */
+  /* The RTMP key lets whoever holds it broadcast into the session, so this
+     route is gated on ownership rather than on a flat admin role.
+     super_admin / admin pass through; every other caller (instructor,
+     sub_admin, support, the category admins) must own the session — either
+     assigned to it or owning its course. Mirrors the ownership rule already
+     used by LiveClassController for the other per-session admin routes. */
+  guardStreamCredentials = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const role = req.user!.role
+      if (role === 'super_admin') { next(); return }
+
+      const { LiveClassModel, CourseModel } = await import('@/models/schema.ts')
+      const { Types } = await import('mongoose')
+
+      const id = String(req.params['id'] ?? '')
+      if (!Types.ObjectId.isValid(id)) {
+        res.status(400).json({ success: false, error: { code: 'INVALID_ID', message: 'Invalid live class id' } }); return
+      }
+      const live = await LiveClassModel.findById(id).select('instructorId courseId organizationId').lean()
+      if (!live) {
+        res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Live class not found' } }); return
+      }
+
+      /* Tenancy first — the RTMP key is the session itself. An admin of one
+         academy must not be able to pull the other's stream key by id.
+         Mirrors LiveClassController.#canManage. */
+      const callerOrg = req.user!.organizationId
+      const liveOrg   = (live as { organizationId?: unknown }).organizationId
+      if (callerOrg && liveOrg && String(liveOrg) !== String(callerOrg)) {
+        res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Live class not found' } }); return
+      }
+
+      /* Non-teaching admin roles pass once tenancy is satisfied. */
+      if (role !== 'instructor') { next(); return }
+
+      const userId = String(req.user!.id)
+
+      /* Same rule as LiveClassController.#instructorOwns: the session's own
+         instructor is the sole authority. Owning the parent course does not
+         grant access to a colleague's session inside it. The course owner is
+         consulted only when the session names nobody (legacy rows). */
+      let owns: boolean
+      if (live.instructorId) {
+        owns = String(live.instructorId) === userId
+      } else if (live.courseId) {
+        const course = await CourseModel.findById(String(live.courseId)).select('instructorId').lean()
+        owns = String((course as any)?.instructorId ?? '') === userId
+      } else {
+        owns = false
+      }
+
+      if (!owns) {
+        res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'You can only fetch stream credentials for your own live classes.' } }); return
+      }
+      next()
+    } catch (err) { next(err) }
   }
 }

@@ -18,6 +18,8 @@ export interface CourseDTO {
   thumbnailUrl?:  string
   previewUrl?:    string
   price:          number
+  priceAED?:      number
+  priceINR?:      number
   isFree:         boolean
   status:         string
   level?:         string
@@ -51,6 +53,8 @@ export function toCourseDTO(course: ICourse, lessonCount?: number): CourseDTO {
     thumbnailUrl:  json['thumbnailUrl']  as string | undefined,
     previewUrl:    json['previewUrl']    as string | undefined,
     price:         json['price']         as number,
+    priceAED:      json['priceAED']      as number | undefined,
+    priceINR:      json['priceINR']      as number | undefined,
     isFree:        json['isFree']        as boolean,
     status:        json['status']        as string,
     level:         json['level']         as string | undefined,

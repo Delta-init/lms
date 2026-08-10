@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { authenticate, requireEnrollmentApproval } from '@/middleware/auth.middleware.ts'
+import { authenticate, requireCheckoutEligibility } from '@/middleware/auth.middleware.ts'
 import { validate } from '@/middleware/validate.middleware.ts'
 import { OrderService } from '@/services/order.service.ts'
 import { sendSuccess, sendError } from '@/utils/response.ts'
@@ -16,7 +16,7 @@ const checkoutSchema = z.object({
   couponCode: z.string().trim().optional(),
 })
 
-router.post('/', authenticate, requireEnrollmentApproval, validate(checkoutSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/', authenticate, requireCheckoutEligibility, validate(checkoutSchema), async (req: Request, res: Response, next: NextFunction) => {
   if (!env.STRIPE_SECRET_KEY) {
     sendError(res, 'STRIPE_NOT_CONFIGURED', 'Payments are not configured on this server.', 503)
     return
@@ -34,7 +34,7 @@ const razorpayCreateSchema = z.object({
   couponCode: z.string().trim().optional(),
 })
 
-router.post('/razorpay/create-order', authenticate, validate(razorpayCreateSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/razorpay/create-order', authenticate, requireCheckoutEligibility, validate(razorpayCreateSchema), async (req: Request, res: Response, next: NextFunction) => {
   if (!env.RAZORPAY_KEY_ID || !env.RAZORPAY_KEY_SECRET) {
     sendError(res, 'RAZORPAY_NOT_CONFIGURED', 'Razorpay is not configured on this server.', 503)
     return
@@ -58,7 +58,9 @@ router.post('/razorpay/verify', authenticate, validate(razorpayVerifySchema), as
     const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body as {
       razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string
     }
-    const result = await orderSvc.verifyAndFulfillRazorpay(razorpayOrderId, razorpayPaymentId, razorpaySignature)
+    const result = await orderSvc.verifyAndFulfillRazorpay(
+      razorpayOrderId, razorpayPaymentId, razorpaySignature, req.user!.id,
+    )
     sendSuccess(res, result, 'Payment verified and enrollment created')
   } catch (err) { next(err) }
 })
@@ -76,7 +78,7 @@ const tabbyPrescoreSchema = z.object({
   courseId: z.string().min(1),
 })
 
-router.post('/tabby/prescore', authenticate, validate(tabbyPrescoreSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/tabby/prescore', authenticate, requireCheckoutEligibility, validate(tabbyPrescoreSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { courseId } = req.body as { courseId: string }
     const result = await orderSvc.checkTabbyEligibility(req.user!.id, courseId)
@@ -91,7 +93,7 @@ const tabbyCreateSchema = z.object({
   couponCode: z.string().trim().optional(),
 })
 
-router.post('/tabby/create-order', authenticate, validate(tabbyCreateSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/tabby/create-order', authenticate, requireCheckoutEligibility, validate(tabbyCreateSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { courseId, slug, couponCode } = req.body as { courseId: string; slug: string; couponCode?: string }
     const result = await orderSvc.createTabbyOrder(req.user!.id, courseId, slug, couponCode)
@@ -120,7 +122,7 @@ const abzerCreateSchema = z.object({
   couponCode: z.string().trim().optional(),
 })
 
-router.post('/abzer/create-order', authenticate, validate(abzerCreateSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/abzer/create-order', authenticate, requireCheckoutEligibility, validate(abzerCreateSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { courseId, slug, couponCode } = req.body as { courseId: string; slug: string; couponCode?: string }
     const result = await orderSvc.createAbzerOrder(req.user!.id, courseId, slug, couponCode)
@@ -148,7 +150,7 @@ router.post('/abzer/verify-return', authenticate, validate(abzerVerifyReturnSche
 /* ── Tamara — pre-checkout eligibility check ─────────── */
 const tamaraPrescoreSchema = z.object({ courseId: z.string().min(1) })
 
-router.post('/tamara/prescore', authenticate, validate(tamaraPrescoreSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/tamara/prescore', authenticate, requireCheckoutEligibility, validate(tamaraPrescoreSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { courseId } = req.body as { courseId: string }
     const result = await orderSvc.checkTamaraEligibility(req.user!.id, courseId)
@@ -163,7 +165,7 @@ const tamaraCreateSchema = z.object({
   couponCode: z.string().trim().optional(),
 })
 
-router.post('/tamara/create-order', authenticate, validate(tamaraCreateSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/tamara/create-order', authenticate, requireCheckoutEligibility, validate(tamaraCreateSchema), async (req: Request, res: Response, next: NextFunction) => {
   if (!env.TAMARA_API_KEY) {
     sendError(res, 'TAMARA_NOT_CONFIGURED', 'Tamara is not configured on this server.', 503)
     return

@@ -19,10 +19,23 @@ import fs              from 'fs'
 import path            from 'path'
 import os              from 'os'
 import crypto          from 'crypto'
+import { Readable, Transform } from 'node:stream'
+import { pipeline }    from 'node:stream/promises'
 import { env }         from '@/config/env.ts'
 import { uploadToR2, getPublicUrl } from '@/services/r2.service.ts'
 
 const execAsync = promisify(exec)
+
+/* ── Resource ceilings ────────────────────────────────────────
+   The source streams to disk rather than into the heap, so a job's
+   resident cost is the encode itself. Both the input size and the
+   number of simultaneous jobs are still capped: each job is a 3-rung
+   libx264 encode and the segments land on local disk.
+──────────────────────────────────────────────────────────────── */
+const MAX_SOURCE_BYTES = 2 * 1024 * 1024 * 1024 // 2 GB
+const MAX_CONCURRENT   = 2
+
+let activeJobs = 0
 
 /* ── helpers ──────────────────────────────────────────────────── */
 function tmpDir(): string {
@@ -63,17 +76,46 @@ async function uploadDir(localDir: string, r2Prefix: string): Promise<void> {
  * @returns          Public CDN URL of master.m3u8
  */
 export async function transcodeToHLS(sourceKey: string): Promise<string> {
+  if (activeJobs >= MAX_CONCURRENT) {
+    throw new Error(`Transcoder busy — ${MAX_CONCURRENT} jobs are already running. Please retry shortly.`)
+  }
+
   const workDir  = tmpDir()
   const inputPath = path.join(workDir, 'input.mp4')
 
+  activeJobs++
   try {
     /* 1 ── Download source video from R2 CDN ──────────────────── */
     const sourceUrl = getPublicUrl(sourceKey)
     const res = await fetch(sourceUrl)
     if (!res.ok) throw new Error(`Failed to download source video: ${res.status} ${res.statusText}`)
 
-    const buffer = await res.arrayBuffer()
-    fs.writeFileSync(inputPath, Buffer.from(buffer))
+    const declaredBytes = Number(res.headers.get('content-length') ?? 0)
+    if (declaredBytes > MAX_SOURCE_BYTES) {
+      throw new Error(`Source video is too large to transcode (${declaredBytes} bytes, limit ${MAX_SOURCE_BYTES}).`)
+    }
+    if (!res.body) throw new Error('Source video response had no body')
+
+    /* Stream to disk instead of buffering. content-length above is only
+       advisory — a source can understate or omit it — so the cap is also
+       enforced on bytes actually received, and the transfer is aborted the
+       moment it is exceeded. Everything downstream still reads inputPath. */
+    let received = 0
+    const capToLimit = new Transform({
+      transform(chunk: Buffer, _enc, cb) {
+        received += chunk.length
+        if (received > MAX_SOURCE_BYTES) {
+          cb(new Error(`Source video exceeds the transcode limit of ${MAX_SOURCE_BYTES} bytes.`))
+          return
+        }
+        cb(null, chunk)
+      },
+    })
+    await pipeline(
+      Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0]),
+      capToLimit,
+      fs.createWriteStream(inputPath),
+    )
 
     /* 2 ── Probe video to decide which quality levels to include ── */
     const { stdout: probeOut } = await execAsync(
@@ -148,5 +190,6 @@ export async function transcodeToHLS(sourceKey: string): Promise<string> {
 
   } finally {
     cleanDir(workDir)
+    activeJobs--
   }
 }

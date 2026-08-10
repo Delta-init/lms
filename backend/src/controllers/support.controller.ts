@@ -2,13 +2,32 @@ import type { Request, Response, NextFunction } from 'express'
 import { SupportService } from '@/services/support.service.ts'
 import { sendSuccess } from '@/utils/response.ts'
 
-function requester(req: Request) {
+async function requester(req: Request) {
   const role = req.user!.role as any
+  // Tenant context. `authenticateAny` (the shared owner-or-staff routes) does not
+  // load organizationId, so fall back to the caller's own record. super_admin is
+  // never org-scoped, so skip the lookup for them entirely.
+  let organizationId = req.user!.organizationId
+  if (!organizationId && role !== 'super_admin') {
+    const { UserModel } = await import('@/models/schema.ts')
+    const self = await UserModel.findById(req.user!.id).select('organizationId').lean()
+    /* No record at all is NOT the same as "no academy on record" (P-18).
+       A deleted account whose token is still live used to land here with
+       organizationId undefined, which orgScope() reads as unscoped — so it
+       could read and reply to every academy's tickets. A record that EXISTS
+       but carries no academy still falls through unscoped, as intended. */
+    if (!self) {
+      const { SupportError } = await import('@/services/support.service.ts')
+      throw new SupportError('ACCOUNT_GONE', 'This account no longer exists.', 401)
+    }
+    organizationId = (self as any)?.organizationId?.toString()
+  }
   // Normalize all staff roles so the service recognises them
   return {
     id:            req.user!.id,
     role,
     categoryScope: (req.user as any).categoryScope as '4x-trading' | 'digital-marketing' | 'ai' | undefined,
+    organizationId,
   }
 }
 
@@ -39,7 +58,7 @@ export class SupportController {
         // 0 or 2+ programs → program stays undefined → visible to all admin teams
       }
 
-      const ticket = await this.service.create(requester(req), { subject, category, message, program })
+      const ticket = await this.service.create(await requester(req), { subject, category, message, program })
       sendSuccess(res, ticket, 'Ticket created', 201)
     } catch (err) { next(err) }
   }
@@ -53,14 +72,14 @@ export class SupportController {
   /* ── Shared (owner or staff) ── */
   getOne = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      sendSuccess(res, await this.service.getOne(String(req.params['id'] ?? ''), requester(req)))
+      sendSuccess(res, await this.service.getOne(String(req.params['id'] ?? ''), await requester(req)))
     } catch (err) { next(err) }
   }
 
   addMessage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { body } = req.body as { body: string }
-      sendSuccess(res, await this.service.addMessage(String(req.params['id'] ?? ''), requester(req), body))
+      sendSuccess(res, await this.service.addMessage(String(req.params['id'] ?? ''), await requester(req), body))
     } catch (err) { next(err) }
   }
 
@@ -72,7 +91,7 @@ export class SupportController {
       // category-scoped admins are restricted to their program; super/admin can pass ?program= to filter
       const scope   = (req.user as any).categoryScope as string | undefined
       const program = scope ?? (req.query['program'] ? String(req.query['program']) : undefined)
-      sendSuccess(res, await this.service.listAll({ status, search, program }))
+      sendSuccess(res, await this.service.listAll({ status, search, program }, await requester(req)))
     } catch (err) { next(err) }
   }
 
@@ -80,7 +99,7 @@ export class SupportController {
     try {
       const scope   = (req.user as any).categoryScope as string | undefined
       const program = scope ?? (req.query['program'] ? String(req.query['program']) : undefined)
-      sendSuccess(res, await this.service.adminStats(program))
+      sendSuccess(res, await this.service.adminStats(program, await requester(req)))
     } catch (err) { next(err) }
   }
 
@@ -93,7 +112,7 @@ export class SupportController {
   setStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { status } = req.body as { status: any }
-      sendSuccess(res, await this.service.setStatus(String(req.params['id'] ?? ''), status), 'Status updated')
+      sendSuccess(res, await this.service.setStatus(String(req.params['id'] ?? ''), status, await requester(req)), 'Status updated')
     } catch (err) { next(err) }
   }
 }

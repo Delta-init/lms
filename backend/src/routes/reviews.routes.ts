@@ -16,7 +16,7 @@ router.delete('/:id', authenticate, reviews.deleteOwn)
 router.patch(
   '/:id/reply',
   authenticate,
-  requireRole('admin', 'instructor'),
+  requireRole('super_admin', 'admin', 'instructor'),
   validate(z.object({ reply: z.string().min(1).max(5000) })),
   async (req: Request, res: Response, next: NextFunction) => {
     try {

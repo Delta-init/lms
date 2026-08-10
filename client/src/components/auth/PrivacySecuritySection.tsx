@@ -64,16 +64,29 @@ function TwoFactorSection() {
   const [copied,    setCopied]    = useState(false)
   const [error,     setError]     = useState<string | null>(null)
   const [success,   setSuccess]   = useState<string | null>(null)
+  /* Password gate in front of setup — enabling 2FA is as sensitive as
+     disabling it, and disabling already asks (NEW-01). */
+  const [showSetupPw, setShowSetupPw] = useState(false)
+  const [setupPw,     setSetupPw]     = useState('')
 
   const handleSetup = async () => {
+    if (!setupPw) return
     setError(null)
     try {
-      const data = await setup.mutateAsync()
+      const data = await setup.mutateAsync(setupPw)
       setSetupData(data)
+      setSetupPw('')
+      setShowSetupPw(false)
       setCode('')
     } catch (err: any) {
       setError(err?.response?.data?.error?.message ?? 'Setup failed.')
     }
+  }
+
+  const cancelSetupPw = () => {
+    setShowSetupPw(false)
+    setSetupPw('')
+    setError(null)
   }
 
   const handleEnable = async () => {
@@ -146,13 +159,52 @@ function TwoFactorSection() {
         )}
       </AnimatePresence>
 
-      {!enabled && !setupData && (
-        <button onClick={handleSetup} disabled={setup.isPending}
+      {!enabled && !setupData && !showSetupPw && (
+        <button onClick={() => { setError(null); setShowSetupPw(true) }}
           className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-white transition-all disabled:opacity-60 hover:opacity-90"
           style={{ background: '#0057b8', boxShadow: '0 4px 14px rgba(0,87,184,0.25)' }}>
-          {setup.isPending ? <><Spinner size={13} />Setting up…</> : <><KeyRound size={13} />Enable 2FA</>}
+          <KeyRound size={13} />Enable 2FA
         </button>
       )}
+
+      {/* ── Confirm identity before issuing a secret ──
+          Enabling a second factor decides how this account signs in from now
+          on, so it asks for the password just as disabling does. */}
+      <AnimatePresence>
+        {!enabled && !setupData && showSetupPw && (
+          <motion.div key="setup-pw" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden">
+            <div className="rounded-xl p-4 space-y-3" style={{ background: '#F9FAFB', border: '1px solid #E5E7EB' }}>
+              <p className="text-xs" style={{ color: '#6B7280' }}>
+                Enter your password to confirm it&apos;s you before setting up 2FA.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  autoFocus
+                  value={setupPw}
+                  onChange={e => setSetupPw(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && setupPw && !setup.isPending) void handleSetup() }}
+                  placeholder="Your password"
+                  className="flex-1 min-w-[180px] rounded-xl px-3 py-2 text-sm outline-none"
+                  style={{ border: '1px solid #E5E7EB', color: '#111827' }}
+                />
+                <button onClick={handleSetup} disabled={setup.isPending || !setupPw}
+                  className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-white transition-all disabled:opacity-60 hover:opacity-90"
+                  style={{ background: '#0057b8' }}>
+                  {setup.isPending ? <><Spinner size={13} />Setting up…</> : <>Continue</>}
+                </button>
+                <button onClick={cancelSetupPw} disabled={setup.isPending}
+                  className="rounded-xl px-4 py-2 text-sm font-semibold transition-colors hover:bg-gray-100 disabled:opacity-60"
+                  style={{ border: '1px solid #E5E7EB', color: '#6B7280' }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Setup flow ── */}
       <AnimatePresence>

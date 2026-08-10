@@ -1,3 +1,4 @@
+import { Types } from 'mongoose'
 import { randomUUID } from 'crypto'
 import PDFDocument from 'pdfkit'
 import { EnrollmentModel, CourseModel, UserModel } from '@/models/schema.ts'
@@ -25,6 +26,16 @@ export class CertificateService {
     courseTitle: string
     completedAt: Date
   }> {
+    /* Validate before querying. `findById` on a value that is not an ObjectId
+       throws a Mongoose CastError, which is not a CertificateError, so it fell
+       past the error middleware and surfaced as a 500 — any mistyped URL
+       produced an "unexpected error" and a stack trace in the logs. Answering
+       404 rather than 400 also keeps a malformed id indistinguishable from one
+       that simply is not there. */
+    if (!Types.ObjectId.isValid(enrollmentId)) {
+      throw new CertificateError('NOT_FOUND', 'Enrollment not found', 404)
+    }
+
     const enrollment = await EnrollmentModel.findById(enrollmentId).exec()
     if (!enrollment) {
       throw new CertificateError('NOT_FOUND', 'Enrollment not found', 404)

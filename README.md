@@ -29,12 +29,17 @@ cd ../client && npm install
 cd ../admin  && npm install
 ```
 
-After seeding, you can log in with:
+`bun run seed` creates local development accounts. The credentials it uses are defined in
+`backend/src/scripts/seed.ts` — they are for local development only and must never exist in a
+deployed environment.
 
-| Role       | Email              | Password      |
-|------------|--------------------|---------------|
-| Admin      | `admin@lms.local`  | `Admin1234`   |
-| Instructor | `sarah@lms.local`  | `Student1234` |
+To bootstrap a real super-admin, supply the credentials via the environment:
+
+```bash
+SUPERADMIN_EMAIL=you@example.com \
+SUPERADMIN_PASSWORD='<a long, unique password>' \
+bun src/scripts/create-super-admin.ts
+```
 
 ## Running
 

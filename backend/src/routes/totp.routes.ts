@@ -10,13 +10,19 @@ import type { Request, Response, NextFunction } from 'express'
 const router  = Router()
 const totpSvc = new TotpService()
 
-/* POST /auth/2fa/setup — generates a new TOTP secret + otpauth URL */
-router.post('/setup', authenticate, authRateLimit, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const result = await totpSvc.setup(req.user!.id)
-    sendSuccess(res, result, '2FA setup initiated — scan the QR code in your authenticator app, then call /enable')
-  } catch (err) { next(err) }
-})
+/* POST /auth/2fa/setup — re-authenticate, then generate a TOTP secret.
+   The password is required because this hands back the secret, and whoever
+   holds the secret controls whether the account has a second factor. Without
+   it a borrowed session could enable 2FA against an authenticator the real
+   owner does not have, locking them out unrecoverably (NEW-01). */
+router.post('/setup', authenticate, authRateLimit,
+  validate(z.object({ password: z.string().min(1, 'Password is required') })),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await totpSvc.setup(req.user!.id, (req.body as { password: string }).password)
+      sendSuccess(res, result, '2FA setup initiated — scan the QR code in your authenticator app, then call /enable')
+    } catch (err) { next(err) }
+  })
 
 /* POST /auth/2fa/enable — verifies the first TOTP code; activates 2FA */
 router.post('/enable', authenticate, authRateLimit,

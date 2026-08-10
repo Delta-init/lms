@@ -78,8 +78,13 @@ const envSchema = z.object({
   TAMARA_BASE_URL:          z.string().default('https://api-sandbox.tamara.co'),
   TAMARA_CURRENCY:          z.string().length(3).default('AED'),
 
-  /* UAE exchange rate — used when priceAED is not set on a course */
+  /* Fallback conversion rates, used when a course carries no per-currency
+     price. Before B-01 those overrides could not be stored at all, so these
+     were the ONLY prices any non-USD gateway ever charged — and the INR one
+     was a literal in order.service.ts rather than a setting. Defaults match
+     the values that were in effect, so nothing reprices on deploy. */
   UAE_EXCHANGE_RATE: z.coerce.number().positive().default(3.67),
+  INR_EXCHANGE_RATE: z.coerce.number().positive().default(83),
 })
 
 const parsed = envSchema.safeParse(process.env)

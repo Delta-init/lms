@@ -79,7 +79,27 @@ app.use(cookieParser())
 /* ─── Static file serving for uploaded media ────────
    GET /uploads/images/:file → disk at uploads/images/
    GET /uploads/videos/:file → disk at uploads/videos/
-   No auth required — URLs are unguessable (random hex). */
+   No auth required — URLs are unguessable (random hex).
+
+   EXCEPT uploads/kyc/, which holds passport and national-ID scans (H-11).
+   Those are readable only through GET /api/v1/documents/:userId/:field, which
+   authorises the caller first. An unguessable URL is not access control: it
+   leaks into logs, chat history and browser history, and `immutable` caching
+   made it unrevocable. */
+/* Matched case-insensitively (P-23). Express route matching is case-sensitive,
+   but the filesystem underneath is not on Windows or macOS — so a mount on the
+   literal '/uploads/kyc' let '/uploads/KYC/<file>' fall through to
+   express.static and serve the scan. Moot on a case-sensitive Linux volume and
+   moot once R2_KYC_BUCKET_NAME moves these objects off local disk entirely,
+   but the local-disk path is the development default. */
+app.use('/uploads', (req, res, next) => {
+  if (!/^\/kyc(\/|$)/i.test(req.path)) { next(); return }
+  res.status(404).json({
+    success: false,
+    error: { code: 'NOT_FOUND', message: 'Not found' },
+  })
+})
+
 app.use(
   '/uploads',
   express.static(path.join(process.cwd(), 'uploads'), {

@@ -3,8 +3,20 @@ import { CouponModel, type ICoupon } from '@/models/schema.ts'
 
 export class CouponRepository {
 
-  async findByCode(code: string): Promise<ICoupon | null> {
-    return CouponModel.findOne({ code: code.toUpperCase().trim() }).exec()
+  /* Coupon codes are unique per ORGANISATION, not globally, so a lookup by
+     code alone is ambiguous — two academies may both own "SUMMER20". Every
+     caller must say which organisation it means.
+
+     `organizationId` omitted matches only coupons that have no organisation
+     (pre-tenancy rows the boot backfill has not reached). `null` in a Mongo
+     filter matches both an explicit null and a missing field. */
+  async findByCodeAndOrg(code: string, organizationId?: string): Promise<ICoupon | null> {
+    return CouponModel.findOne({
+      code: code.toUpperCase().trim(),
+      organizationId: organizationId && Types.ObjectId.isValid(organizationId)
+        ? new Types.ObjectId(organizationId)
+        : null,
+    }).exec()
   }
 
   async findById(id: string): Promise<ICoupon | null> {
@@ -31,30 +43,50 @@ export class CouponRepository {
     expiresAt?:      Date
     isActive?:       boolean
     appliesTo?:      string[]
-    organizationId?: string
+    organizationId:  string      // required — coupons are per-organisation
+    currency?:       'AED' | 'INR'  // major-unit currency for discountType 'fixed' (N-01)
   }): Promise<ICoupon> {
-    const payload: Record<string, unknown> = {
+    if (!Types.ObjectId.isValid(data.organizationId)) {
+      throw new Error(`Invalid organizationId for coupon: ${data.organizationId}`)
+    }
+    return CouponModel.create({
       ...data,
-      code:      data.code.toUpperCase().trim(),
-      usedCount: 0,
+      code:           data.code.toUpperCase().trim(),
+      usedCount:      0,
+      organizationId: new Types.ObjectId(data.organizationId),
+    })
+  }
+
+  /* Address a coupon by id AND owning organisation, so a by-id write can never
+     reach another academy's coupon. An omitted organizationId is deliberately
+     unscoped — that is the super_admin case, matching the convention used by
+     the admin bulk/orders routes. */
+  private scopeFilter(id: string, organizationId?: string): Record<string, unknown> {
+    const filter: Record<string, unknown> = { _id: new Types.ObjectId(id) }
+    if (organizationId && Types.ObjectId.isValid(organizationId)) {
+      filter['organizationId'] = new Types.ObjectId(organizationId)
     }
-    if (data.organizationId && Types.ObjectId.isValid(data.organizationId)) {
-      payload['organizationId'] = new Types.ObjectId(data.organizationId)
-    }
-    return CouponModel.create(payload)
+    return filter
   }
 
   async update(id: string, patch: Partial<Pick<ICoupon,
     'discountType' | 'discountValue' | 'maxUses' | 'expiresAt' | 'isActive' | 'appliesTo'
-  >>): Promise<ICoupon | null> {
-    return CouponModel.findByIdAndUpdate(id, { $set: patch }, { new: true }).exec()
+  >>, organizationId?: string): Promise<ICoupon | null> {
+    if (!Types.ObjectId.isValid(id)) return null
+    return CouponModel.findOneAndUpdate(
+      this.scopeFilter(id, organizationId),
+      { $set: patch },
+      { new: true },
+    ).exec()
   }
 
-  async incrementUsage(id: string): Promise<void> {
-    await CouponModel.findByIdAndUpdate(id, { $inc: { usedCount: 1 } }).exec()
-  }
+  /* NOTE: no incrementUsage() here on purpose — an uncapped $inc bypasses the
+     maxUses cap. Claim a usage slot via CouponService.reserve() instead. */
 
-  async deleteById(id: string): Promise<void> {
-    await CouponModel.findByIdAndDelete(id).exec()
+  /** True only when a coupon was actually removed within the caller's scope. */
+  async deleteById(id: string, organizationId?: string): Promise<boolean> {
+    if (!Types.ObjectId.isValid(id)) return false
+    const result = await CouponModel.deleteOne(this.scopeFilter(id, organizationId)).exec()
+    return (result.deletedCount ?? 0) > 0
   }
 }

@@ -14,11 +14,15 @@ export function useTotpStatus() {
   })
 }
 
+/* Setup re-authenticates with the password, the same bar disable() uses.
+   The secret it returns decides whether the account has a second factor at
+   all, so a live session alone is not enough to ask for one (NEW-01). */
 export function useTotpSetup() {
   return useMutation({
-    mutationFn: () =>
-      api.post<{ success: true; data: { secret: string; otpauthUrl: string } }>('/auth/2fa/setup')
-         .then(r => r.data.data),
+    mutationFn: (password: string) =>
+      api.post<{ success: true; data: { secret: string; otpauthUrl: string } }>(
+        '/auth/2fa/setup', { password },
+      ).then(r => r.data.data),
   })
 }
 

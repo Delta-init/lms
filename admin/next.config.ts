@@ -13,9 +13,10 @@ const r2Hostname  = r2PublicUrl
 
 type RemotePattern = { protocol: 'https' | 'http'; hostname: string; port?: string; pathname?: string }
 
+/* Only the exact bucket host from NEXT_PUBLIC_R2_PUBLIC_URL is allowed.
+   Wildcards such as *.r2.dev would let anyone with a free Cloudflare account
+   feed arbitrary bytes to the image optimizer on our own origin. */
 const r2Patterns: RemotePattern[] = [
-  { protocol: 'https', hostname: '*.r2.dev' },
-  { protocol: 'https', hostname: '*.r2.cloudflarestorage.com' },
   ...(r2Hostname ? [{ protocol: 'https' as const, hostname: r2Hostname }] : []),
 ]
 

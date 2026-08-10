@@ -32,8 +32,14 @@ export class SectionService {
   private readonly lessonRepo = new LessonRepository()
 
   /* Ownership check: throws if the course is not editable by this user.
-     - Admins always pass.
-     - Instructors must own the course. */
+     - super_admin passes unconditionally (platform-wide by design).
+     - Everyone else is confined to their own academy first, then to their
+       role's usual limits.
+     - Instructors must additionally own the course.
+
+     This one guard fronts ~24 call sites across courses, sections, lessons,
+     quizzes, assignments, grading, transcripts, live classes and homework, so
+     the tenancy rule lives here rather than being repeated at every caller. */
   async assertCourseEditable(courseId: string, userId: string, role: string, categoryScope?: string): Promise<void> {
     if (!Types.ObjectId.isValid(courseId)) {
       throw new OutlineError('INVALID_ID', 'Invalid course id', 400)
@@ -41,8 +47,15 @@ export class SectionService {
     const course = await this.courseRepo.findById_(courseId)
     if (!course) throw new OutlineError('COURSE_NOT_FOUND', 'Course not found.', 404)
 
-    // Full-platform admins — no restrictions
-    if (role === 'super_admin' || role === 'admin') return
+    // Full-platform admin — never scoped. The org shown in the admin UI is a
+    // view filter (X-Organization-Id), not a permission boundary.
+    if (role === 'super_admin') return
+
+    // TENANCY — applies to every role below super_admin, including `admin`.
+    await this.assertSameOrganization(course, userId)
+
+    // Org admins — full rights inside their own academy
+    if (role === 'admin') return
 
     // Category-scoped admins — can only edit their program's courses
     if ((role === '4x_admin' || role === 'digital_marketing_admin') && categoryScope) {
@@ -54,6 +67,43 @@ export class SectionService {
     if (role === 'instructor' && String((course as any).instructorId?._id ?? course.instructorId) === userId) return
 
     throw new OutlineError('FORBIDDEN', 'You do not have permission to edit this course.', 403)
+  }
+
+  /* ─── Tenancy predicate ─────────────────────────────
+     The caller's academy is read here rather than threaded through all ~24
+     call sites: every one of them already resolves the course from the
+     database, so one more indexed lookup on an admin-only path is a far
+     smaller risk surface than 24 edited call sites.
+
+     Fail-open in two places, both deliberate and both matching the
+     `{org} OR {null}` convention used by the admin list/bulk/orders routes:
+       • a course with no academy predates the split (the boot backfill stamps
+         these — this is a safety net, not the normal path);
+       • a staff account that EXISTS but carries no academy is likewise unscoped.
+
+     A missing user record is a different case and is denied: it means the
+     account was deleted while its access token is still live (up to
+     JWT_ACCESS_EXPIRES_IN, currently 7 days — see M-02), and a removed admin
+     must not keep cross-academy reach for the life of their last token. */
+  private async assertSameOrganization(course: unknown, userId: string): Promise<void> {
+    const courseOrg = (course as { organizationId?: unknown }).organizationId
+    if (!courseOrg) return
+
+    const { UserModel } = await import('@/models/schema.ts')
+    const user = Types.ObjectId.isValid(userId)
+      ? await UserModel.findById(userId).select('organizationId').lean().exec()
+      : null
+
+    if (!user) {
+      throw new OutlineError('FORBIDDEN', 'This account no longer exists.', 403)
+    }
+
+    const callerOrg = (user as { organizationId?: unknown }).organizationId
+    if (!callerOrg) return
+
+    if (String(callerOrg) !== String(courseOrg)) {
+      throw new OutlineError('FORBIDDEN', 'This course belongs to another organization.', 403)
+    }
   }
 
   /** Convenience: look up lesson → course, then assertCourseEditable. */

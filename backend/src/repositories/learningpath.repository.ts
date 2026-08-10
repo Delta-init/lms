@@ -29,13 +29,33 @@ export class LearningPathRepository {
     return q.exec()
   }
 
+  /* ── Academy predicate (P-22) ────────────────────────
+     The standard `{org} OR {null} OR {missing}` shape used by every other
+     org filter in this codebase: a caller with no academy on record is
+     unscoped, and a row that predates the field stays reachable so the boot
+     backfill is a safety net rather than a hard dependency. Returns null when
+     no scoping applies, so callers can skip the clause entirely. */
+  private orgClause(organizationId?: string): Record<string, unknown> | null {
+    if (!organizationId || !Types.ObjectId.isValid(organizationId)) return null
+    return {
+      $or: [
+        { organizationId: new Types.ObjectId(organizationId) },
+        { organizationId: null },
+        { organizationId: { $exists: false } },
+      ],
+    }
+  }
+
   async listPublished(
     page:    number,
     perPage: number,
     categoryId?: string,
+    organizationId?: string,
   ): Promise<{ docs: ILearningPath[]; total: number }> {
     const filter: Record<string, unknown> = { status: 'published' }
     if (categoryId) filter['categoryId'] = new Types.ObjectId(categoryId)
+    const scoped = this.orgClause(organizationId)
+    if (scoped) Object.assign(filter, scoped)
 
     const [docs, total] = await Promise.all([
       LearningPathModel
@@ -51,16 +71,24 @@ export class LearningPathRepository {
     return { docs, total }
   }
 
-  async listAll(page: number, perPage: number): Promise<{ docs: ILearningPath[]; total: number }> {
+  async listAll(
+    page: number,
+    perPage: number,
+    organizationId?: string,
+  ): Promise<{ docs: ILearningPath[]; total: number }> {
+    const filter: Record<string, unknown> = {}
+    const scoped = this.orgClause(organizationId)
+    if (scoped) Object.assign(filter, scoped)
+
     const [docs, total] = await Promise.all([
       LearningPathModel
-        .find()
+        .find(filter)
         .populate({ path: 'instructorId', select: 'name avatarUrl' })
         .sort({ createdAt: -1 })
         .skip((page - 1) * perPage)
         .limit(perPage)
         .exec(),
-      LearningPathModel.countDocuments(),
+      LearningPathModel.countDocuments(filter),
     ])
     return { docs, total }
   }

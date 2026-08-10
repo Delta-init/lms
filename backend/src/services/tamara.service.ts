@@ -186,9 +186,19 @@ export class TamaraService {
   }
 
   /* Authorise a Tamara order after the customer approves payment.
-     Moves order from `approved` → `authorised`. */
-  async authoriseOrder(tamaraOrderId: string): Promise<void> {
-    if (!env.TAMARA_API_KEY) return
+     Moves order from `approved` → `authorised`.
+
+     Returns whether Tamara ACCEPTED the authorisation. This used to return
+     void and log failures as "(non-fatal)", which meant the caller could not
+     tell an approved order from a rejected one — and fulfilled either way, so
+     anyone could self-fulfil their own pending order for free (P-02). A
+     successful authorise is the point at which the customer's funds are
+     genuinely committed, so it is the correct gate for handing over a course. */
+  async authoriseOrder(tamaraOrderId: string): Promise<boolean> {
+    if (!env.TAMARA_API_KEY) {
+      logger.error({ tamaraOrderId }, 'Tamara authorise: TAMARA_API_KEY not configured — refusing to treat as paid')
+      return false
+    }
     const resp = await fetch(`${this.baseUrl}/orders/${tamaraOrderId}/authorise`, {
       method:  'POST',
       headers: {
@@ -199,20 +209,26 @@ export class TamaraService {
     })
     if (!resp.ok) {
       const text = await resp.text()
-      logger.warn({ status: resp.status, tamaraOrderId, text }, 'Tamara authorise failed (non-fatal)')
+      logger.error({ status: resp.status, tamaraOrderId, text }, 'Tamara authorise FAILED — order will not be fulfilled')
+      return false
     }
+    return true
   }
 
   /* Capture (settle) a Tamara order — required to move to fully_captured and trigger settlement.
      For digital goods, call immediately after authorise.
      amountAED: decimal string e.g. "199.00", courseTitle+courseId for items */
+  /* Returns whether Tamara accepted the capture. The caller fulfils on a
+     successful AUTHORISE (funds committed); a failed capture is a settlement
+     problem to chase, not a reason to withhold a course the customer has
+     already committed to pay for — but it must be loud, not "(non-fatal)". */
   async captureOrder(opts: {
     tamaraOrderId: string
     amountAED:     string
     courseTitle:   string
     courseId:      string
-  }): Promise<void> {
-    if (!env.TAMARA_API_KEY) return
+  }): Promise<boolean> {
+    if (!env.TAMARA_API_KEY) return false
     const now = new Date().toISOString()
     const resp = await fetch(`${this.baseUrl}/payments/capture`, {
       method:  'POST',
@@ -241,8 +257,13 @@ export class TamaraService {
     })
     if (!resp.ok) {
       const text = await resp.text()
-      logger.warn({ status: resp.status, tamaraOrderId: opts.tamaraOrderId, text }, 'Tamara capture failed (non-fatal)')
+      logger.error(
+        { status: resp.status, tamaraOrderId: opts.tamaraOrderId, text },
+        'Tamara capture FAILED — order was authorised and fulfilled, settlement needs manual follow-up',
+      )
+      return false
     }
+    return true
   }
 
   /* Verify Tamara webhook JWT (HS256).

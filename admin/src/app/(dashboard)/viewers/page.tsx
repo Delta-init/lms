@@ -13,6 +13,7 @@ import { useToggleBlock } from '@/lib/api/enrollmentRequests'
 import { useCurrentUser } from '@/lib/api/user'
 import { useToast } from '@/store/ui.store'
 import Spinner from '@/components/ui/Spinner'
+import { useDocumentUrl } from '@/lib/api/documents'
 
 function fmtDate(d?: string) {
   if (!d) return '—'
@@ -66,6 +67,15 @@ function DocCard({ label, url }: { label: string; url?: string }) {
       </div>
     </div>
   )
+}
+
+/* Identity scans are stored as bare keys and exchanged for a short-lived
+   signed link (H-11); DocCard renders whatever comes back. */
+function SignedDocCard({ label, userId, field, stored }: {
+  label: string; userId: string; field: 'passport' | 'idDoc'; stored?: string
+}) {
+  const url = useDocumentUrl(userId, field, stored)
+  return <DocCard label={label} url={url} />
 }
 
 /* ── Detail modal (read-only) ──────────────────────── */
@@ -244,8 +254,8 @@ function ViewerDetailModal({ user, onClose }: { user: AdminUser; onClose: () => 
                   </span>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
-                  <DocCard label="Passport Copy" url={app.passportUrl} />
-                  <DocCard label={app.idType === 'Emirates ID' ? 'Emirates ID Card' : app.idType === 'Aadhaar Card' ? 'Aadhaar Card' : app.idType === 'Other' ? 'ID Document' : 'Passport Copy'} url={app.idDocUrl} />
+                  <SignedDocCard label="Passport Copy" userId={String(user.id)} field="passport" stored={app.passportUrl} />
+                  <SignedDocCard label={app.idType === 'Emirates ID' ? 'Emirates ID Card' : app.idType === 'Aadhaar Card' ? 'Aadhaar Card' : app.idType === 'Other' ? 'ID Document' : 'Passport Copy'} userId={String(user.id)} field="idDoc" stored={app.idDocUrl} />
                   <DocCard label="Profile Photo" url={app.photoUrl} />
                 </div>
               </div>

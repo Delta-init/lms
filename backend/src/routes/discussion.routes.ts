@@ -22,7 +22,9 @@ router.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { page, per_page } = parsePagination(req.query as Record<string, unknown>)
-      const { docs, total } = await svc.listThreads(String(req.params['lessonId'] ?? ''), page, per_page)
+      const { docs, total } = await svc.listThreads(
+        String(req.params['lessonId'] ?? ''), page, per_page, req.user!.id, req.user!.role,
+      )
       sendSuccess(res, { threads: docs, meta: buildPaginationMeta(total, page, per_page) })
     } catch (err) {
       next(err)
@@ -83,7 +85,7 @@ router.patch(
 router.patch(
   '/threads/:threadId/pin',
   authenticate,
-  requireRole('admin', 'instructor'),
+  requireRole('super_admin', 'admin', 'instructor'),
   validate(z.object({ isPinned: z.boolean() })),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -168,7 +170,7 @@ router.post(
 router.patch(
   '/comments/:commentId/instructor-answer',
   authenticate,
-  requireRole('admin', 'instructor'),
+  requireRole('super_admin', 'admin', 'instructor'),
   validate(z.object({ mark: z.boolean() })),
   async (req: Request, res: Response, next: NextFunction) => {
     try {

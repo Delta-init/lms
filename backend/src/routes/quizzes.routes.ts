@@ -23,7 +23,7 @@ const submitSchema = z.object({
 /* GET /quizzes/lessons/:lessonId — student gets quiz questions (no answers) */
 router.get('/lessons/:lessonId', authenticate, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const quiz = await quizSvc.getForStudent(String(req.params['lessonId'] ?? ''))
+    const quiz = await quizSvc.getForStudent(req.user!.id, String(req.params['lessonId'] ?? ''))
     sendSuccess(res, quiz)
   } catch (err) { next(err) }
 })

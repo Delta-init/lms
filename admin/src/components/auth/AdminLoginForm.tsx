@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, Shield } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, AlertCircle, Shield } from 'lucide-react'
 import { api } from '@/lib/axios'
 import Spinner from '@/components/ui/Spinner'
 
@@ -45,24 +45,186 @@ export function AdminLoginForm() {
   const router   = useRouter()
   const [showPw, setShowPw] = useState(false)
   const [error,  setError]  = useState<string | null>(null)
+  /* 2FA challenge step — set when the backend answers with twoFactorRequired */
+  const [challengeToken, setChallengeToken] = useState<string | null>(null)
+  const [code,           setCode]           = useState('')
+  const [verifying,      setVerifying]      = useState(false)
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<Values>({
     resolver: zodResolver(schema),
   })
+
+  /* ── Post-login handling (shared by password + 2FA paths) ── */
+  const completeLogin = () => {
+    router.replace('/')
+    router.refresh()
+  }
 
   const onSubmit = async ({ email, password }: Values) => {
     setError(null)
     try {
       const res = await api.post<{
         success: true
-        data: { user: { role: string } }
+        data: { user?: { role: string }; twoFactorRequired?: boolean; challengeToken?: string }
       }>('/admin/auth/login', { email, password })
 
-      router.replace('/')
-      router.refresh()
+      // 2FA accounts get a short-lived challenge instead of a session.
+      const payload = res.data?.data
+      if (payload?.twoFactorRequired) {
+        if (!payload.challengeToken) {
+          setError('Unable to start two-factor verification. Please try again.')
+          return
+        }
+        setCode('')
+        setChallengeToken(payload.challengeToken)
+        return
+      }
+
+      completeLogin()
     } catch (err) {
       setError(extractErrorMessage(err))
     }
+  }
+
+  /* ── 2FA verification handler ── */
+  const onVerify = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!challengeToken || verifying) return
+    if (!/^\d{6}$/.test(code)) {
+      setError('Enter the 6-digit code from your authenticator app.')
+      return
+    }
+    setError(null)
+    setVerifying(true)
+    try {
+      await api.post<{
+        success: true
+        data: { user?: { role: string } }
+      }>('/admin/auth/login/2fa', { challengeToken, code })
+
+      completeLogin()
+    } catch (err) {
+      setError(extractErrorMessage(err))
+      setCode('')
+    } finally {
+      setVerifying(false)
+    }
+  }
+
+  /* ── Back to the credentials step ── */
+  const cancelChallenge = () => {
+    setChallengeToken(null)
+    setCode('')
+    setError(null)
+  }
+
+  /* ── 2FA challenge step ── */
+  if (challengeToken) {
+    return (
+      <div className="w-full max-w-[400px]">
+        {/* Badge */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+          className="mb-8 inline-flex items-center gap-2 rounded-full px-4 py-2"
+          style={{ background: 'rgba(0,87,184,0.12)', border: '1px solid rgba(0,87,184,0.24)' }}
+        >
+          <Shield size={14} color="#0057b8" strokeWidth={2} />
+          <span className="text-xs font-semibold" style={{ color: '#0057b8' }}>Two-Factor Verification</span>
+        </motion.div>
+
+        {/* Heading */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.08 }}
+          className="mb-8"
+        >
+          <h1
+            className="mb-2 text-[32px] font-bold leading-tight tracking-tight text-white"
+            style={{ fontFamily: 'Bricolage Grotesque, sans-serif' }}
+          >
+            Verify it&apos;s you
+          </h1>
+          <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 14 }}>
+            Enter the 6-digit code from your authenticator app
+          </p>
+        </motion.div>
+
+        <form onSubmit={onVerify} noValidate className="space-y-4">
+          {/* Code */}
+          <motion.div custom={0} variants={fieldVariant} initial="hidden" animate="visible">
+            <label className="mb-1.5 block text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.7)' }}>
+              Authentication code
+            </label>
+            <div className="relative">
+              <Shield size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2"
+                style={{ color: error ? '#EF4444' : 'rgba(255,255,255,0.3)' }} />
+              <input
+                value={code}
+                onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                autoFocus
+                placeholder="000000"
+                className="w-full rounded-xl py-3 pl-10 pr-4 text-sm tracking-[0.4em] text-white outline-none transition-all placeholder:text-white/25"
+                style={{
+                  background: error ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.06)',
+                  border: `1.5px solid ${error ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.08)'}`,
+                }}
+                onFocus={e => {
+                  e.currentTarget.style.border = '1.5px solid rgba(0,87,184,0.6)'
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.09)'
+                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0,87,184,0.12)'
+                }}
+                onBlur={e => {
+                  e.currentTarget.style.border = `1.5px solid ${error ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.08)'}`
+                  e.currentTarget.style.background = error ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.06)'
+                  e.currentTarget.style.boxShadow = 'none'
+                }}
+              />
+            </div>
+          </motion.div>
+
+          {/* Server error */}
+          <AnimatePresence>
+            {error && (
+              <motion.div initial={{ opacity: 0, y: -6, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0 }}
+                className="flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm"
+                style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', color: '#FCA5A5' }}>
+                <AlertCircle size={15} />{error}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Submit */}
+          <motion.div custom={1} variants={fieldVariant} initial="hidden" animate="visible">
+            <motion.button type="submit" disabled={verifying}
+              whileHover={{ y: -2, boxShadow: '0 10px 32px rgba(0,87,184,0.42)' }}
+              whileTap={{ scale: 0.98 }}
+              className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold text-white transition-all disabled:opacity-60"
+              style={{ background: 'linear-gradient(135deg, #0057b8, #003d80)', boxShadow: '0 4px 24px rgba(0,87,184,0.32)' }}>
+              {verifying
+                ? <><Spinner size={16} />Verifying…</>
+                : <>Verify code<ArrowRight size={16} /></>}
+            </motion.button>
+          </motion.div>
+        </form>
+
+        {/* Back to sign in */}
+        <motion.div custom={2} variants={fieldVariant} initial="hidden" animate="visible" className="mt-6 text-center">
+          <button type="button" onClick={cancelChallenge}
+            className="inline-flex items-center gap-1 text-sm font-semibold transition-opacity hover:opacity-70"
+            style={{ color: 'rgba(255,255,255,0.55)' }}>
+            <ArrowLeft size={14} />
+            Back to sign in
+          </button>
+        </motion.div>
+      </div>
+    )
   }
 
   return (

@@ -29,6 +29,25 @@ export class OrderError extends Error {
   }
 }
 
+/* ── What a course costs in a currency that is not USD (B-01) ──────────────
+   `price` is the USD figure Stripe charges. These resolve the AED and INR
+   figures: the course's own override when an admin has set one, otherwise a
+   conversion of the USD price at the configured rate.
+
+   Extracted because the same expression was written out seven times — six for
+   AED alone — and because the fallback is the only path any existing course
+   takes, so it is worth being able to test directly. Before B-01 the overrides
+   could not be stored at all, which made these fallbacks the ONLY prices the
+   non-USD gateways ever charged, and the INR rate was a literal rather than a
+   setting. */
+export function inrPriceFor(course: { price: number; priceINR?: number }): number {
+  return course.priceINR ?? Math.round(course.price * env.INR_EXCHANGE_RATE)
+}
+
+export function aedPriceFor(course: { price: number; priceAED?: number }): number {
+  return course.priceAED ?? Math.round(course.price * env.UAE_EXCHANGE_RATE * 100) / 100
+}
+
 export class OrderService {
   private readonly orderRepo     = new OrderRepository()
   private readonly couponSvc     = new CouponService()
@@ -60,6 +79,36 @@ export class OrderService {
     return { gateways: [], currency: 'USD' }
   }
 
+  /* ─── Coupon reservation rollback ───────────────────
+     Every create*Order path claims a coupon usage slot BEFORE it creates the
+     order row and calls the gateway. If either of those fails the slot was
+     never spent, so it has to go back — otherwise a maxUses:10 coupon is
+     burned to zero by ten failed checkouts (a misconfigured gateway, a network
+     blip, or a caller retrying).
+
+     Only ever runs on a path that is already throwing: a successful checkout
+     never enters the catch, so gateway behaviour is unchanged. */
+  private async releasingOnFailure<T>(
+    couponId: string | undefined,
+    work: () => Promise<T>,
+  ): Promise<T> {
+    try {
+      return await work()
+    } catch (err) {
+      /* Awaited, not fire-and-forget: the caller commonly retries immediately,
+         and the slot must be back before the error reaches them. A failure to
+         release is logged but never masks the original error. */
+      if (couponId) {
+        try {
+          await this.couponSvc.release(couponId)
+        } catch (releaseErr) {
+          logger.warn({ releaseErr, couponId }, 'Failed to release coupon slot after a failed checkout')
+        }
+      }
+      throw err
+    }
+  }
+
   /* ─── Create Stripe checkout session ──────────────── */
   async createCheckoutSession(userId: string, courseId: string, couponCode?: string): Promise<{ url: string }> {
     if (!Types.ObjectId.isValid(courseId)) {
@@ -86,46 +135,50 @@ export class OrderService {
     let couponId: string | undefined
 
     if (couponCode) {
-      const coupon = await this.couponSvc.validate(couponCode, courseId)
-      const applied = this.couponSvc.applyDiscount(originalCents, coupon)
-      finalCents    = applied.finalCents
-      discountCents = applied.discountCents
-      couponId      = coupon.id
+      /* Prices BEFORE claiming the usage slot — see validateAndPrice(). */
+      const priced  = await this.couponSvc.validateAndPrice(
+        couponCode, courseId, originalCents, env.STRIPE_CURRENCY,
+      )
+      finalCents    = priced.finalCents
+      discountCents = priced.discountCents
+      couponId      = priced.coupon.id
     }
 
     if (finalCents > 0 && finalCents < 50) finalCents = 50
 
-    const clientUrl  = env.CLIENT_URL
-    const successUrl = `${clientUrl}/courses/${course.slug}?checkout=success&session_id={CHECKOUT_SESSION_ID}`
-    const cancelUrl  = `${clientUrl}/courses/${course.slug}?checkout=cancel`
+    return this.releasingOnFailure(couponId, async () => {
+      const clientUrl  = env.CLIENT_URL
+      const successUrl = `${clientUrl}/courses/${course.slug}?checkout=success&session_id={CHECKOUT_SESSION_ID}`
+      const cancelUrl  = `${clientUrl}/courses/${course.slug}?checkout=cancel`
 
-    const order = await this.orderRepo.create({
-      userId,
-      courseId,
-      gateway:                  'stripe',
-      stripeCheckoutSessionId:  'pending',
-      amount:   finalCents,
-      currency: env.STRIPE_CURRENCY,
-      ...(couponId      && { couponId }),
-      ...(discountCents && { discountAmount: discountCents }),
+      const order = await this.orderRepo.create({
+        userId,
+        courseId,
+        gateway:                  'stripe',
+        stripeCheckoutSessionId:  'pending',
+        amount:   finalCents,
+        currency: env.STRIPE_CURRENCY,
+        ...(couponId      && { couponId }),
+        ...(discountCents && { discountAmount: discountCents }),
+      })
+
+      const session = await this.stripeSvc.createCheckoutSession({
+        orderId:       order.id,
+        userId,
+        courseId,
+        courseTitle:   course.title,
+        thumbnailUrl:  course.thumbnailUrl,
+        description:   course.description,
+        amountCents:   finalCents,
+        currency:      env.STRIPE_CURRENCY,
+        successUrl,
+        cancelUrl,
+      })
+
+      await patchStripeSession(order.id, session.id)
+
+      return { url: session.url! }
     })
-
-    const session = await this.stripeSvc.createCheckoutSession({
-      orderId:       order.id,
-      userId,
-      courseId,
-      courseTitle:   course.title,
-      thumbnailUrl:  course.thumbnailUrl,
-      description:   course.description,
-      amountCents:   finalCents,
-      currency:      env.STRIPE_CURRENCY,
-      successUrl,
-      cancelUrl,
-    })
-
-    await patchStripeSession(order.id, session.id)
-
-    return { url: session.url! }
   }
 
   /* ─── Create Razorpay order ────────────────────────── */
@@ -160,55 +213,61 @@ export class OrderService {
       throw new OrderError('ALREADY_ENROLLED', 'You are already enrolled in this course', 409)
     }
 
-    /* Convert price to paise: prefer priceINR, fallback to USD * 83 */
-    const priceINR      = (course as any).priceINR ?? Math.round(course.price * 83)
+    /* Convert to paise: the course's own INR price when set, otherwise the
+       configured conversion rate (B-01 — before that fix priceINR could not be
+       stored, so this fallback was the only path). */
+    const priceINR      = inrPriceFor(course as any)
     const originalPaise = Math.round(priceINR * 100)
     let   finalPaise    = originalPaise
     let   discountPaise = 0
     let   couponId: string | undefined
 
     if (couponCode) {
-      const coupon = await this.couponSvc.validate(couponCode, courseId)
-      const applied = this.couponSvc.applyDiscount(originalPaise, coupon)
-      finalPaise    = applied.finalCents
-      discountPaise = applied.discountCents
-      couponId      = coupon.id
+      /* Prices BEFORE claiming the usage slot — see validateAndPrice(). */
+      const priced  = await this.couponSvc.validateAndPrice(
+        couponCode, courseId, originalPaise, env.RAZORPAY_CURRENCY,
+      )
+      finalPaise    = priced.finalCents
+      discountPaise = priced.discountCents
+      couponId      = priced.coupon.id
     }
 
     /* Razorpay minimum: 100 paise (₹1) */
     if (finalPaise > 0 && finalPaise < 100) finalPaise = 100
 
-    const order = await this.orderRepo.create({
-      userId,
-      courseId,
-      gateway:  'razorpay',
-      amount:   finalPaise,
-      currency: env.RAZORPAY_CURRENCY,
-      ...(couponId      && { couponId }),
-      ...(discountPaise && { discountAmount: discountPaise }),
+    return this.releasingOnFailure(couponId, async () => {
+      const order = await this.orderRepo.create({
+        userId,
+        courseId,
+        gateway:  'razorpay',
+        amount:   finalPaise,
+        currency: env.RAZORPAY_CURRENCY,
+        ...(couponId      && { couponId }),
+        ...(discountPaise && { discountAmount: discountPaise }),
+      })
+
+      const rzpOrder = await this.razorpaySvc.createOrder({
+        amountPaise: finalPaise,
+        currency:    env.RAZORPAY_CURRENCY,
+        receipt:     order.id.slice(-40),
+        notes:       { courseId, userId },
+      })
+
+      /* Patch order with real Razorpay order id */
+      await patchRazorpayOrderId(order.id, rzpOrder.id)
+
+      const user = await UserModel.findById(userId).select('name email').exec()
+
+      return {
+        razorpayOrderId: rzpOrder.id,
+        amount:          finalPaise,
+        currency:        env.RAZORPAY_CURRENCY,
+        key:             env.RAZORPAY_KEY_ID!,
+        courseName:      course.title,
+        userEmail:       user?.email ?? '',
+        userName:        user?.name  ?? '',
+      }
     })
-
-    const rzpOrder = await this.razorpaySvc.createOrder({
-      amountPaise: finalPaise,
-      currency:    env.RAZORPAY_CURRENCY,
-      receipt:     order.id.slice(-40),
-      notes:       { courseId, userId },
-    })
-
-    /* Patch order with real Razorpay order id */
-    await patchRazorpayOrderId(order.id, rzpOrder.id)
-
-    const user = await UserModel.findById(userId).select('name email').exec()
-
-    return {
-      razorpayOrderId: rzpOrder.id,
-      amount:          finalPaise,
-      currency:        env.RAZORPAY_CURRENCY,
-      key:             env.RAZORPAY_KEY_ID!,
-      courseName:      course.title,
-      userEmail:       user?.email ?? '',
-      userName:        user?.name  ?? '',
-    }
   }
 
   /* ─── Verify Razorpay signature + fulfill ─────────── */
@@ -216,6 +275,7 @@ export class OrderService {
     razorpayOrderId:   string,
     razorpayPaymentId: string,
     razorpaySignature: string,
+    userId?:           string,
   ): Promise<{ orderId: string }> {
     const valid = this.razorpaySvc.verifySignature(razorpayOrderId, razorpayPaymentId, razorpaySignature)
     if (!valid) {
@@ -227,18 +287,25 @@ export class OrderService {
       throw new OrderError('ORDER_NOT_FOUND', 'Order not found', 404)
     }
 
+    /* Ownership (P-26). The signature already proves the payment is genuine, so
+       this is defence in depth rather than a live hole — but every other
+       gateway's return handler checks it and this one did not. `userId` is
+       optional so the webhook path, which has no caller identity, is unchanged. */
+    if (userId && order.userId.toString() !== userId) {
+      throw new OrderError('FORBIDDEN', 'Order does not belong to you', 403)
+    }
+
     /* Idempotent — already fulfilled (e.g. webhook beat us here) */
     if (order.status === 'paid') {
       logger.info({ orderId: order.id }, 'Razorpay: order already fulfilled, skipping')
       return { orderId: order.id }
     }
 
-    await this.orderRepo.fulfillRazorpay(order.id, razorpayPaymentId, razorpaySignature)
-
-    if (order.couponId) {
-      void this.couponSvc.redeem(order.couponId.toString()).catch(err =>
-        logger.warn({ err }, 'Failed to increment coupon usage'),
-      )
+    /* Conditional flip — the webhook may have raced us past the check above */
+    const fulfilled = await this.orderRepo.fulfillRazorpay(order.id, razorpayPaymentId, razorpaySignature)
+    if (!fulfilled) {
+      logger.info({ orderId: order.id }, 'Razorpay: order fulfilled concurrently, skipping side effects')
+      return { orderId: order.id }
     }
 
     await this._createEnrollment(order.userId.toString(), order.courseId.toString())
@@ -260,12 +327,11 @@ export class OrderService {
       return
     }
 
-    await this.orderRepo.fulfillRazorpay(order.id, razorpayPaymentId, '')
-
-    if (order.couponId) {
-      void this.couponSvc.redeem(order.couponId.toString()).catch(err =>
-        logger.warn({ err }, 'Failed to increment coupon usage'),
-      )
+    /* Conditional flip — the client return-URL verify may have raced us */
+    const fulfilled = await this.orderRepo.fulfillRazorpay(order.id, razorpayPaymentId, '')
+    if (!fulfilled) {
+      logger.info({ orderId: order.id }, 'Webhook: order fulfilled concurrently, skipping side effects')
+      return
     }
 
     await this._createEnrollment(order.userId.toString(), order.courseId.toString())
@@ -285,12 +351,11 @@ export class OrderService {
       return
     }
 
-    await this.orderRepo.fulfill(order.id, paymentIntentId)
-
-    if (order.couponId) {
-      void this.couponSvc.redeem(order.couponId.toString()).catch(err =>
-        logger.warn({ err }, 'Failed to increment coupon usage'),
-      )
+    /* Conditional flip — a retried webhook delivery may have raced us */
+    const fulfilled = await this.orderRepo.fulfill(order.id, paymentIntentId)
+    if (!fulfilled) {
+      logger.info({ orderId: order.id }, 'Webhook: order fulfilled concurrently, skipping side effects')
+      return
     }
 
     await this._createEnrollment(order.userId.toString(), order.courseId.toString())
@@ -307,7 +372,7 @@ export class OrderService {
     if (!course || course.status !== 'published' || course.isFree) {
       return { available: false, rejectionReason: null }
     }
-    const priceAED = (course as any).priceAED ?? Math.round(course.price * env.UAE_EXCHANGE_RATE * 100) / 100
+    const priceAED = aedPriceFor(course as any)
     const user     = await UserModel.findById(userId).select('phone').exec()
     return this.tamaraSvc.checkEligibility(priceAED, (user as any)?.phone)
   }
@@ -321,7 +386,7 @@ export class OrderService {
     if (!course || course.status !== 'published' || course.isFree) {
       return { available: false, rejectionReason: null }
     }
-    const priceAED = (course as any).priceAED ?? Math.round(course.price * env.UAE_EXCHANGE_RATE * 100) / 100
+    const priceAED = aedPriceFor(course as any)
     const user     = await UserModel.findById(userId).select('email phone').exec()
     return this.tabbySvc.checkEligibility(priceAED, user?.email ?? '', (user as any)?.phone)
   }
@@ -355,53 +420,57 @@ export class OrderService {
     }
 
     /* Convert USD price to AED */
-    const priceAED      = (course as any).priceAED ?? Math.round(course.price * env.UAE_EXCHANGE_RATE * 100) / 100
+    const priceAED      = aedPriceFor(course as any)
     const originalFils  = Math.round(priceAED * 100)
     let   finalFils     = originalFils
     let   discountFils  = 0
     let   couponId: string | undefined
 
     if (couponCode) {
-      const coupon   = await this.couponSvc.validate(couponCode, courseId)
-      const applied  = this.couponSvc.applyDiscount(originalFils, coupon)
-      finalFils      = applied.finalCents
-      discountFils   = applied.discountCents
-      couponId       = coupon.id
+      /* Prices BEFORE claiming the usage slot — see validateAndPrice(). */
+      const priced   = await this.couponSvc.validateAndPrice(
+        couponCode, courseId, originalFils, env.TABBY_CURRENCY,
+      )
+      finalFils      = priced.finalCents
+      discountFils   = priced.discountCents
+      couponId       = priced.coupon.id
     }
 
     const finalAED = finalFils / 100
 
-    const order = await this.orderRepo.create({
-      userId,
-      courseId,
-      gateway:  'tabby',
-      amount:   finalFils,
-      currency: env.TABBY_CURRENCY,
-      ...(couponId     && { couponId }),
-      ...(discountFils && { discountAmount: discountFils }),
+    return this.releasingOnFailure(couponId, async () => {
+      const order = await this.orderRepo.create({
+        userId,
+        courseId,
+        gateway:  'tabby',
+        amount:   finalFils,
+        currency: env.TABBY_CURRENCY,
+        ...(couponId     && { couponId }),
+        ...(discountFils && { discountAmount: discountFils }),
+      })
+
+      const user = await UserModel.findById(userId).select('name email phone').exec()
+      const successUrl = `${env.CLIENT_URL}/payment-return?gateway=tabby&orderId=${order.id}`
+      const cancelUrl  = `${env.CLIENT_URL}/payment-return?gateway=tabby&status=cancelled`
+      const failureUrl = `${env.CLIENT_URL}/payment-return?gateway=tabby&status=failed&orderId=${order.id}`
+
+      const result = await this.tabbySvc.createCheckout({
+        amountAED:   finalAED,
+        orderId:     order.id,
+        courseTitle: course.title,
+        courseId:    course.id,
+        buyerEmail:  user?.email ?? '',
+        buyerName:   user?.name  ?? '',
+        buyerPhone:  (user as any)?.phone ?? '',
+        successUrl,
+        cancelUrl,
+        failureUrl,
+      })
+
+      await patchTabbyCheckoutId(order.id, result.checkoutId, result.paymentId)
+
+      return { checkoutUrl: result.checkoutUrl, checkoutId: result.checkoutId }
     })
-
-    const user = await UserModel.findById(userId).select('name email phone').exec()
-    const successUrl = `${env.CLIENT_URL}/payment-return?gateway=tabby&orderId=${order.id}`
-    const cancelUrl  = `${env.CLIENT_URL}/payment-return?gateway=tabby&status=cancelled`
-    const failureUrl = `${env.CLIENT_URL}/payment-return?gateway=tabby&status=failed&orderId=${order.id}`
-
-    const result = await this.tabbySvc.createCheckout({
-      amountAED:   finalAED,
-      orderId:     order.id,
-      courseTitle: course.title,
-      courseId:    course.id,
-      buyerEmail:  user?.email ?? '',
-      buyerName:   user?.name  ?? '',
-      buyerPhone:  (user as any)?.phone ?? '',
-      successUrl,
-      cancelUrl,
-      failureUrl,
-    })
-
-    await patchTabbyCheckoutId(order.id, result.checkoutId, result.paymentId)
-
-    return { checkoutUrl: result.checkoutUrl, checkoutId: result.checkoutId }
   }
 
   /* ─── Tabby webhook fulfillment (idempotent) ─────────── */
@@ -409,15 +478,22 @@ export class OrderService {
      ourOrderId      — from webhook payload.order.reference_id (our LMS order ID) */
   async fulfillTabbyFromWebhook(tabbyPaymentId: string, ourOrderId?: string): Promise<void> {
     /* 1. Server-to-server verification: confirm AUTHORIZED status with Tabby */
-    let verifiedStatus: string | undefined
+    /* FAIL CLOSED (P-03). This used to catch a failed lookup, log "proceeding
+       without status check" and fall through — and because the guard below was
+       written `if (verifiedStatus && …)`, an undefined status skipped it
+       entirely. During any Tabby outage or credential rotation, every pending
+       order could then be self-fulfilled through verify-return. A payment
+       check that cannot run has not passed. */
+    let verifiedStatus: string
     try {
       const payment = await this.tabbySvc.getPayment(tabbyPaymentId)
       verifiedStatus = payment.status.toUpperCase()
     } catch (err) {
-      logger.warn({ err, tabbyPaymentId }, 'Tabby: getPayment failed — proceeding without status check')
+      logger.error({ err, tabbyPaymentId }, 'Tabby: getPayment failed — refusing to fulfil unverified payment')
+      return
     }
 
-    if (verifiedStatus && verifiedStatus !== 'AUTHORIZED' && verifiedStatus !== 'CLOSED') {
+    if (verifiedStatus !== 'AUTHORIZED' && verifiedStatus !== 'CLOSED') {
       logger.warn({ tabbyPaymentId, verifiedStatus }, 'Tabby: payment not capturable')
       return
     }
@@ -440,13 +516,11 @@ export class OrderService {
     const amountAED = (order.amount / 100).toFixed(2)
     await this.tabbySvc.capturePayment(tabbyPaymentId, amountAED, order.id)
 
-    /* 4. Fulfill order */
-    await this.orderRepo.fulfillTabby(order.id, tabbyPaymentId)
-
-    if (order.couponId) {
-      void this.couponSvc.redeem(order.couponId.toString()).catch(err =>
-        logger.warn({ err }, 'Failed to increment coupon usage'),
-      )
+    /* 4. Fulfill order — conditional flip, the return-URL verify may have raced us */
+    const fulfilled = await this.orderRepo.fulfillTabby(order.id, tabbyPaymentId)
+    if (!fulfilled) {
+      logger.info({ orderId: order.id }, 'Tabby webhook: order fulfilled concurrently, skipping side effects')
+      return
     }
 
     await this._createEnrollment(order.userId.toString(), order.courseId.toString())
@@ -507,47 +581,51 @@ export class OrderService {
       throw new OrderError('ALREADY_ENROLLED', 'You are already enrolled in this course', 409)
     }
 
-    const priceAED     = (course as any).priceAED ?? Math.round(course.price * env.UAE_EXCHANGE_RATE * 100) / 100
+    const priceAED     = aedPriceFor(course as any)
     const originalFils = Math.round(priceAED * 100)
     let   finalFils    = originalFils
     let   discountFils = 0
     let   couponId: string | undefined
 
     if (couponCode) {
-      const coupon   = await this.couponSvc.validate(couponCode, courseId)
-      const applied  = this.couponSvc.applyDiscount(originalFils, coupon)
-      finalFils      = applied.finalCents
-      discountFils   = applied.discountCents
-      couponId       = coupon.id
+      /* Prices BEFORE claiming the usage slot — see validateAndPrice(). */
+      const priced   = await this.couponSvc.validateAndPrice(
+        couponCode, courseId, originalFils, env.ABZER_CURRENCY,
+      )
+      finalFils      = priced.finalCents
+      discountFils   = priced.discountCents
+      couponId       = priced.coupon.id
     }
 
-    const order = await this.orderRepo.create({
-      userId,
-      courseId,
-      gateway:  'abzer',
-      amount:   finalFils,
-      currency: env.ABZER_CURRENCY,
-      ...(couponId     && { couponId }),
-      ...(discountFils && { discountAmount: discountFils }),
+    return this.releasingOnFailure(couponId, async () => {
+      const order = await this.orderRepo.create({
+        userId,
+        courseId,
+        gateway:  'abzer',
+        amount:   finalFils,
+        currency: env.ABZER_CURRENCY,
+        ...(couponId     && { couponId }),
+        ...(discountFils && { discountAmount: discountFils }),
+      })
+
+      const user = await UserModel.findById(userId).select('name email').exec()
+      const successUrl = `${env.CLIENT_URL}/courses/${slug}?checkout=success`
+      const cancelUrl  = `${env.CLIENT_URL}/courses/${slug}?checkout=cancel`
+      const failureUrl = `${env.CLIENT_URL}/courses/${slug}?checkout=cancel`
+
+      const result = await this.abzerSvc.createOrder({
+        amountAED:   finalFils / 100,
+        orderId:     order.id,
+        courseTitle: course.title,
+        buyerEmail:  user?.email ?? '',
+        buyerName:   user?.name  ?? '',
+        buyerPhone:  (user as any)?.phone ?? '',
+      })
+
+      await patchAbzerOrderId(order.id, result.abzerRequestId)
+
+      return { checkoutUrl: result.checkoutUrl, abzerOrderId: result.abzerRequestId }
     })
-
-    const user = await UserModel.findById(userId).select('name email').exec()
-    const successUrl = `${env.CLIENT_URL}/courses/${slug}?checkout=success`
-    const cancelUrl  = `${env.CLIENT_URL}/courses/${slug}?checkout=cancel`
-    const failureUrl = `${env.CLIENT_URL}/courses/${slug}?checkout=cancel`
-
-    const result = await this.abzerSvc.createOrder({
-      amountAED:   finalFils / 100,
-      orderId:     order.id,
-      courseTitle: course.title,
-      buyerEmail:  user?.email ?? '',
-      buyerName:   user?.name  ?? '',
-      buyerPhone:  (user as any)?.phone ?? '',
-    })
-
-    await patchAbzerOrderId(order.id, result.abzerRequestId)
-
-    return { checkoutUrl: result.checkoutUrl, abzerOrderId: result.abzerRequestId }
   }
 
   /* ─── Abzer webhook fulfillment (idempotent) ─────────── */
@@ -563,12 +641,11 @@ export class OrderService {
       return
     }
 
-    await this.orderRepo.fulfillAbzer(order.id, receiptId)
-
-    if (order.couponId) {
-      void this.couponSvc.redeem(order.couponId.toString()).catch(err =>
-        logger.warn({ err }, 'Failed to increment coupon usage'),
-      )
+    /* Conditional flip — the return-URL verify may have raced us */
+    const fulfilled = await this.orderRepo.fulfillAbzer(order.id, receiptId)
+    if (!fulfilled) {
+      logger.info({ orderId: order.id }, 'Abzer webhook: order fulfilled concurrently, skipping side effects')
+      return
     }
 
     await this._createEnrollment(order.userId.toString(), order.courseId.toString())
@@ -584,22 +661,61 @@ export class OrderService {
   async verifyAbzerReturn(
     userId:        string,
     orderId:       string,
-    transactionId: string,
-  ): Promise<{ needsRegistration: boolean }> {
+    _transactionId: string,
+  ): Promise<{ needsRegistration: boolean; paid: boolean }> {
     const order = await this.orderRepo.findById(orderId)
     if (!order) throw new OrderError('ORDER_NOT_FOUND', 'Order not found', 404)
     if (order.userId.toString() !== userId) {
       throw new OrderError('FORBIDDEN', 'Order does not belong to you', 403)
     }
 
-    if (order.status !== 'paid') {
-      await this.fulfillAbzerFromWebhook(orderId, transactionId || 'return-url-fallback')
+    /* READ-ONLY (P-01). This used to call fulfillAbzerFromWebhook() directly,
+       which marks the order paid, creates the enrolment and auto-approves the
+       account — with NO verification of any kind, because AbzerService has no
+       status-lookup method to call. Three requests (register → create-order →
+       verify-return) bought any course for free and upgraded a browse-only
+       viewer to an approved student.
+
+       The Abzer WEBHOOK is the verified path: it checks X-Abzer-Secret before
+       fulfilling. So this endpoint now only reports what that path has already
+       decided. It waits briefly first, because the browser redirect commonly
+       beats the server-to-server callback by a few hundred milliseconds and
+       returning "not paid yet" in that window would be a worse answer than the
+       truth a moment later.
+
+       ⚠️ OPERATIONAL DEPENDENCY: ABZER_WEBHOOK_SECRET must be configured in
+       the Abzer console for production, or orders will never fulfil. */
+    let paid = order.status === 'paid'
+    if (!paid) {
+      paid = await this.#awaitGatewayFulfilment(orderId)
+    }
+    if (!paid) {
+      logger.warn(
+        { orderId },
+        'Abzer verify-return: order still pending after the webhook grace window — check ABZER_WEBHOOK_SECRET is registered with the gateway',
+      )
     }
 
     const user = await UserModel.findById(userId).select('signupType').lean()
     const needsRegistration = (user as any)?.signupType === 'express'
 
-    return { needsRegistration }
+    return { needsRegistration, paid }
+  }
+
+  /* ─── Wait out the redirect/webhook race ────────────────
+     The customer's browser is redirected back to us the instant the gateway
+     finishes, which often lands ahead of the gateway's own server-to-server
+     callback. Re-read the order for a short window so the return page can show
+     a settled answer instead of "pending" for something that is about to be
+     paid. Never mutates — the webhook remains the only thing that can fulfil. */
+  async #awaitGatewayFulfilment(orderId: string, timeoutMs = 4_000, stepMs = 400): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs
+    for (;;) {
+      await new Promise(r => setTimeout(r, stepMs))
+      const current = await this.orderRepo.findById(orderId)
+      if (current?.status === 'paid') return true
+      if (Date.now() >= deadline) return false
+    }
   }
 
   /* ─── Create Tamara checkout (UAE BNPL) ─────────────── */
@@ -630,51 +746,55 @@ export class OrderService {
       throw new OrderError('ALREADY_ENROLLED', 'You are already enrolled in this course', 409)
     }
 
-    const priceAED     = (course as any).priceAED ?? Math.round(course.price * env.UAE_EXCHANGE_RATE * 100) / 100
+    const priceAED     = aedPriceFor(course as any)
     const originalFils = Math.round(priceAED * 100)
     let   finalFils    = originalFils
     let   discountFils = 0
     let   couponId: string | undefined
 
     if (couponCode) {
-      const coupon   = await this.couponSvc.validate(couponCode, courseId)
-      const applied  = this.couponSvc.applyDiscount(originalFils, coupon)
-      finalFils      = applied.finalCents
-      discountFils   = applied.discountCents
-      couponId       = coupon.id
+      /* Prices BEFORE claiming the usage slot — see validateAndPrice(). */
+      const priced   = await this.couponSvc.validateAndPrice(
+        couponCode, courseId, originalFils, env.TAMARA_CURRENCY,
+      )
+      finalFils      = priced.finalCents
+      discountFils   = priced.discountCents
+      couponId       = priced.coupon.id
     }
 
-    const order = await this.orderRepo.create({
-      userId,
-      courseId,
-      gateway:  'tamara',
-      amount:   finalFils,
-      currency: env.TAMARA_CURRENCY,
-      ...(couponId     && { couponId }),
-      ...(discountFils && { discountAmount: discountFils }),
+    return this.releasingOnFailure(couponId, async () => {
+      const order = await this.orderRepo.create({
+        userId,
+        courseId,
+        gateway:  'tamara',
+        amount:   finalFils,
+        currency: env.TAMARA_CURRENCY,
+        ...(couponId     && { couponId }),
+        ...(discountFils && { discountAmount: discountFils }),
+      })
+
+      const user       = await UserModel.findById(userId).select('name email').exec()
+      const successUrl = `${env.CLIENT_URL}/payment-return?gateway=tamara&orderId=${order.id}`
+      const cancelUrl  = `${env.CLIENT_URL}/payment-return?gateway=tamara&status=cancelled`
+      const failureUrl = `${env.CLIENT_URL}/payment-return?gateway=tamara&status=failed&orderId=${order.id}`
+
+      const result = await this.tamaraSvc.createCheckout({
+        amountAED:   finalFils / 100,
+        orderId:     order.id,
+        courseTitle: course.title,
+        courseId:    course.id,
+        buyerEmail:  user?.email ?? '',
+        buyerName:   user?.name  ?? '',
+        buyerPhone:  (user as any)?.phone ?? '',
+        successUrl,
+        cancelUrl,
+        failureUrl,
+      })
+
+      await patchTamaraIds(order.id, result.checkoutId, result.tamaraOrderId)
+
+      return { checkoutUrl: result.checkoutUrl, tamaraCheckoutId: result.checkoutId }
     })
-
-    const user       = await UserModel.findById(userId).select('name email').exec()
-    const successUrl = `${env.CLIENT_URL}/payment-return?gateway=tamara&orderId=${order.id}`
-    const cancelUrl  = `${env.CLIENT_URL}/payment-return?gateway=tamara&status=cancelled`
-    const failureUrl = `${env.CLIENT_URL}/payment-return?gateway=tamara&status=failed&orderId=${order.id}`
-
-    const result = await this.tamaraSvc.createCheckout({
-      amountAED:   finalFils / 100,
-      orderId:     order.id,
-      courseTitle: course.title,
-      courseId:    course.id,
-      buyerEmail:  user?.email ?? '',
-      buyerName:   user?.name  ?? '',
-      buyerPhone:  (user as any)?.phone ?? '',
-      successUrl,
-      cancelUrl,
-      failureUrl,
-    })
-
-    await patchTamaraIds(order.id, result.checkoutId, result.tamaraOrderId)
-
-    return { checkoutUrl: result.checkoutUrl, tamaraCheckoutId: result.checkoutId }
   }
 
   /* ─── Tamara webhook fulfillment (idempotent) ────────── */
@@ -693,8 +813,21 @@ export class OrderService {
       return
     }
 
-    /* Authorise with Tamara (approved → authorised) then capture (authorised → fully_captured) */
-    await this.tamaraSvc.authoriseOrder(tamaraOrderId)
+    /* Authorise with Tamara (approved → authorised) then capture (authorised → fully_captured).
+
+       FULFILMENT IS GATED ON THE AUTHORISE (P-02). Both calls used to be
+       fire-and-forget `void`s that logged failures as "(non-fatal)", so the
+       order was marked paid whatever Tamara answered — which made
+       /checkout/tamara/verify-return a free-course button for the buyer.
+       A successful authorise is the point at which funds are committed, so it
+       is the honest gate. A failed capture after a successful authorise is a
+       settlement problem to chase, not a reason to withhold a course the
+       customer has already committed to. */
+    const authorised = await this.tamaraSvc.authoriseOrder(tamaraOrderId)
+    if (!authorised) {
+      logger.warn({ tamaraOrderId, orderId: order.id }, 'Tamara: authorise refused — not fulfilling')
+      return
+    }
 
     /* Fetch course details for capture request */
     const course = await CourseModel.findById(order.courseId).select('title priceAED price').lean()
@@ -706,12 +839,11 @@ export class OrderService {
       courseId:    order.courseId.toString(),
     })
 
-    await this.orderRepo.fulfillTamara(order.id, tamaraOrderId)
-
-    if (order.couponId) {
-      void this.couponSvc.redeem(order.couponId.toString()).catch(err =>
-        logger.warn({ err }, 'Failed to increment coupon usage'),
-      )
+    /* Conditional flip — the return-URL verify may have raced us */
+    const fulfilled = await this.orderRepo.fulfillTamara(order.id, tamaraOrderId)
+    if (!fulfilled) {
+      logger.info({ orderId: order.id }, 'Tamara webhook: order fulfilled concurrently, skipping side effects')
+      return
     }
 
     await this._createEnrollment(order.userId.toString(), order.courseId.toString())
@@ -736,7 +868,20 @@ export class OrderService {
       return
     }
 
-    await this.orderRepo.markCancelled(order.id)
+    const cancelled = await this.orderRepo.markCancelled(order.id)
+    if (!cancelled) {
+      logger.info({ orderId: order.id }, 'Tamara cancel-webhook: order no longer pending, skipping')
+      return
+    }
+
+    /* Hand the coupon slot claimed at checkout back to the pool */
+    if (order.couponId) {
+      const couponId = order.couponId.toString()
+      void this.couponSvc.release(couponId).catch(err =>
+        logger.warn({ err, orderId: order.id, couponId }, 'Failed to release coupon reservation'),
+      )
+    }
+
     logger.info({ tamaraOrderId, orderId: order.id }, 'Tamara: order cancelled via webhook')
   }
 

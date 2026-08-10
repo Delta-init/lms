@@ -49,24 +49,33 @@ export class LiveClassService {
     return live
   }
 
-  async listForCourseSlug(slug: string, userId?: string): Promise<(ILiveClass & { isEnrolled: boolean })[]> {
+  async listForCourseSlug(slug: string, userId?: string): Promise<(ILiveClass & { isEnrolled: boolean; isEntitled: boolean })[]> {
     const course = await this.courseRepo.findBySlug(slug)
     if (!course) throw new LiveClassError('COURSE_NOT_FOUND', 'Course not found', 404)
     const sessions = await this.liveRepo.listForCourse(course.id)
 
     let enrolled = false
+    let blockedSectionIds: string[] = []
     if (userId) {
       const enrollments = await this.enrollRepo.listForUser(userId)
       const courseIdStr = String(course.id)
-      enrolled = enrollments.some(e => {
+      /* 'active' and 'completed' both keep access — only 'dropped' loses it. */
+      const enrollment  = enrollments.find(e => {
         const cId = e.courseId && typeof e.courseId === 'object'
           ? String((e.courseId as { _id?: unknown })._id ?? '')
           : String(e.courseId)
-        return cId === courseIdStr
+        return cId === courseIdStr && e.status !== 'dropped'
       })
+      enrolled = !!enrollment
+      /* blockedLessons stores SECTION ids (field name is a legacy misnomer). */
+      blockedSectionIds = (enrollment?.blockedLessons ?? []).map(bid => String(bid))
     }
 
-    return sessions.map(s => Object.assign(s, { isEnrolled: enrolled }))
+    return sessions.map(s => Object.assign(s, {
+      isEnrolled: enrolled,
+      /* A blocked module is never entitled — mirrors the /watch gate below. */
+      isEntitled: enrolled && !(s.sectionId && blockedSectionIds.includes(String(s.sectionId))),
+    }))
   }
 
   async listForCourseId(courseId: string): Promise<ILiveClass[]> {
@@ -77,16 +86,23 @@ export class LiveClassService {
   }
 
   /* ── Upcoming feed — all sessions, annotated with isEnrolled ─────────────── */
-  async listUpcomingForUser(userId: string, limit = 50, categoryFilter?: string): Promise<(ILiveClass & { isEnrolled: boolean })[]> {
-    // Find which courses the user has purchased so we can annotate isEnrolled
-    const enrollments = await this.enrollRepo.listForUser(userId)
-    const enrolledCourseIds = new Set(
-      enrollments
-        .map(e => (e.courseId && typeof e.courseId === 'object'
-          ? String((e.courseId as { _id?: unknown })._id ?? '')
-          : String(e.courseId)))
-        .filter(Boolean),
-    )
+  async listUpcomingForUser(userId: string, limit = 50, categoryFilter?: string): Promise<(ILiveClass & { isEnrolled: boolean; isEntitled: boolean })[]> {
+    // Find which courses the user has purchased so we can annotate isEnrolled.
+    // 'active' and 'completed' both keep access — only 'dropped' loses it.
+    // blockedLessons stores SECTION ids (legacy misnomer): a session inside a
+    // blocked module is not entitled even though the course enrolment is.
+    const enrollments       = await this.enrollRepo.listForUser(userId)
+    const enrolledCourseIds = new Set<string>()
+    const blockedByCourse   = new Map<string, string[]>()
+    for (const e of enrollments) {
+      if (e.status === 'dropped') continue
+      const cId = e.courseId && typeof e.courseId === 'object'
+        ? String((e.courseId as { _id?: unknown })._id ?? '')
+        : String(e.courseId)
+      if (!cId) continue
+      enrolledCourseIds.add(cId)
+      blockedByCourse.set(cId, (e.blockedLessons ?? []).map(bid => String(bid)))
+    }
 
     // If student has a category, restrict to that category's courses
     let courseIds: string[] | undefined
@@ -110,7 +126,13 @@ export class LiveClassService {
         const courseId = rawId && typeof rawId === 'object'
           ? String((rawId as any)._id ?? (rawId as any).id ?? '')
           : String(rawId ?? '')
-        return Object.assign(s, { isEnrolled: enrolledCourseIds.has(courseId) })
+        const rawSection = (s as any).sectionId
+        /* sectionId is not populated here — never read `.id` off an ObjectId. */
+        const sectionId  = rawSection ? String((rawSection as any)._id ?? rawSection) : ''
+        const isEnrolled = enrolledCourseIds.has(courseId)
+        const isEntitled = isEnrolled &&
+          !(sectionId && (blockedByCourse.get(courseId) ?? []).includes(sectionId))
+        return Object.assign(s, { isEnrolled, isEntitled })
       })
   }
 
@@ -337,6 +359,15 @@ export class LiveClassService {
 
     if (!enrollment) {
       throw new LiveClassError('NOT_ENROLLED', 'You must be enrolled in this course to watch this session', 403)
+    }
+
+    /* Module access gate — mirrors the booking route. Note: blockedLessons
+       actually stores section/module IDs (field name is a legacy misnomer). */
+    if (live.sectionId) {
+      const blockedIds = (enrollment.blockedLessons ?? []).map(bid => String(bid))
+      if (blockedIds.includes(String(live.sectionId))) {
+        throw new LiveClassError('MODULE_BLOCKED', 'You don\'t have access to this module. Contact your admin.', 403)
+      }
     }
 
     if (live.status === 'cancelled') {

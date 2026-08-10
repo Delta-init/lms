@@ -1,9 +1,11 @@
 import { createHash, randomBytes } from 'crypto'
+import { SignJWT, jwtVerify, type JWTPayload } from 'jose'
 import { UserRepository, RefreshTokenRepository, AuthTokenRepository } from '@/repositories/user.repository.ts'
 import { hashPassword, comparePassword } from '@/utils/hash.ts'
-import { generateTokenPair, verifyRefreshToken } from '@/utils/jwt.ts'
+import { generateTokenPair, verifyRefreshToken, type TokenAudience } from '@/utils/jwt.ts'
 import { logger } from '@/utils/logger.ts'
-import { sendPasswordReset, sendVerifyEmail } from '@/services/email.service.ts'
+import { sendPasswordReset, sendVerifyEmail, sendRegistrationAttempt } from '@/services/email.service.ts'
+import { TotpService } from '@/services/totp.service.ts'
 import { env } from '@/config/env.ts'
 import type { RegisterDto, LoginDto, TokenPair, UserRole } from '@/types/index.ts'
 import type { SafeUser } from '@/models/types.ts'
@@ -16,8 +18,75 @@ import { toSafeUser } from '@/models/types.ts'
 /* Concurrent refresh calls (multi-tab, rapid retries) can legitimately
    present the same refresh token within milliseconds of each other. The
    loser of that race sees the token as already "rotated" — within this
-   grace window we treat it as a benign race instead of a replay attack. */
-const ROTATION_RACE_GRACE_MS = 10_000
+   grace window we answer it with the pair that rotation already issued
+   instead of treating it as a replay attack. A genuine race is bounded by
+   a single round trip, so the window is kept tight to limit how long a
+   rotated token stays replayable. */
+const ROTATION_RACE_GRACE_MS = 2_000
+
+/* How long the losing side of that race waits for the winner to publish the
+   pair it is minting — only bridges the few milliseconds between the
+   rotation becoming visible in the DB and the winner registering it. */
+const SUCCESSOR_WAIT_MS = 250
+
+/* Rotations of this process, keyed by the hash of the token that was rotated
+   → the pair that rotation issues. In-memory only (never persisted, never
+   logged) and dropped once the grace window closes, so a token presented
+   twice is answered idempotently instead of minting a second session. */
+const rotationSuccessors = new Map<string, { pending: Promise<TokenPair>; expiresAt: number }>()
+
+/* Constant bcrypt hash (cost 12, random plaintext nobody holds) compared
+   against when no account matches the supplied email, so the not-found path
+   costs the same as a wrong-password attempt and login timing can't be used
+   to enumerate accounts. */
+const DUMMY_PASSWORD_HASH = '$2b$12$igY4YUQwInCkDWoEqB72TuoXocL9MWGytYJ5xKnd22gK/EZOt1Fzq'
+
+/* ─── Pending two-factor login challenge ─────────────
+   An account with twoFactorEnabled gets no session from the password step
+   alone — it gets this short-lived handle, which records nothing but "the
+   password for this user has just been verified". It is a jose JWT signed
+   with the access secret, but its `type` claim is neither 'access' nor
+   'refresh', so verifyAccessToken() / verifyRefreshToken() both reject it:
+   it can never be presented as a session token. */
+const TWO_FACTOR_TYPE             = '2fa-challenge'
+const TWO_FACTOR_CHALLENGE_TTL_MS = 5 * 60 * 1000
+const TWO_FACTOR_MAX_ATTEMPTS     = 5
+
+const twoFactorKey = new TextEncoder().encode(env.JWT_ACCESS_SECRET)
+
+/* Per-challenge state keyed by the challenge's jti: how many codes have been
+   tried against it, and whether it has already been redeemed (single use).
+   In-memory only (never persisted, never logged) and swept once the challenge
+   can no longer be valid. The durable rail against code guessing is the
+   account lockout counter, which every wrong code increments. */
+const twoFactorChallenges = new Map<string, { attempts: number; consumed: boolean; expiresAt: number }>()
+
+/* Password accepted, but the account still owes a TOTP code. */
+export interface TwoFactorPending {
+  twoFactorRequired: true
+  challengeToken:    string
+}
+
+/* ─── Verification-first signup  (M-05) ───────────────
+   Registration auto-logs-in, so a new address returns a SESSION and a taken
+   one returns an error — distinguishable no matter how the error is worded.
+   The only way to make the two identical is to stop issuing a session at
+   signup: both answers become "check your inbox", and the account is only
+   usable after the emailed link is followed.
+
+   That is a real product cost — a mail round trip before a new user can
+   browse, and it depends on deliverability — so it ships OFF. Switch on with
+   SIGNUP_REQUIRE_VERIFICATION=true. The client already handles both shapes:
+   it looks for `verificationRequired` and shows the inbox message instead of
+   redirecting, so flipping this needs no frontend change. */
+const verificationFirst = (): boolean =>
+  process.env['SIGNUP_REQUIRE_VERIFICATION'] === 'true'
+
+/** Returned by register() in verification-first mode — deliberately carries
+ *  nothing that distinguishes a new address from one already registered. */
+export interface VerificationPending {
+  verificationRequired: true
+}
 
 export class AuthError extends Error {
   constructor(
@@ -40,28 +109,50 @@ export class AuthService {
   private readonly userRepo      = new UserRepository()
   private readonly tokenRepo     = new RefreshTokenRepository()
   private readonly authTokenRepo = new AuthTokenRepository()
+  private readonly totpService   = new TotpService()
 
   /* ── Register ────────────────────────────────────── */
   async register(
     dto: RegisterDto,
     meta?: { userAgent?: string; ip?: string },
-  ): Promise<{ user: SafeUser; tokens: TokenPair }> {
-    /* 1. Ensure email is unique — return signupType so client can show contextual message */
+    audience: TokenAudience = 'client',
+  ): Promise<{ user: SafeUser; tokens: TokenPair } | VerificationPending> {
+    /* 1. Hash FIRST, then check the email — deliberately in this order (M-05).
+       Reversed, the taken-email path short-circuits before bcrypt and answers
+       in ~6ms where a fresh email takes ~260ms. That 250ms gap is a clean
+       enumeration oracle entirely independent of the status code: an attacker
+       does not need to read the response at all, only time it. Paying the same
+       bcrypt cost on both paths removes the signal. The hash is discarded when
+       the address is taken; wasting it is the point. */
+    const passwordHash = await hashPassword(dto.password)
+
     if (await this.userRepo.emailExists(dto.email)) {
-      const { UserModel } = await import('@/models/schema.ts')
-      const existing = await UserModel.findOne({ email: dto.email.toLowerCase().trim() }).select('signupType').lean()
-      const existingType: string = existing?.signupType ?? 'full'
-      const message = existingType === 'express'
-        ? 'You already have an Express Account with this email. Sign in and go to Settings → Request to complete your registration.'
-        : 'An account with this email already exists. Please sign in.'
-      throw Object.assign(
-        new AuthError('EMAIL_TAKEN', message, 409),
-        { meta: { signupType: existingType } },
+      /* Tell the ACCOUNT HOLDER, not the caller. A probe against an address
+         that already exists becomes something its owner can see, rather than
+         a silent oracle — and if it was a genuine person who forgot they had
+         signed up, it is the message they needed anyway. */
+      void this.#notifyRegistrationAttempt(dto.email).catch(err =>
+        logger.warn({ err }, 'registration-attempt notice failed'),
+      )
+
+      /* VERIFICATION-FIRST MODE closes the last of M-05. Both outcomes answer
+         identically — "check your inbox" — so nothing in the response
+         distinguishes a taken address from a new one. Only reachable when
+         SIGNUP_REQUIRE_VERIFICATION is on; see the note below. */
+      if (verificationFirst()) return { verificationRequired: true }
+
+      /* DEFAULT MODE still confirms the address exists, and cannot avoid it:
+         registration auto-logs-in, so a fresh email returns a SESSION and an
+         attacker need only check whether they got one. No wording changes
+         that. Turning it off is a product decision — it costs a mail round
+         trip before a new user can browse — so the mechanism is built and the
+         switch is left to you rather than flipped unilaterally. */
+      throw new AuthError(
+        'EMAIL_TAKEN',
+        'An account with this email already exists. Please sign in.',
+        409,
       )
     }
-
-    /* 2. Hash password */
-    const passwordHash = await hashPassword(dto.password)
 
     /* 3. Determine signup type:
           - explicit flag from client takes priority
@@ -79,7 +170,15 @@ export class AuthService {
     const orgDoc  = await OrganizationModel.findOne({ slug: orgSlug }).select('_id').lean()
     const organizationId = orgDoc?._id
 
-    /* 5. Create user with pending enrollment status */
+    /* 5. Create user with pending enrollment status.
+
+       `photoUrl` doubles as the avatar. The full signup form used to set it
+       with a PATCH /auth/me straight after registering, which needed the
+       session register hands back — the very thing verification-first mode
+       withholds (M-05). Applying it here instead means the whole signup, files
+       included, completes in this one request and works identically whether or
+       not a session is issued at the end of it. */
+    const photoUrl = dto.enrollmentApplication?.photoUrl?.trim()
     const user = await this.userRepo.createUser({
       name:                   dto.name.trim(),
       email:                  dto.email,
@@ -90,10 +189,8 @@ export class AuthService {
       enrollmentApplication:  dto.enrollmentApplication,
       signupType,
       organizationId:         organizationId as any,
+      ...(photoUrl ? { avatarUrl: photoUrl } : {}),
     })
-
-    /* 5. Issue tokens (student gets tokens but stays pending) */
-    const tokens = await this.#issueTokens(user.id, user.email, user.role, meta)
 
     /* 6. Notify all admins of the new signup request */
     void this.#notifyAllAdmins(user.name, user.email).catch(err =>
@@ -105,6 +202,18 @@ export class AuthService {
       logger.warn({ err, userId: user.id }, 'verification email failed'),
     )
 
+    /* VERIFICATION-FIRST: no session at signup, and the SAME answer a taken
+       address gets — which is what makes the two indistinguishable (M-05).
+       The account exists and its enrolment data is saved; it simply cannot be
+       used until the emailed link is followed. */
+    if (verificationFirst()) {
+      logger.info({ userId: user.id }, 'User registered — awaiting email verification')
+      return { verificationRequired: true }
+    }
+
+    /* Default: issue tokens (student gets tokens but stays pending) */
+    const tokens = await this.#issueTokens(user.id, user.email, user.role, meta, audience)
+
     logger.info({ userId: user.id }, 'User registered')
     return { user: toSafeUser(user), tokens }
   }
@@ -113,10 +222,19 @@ export class AuthService {
   async login(
     dto: LoginDto,
     meta?: { userAgent?: string; ip?: string },
-  ): Promise<{ user: SafeUser; tokens: TokenPair }> {
+    audience: TokenAudience = 'client',
+  ): Promise<{ user: SafeUser; tokens: TokenPair } | TwoFactorPending> {
     /* 1. Find user (includes passwordHash via select:+passwordHash) */
     const user = await this.userRepo.findByEmail(dto.email)
-    if (!user || !user.isActive) {
+    if (!user) {
+      /* Burn the same bcrypt cost as a real comparison before rejecting. */
+      await comparePassword(dto.password, DUMMY_PASSWORD_HASH)
+      throw new AuthError('INVALID_CREDENTIALS', 'Invalid email or password.', 401)
+    }
+    if (!user.isActive) {
+      /* Same cost as the not-found path, so a blocked account can't be told
+         apart from an unregistered one by response time either. */
+      await comparePassword(dto.password, DUMMY_PASSWORD_HASH)
       throw new AuthError('INVALID_CREDENTIALS', 'Invalid email or password.', 401)
     }
 
@@ -153,13 +271,99 @@ export class AuthService {
       throw new AuthError('INVALID_CREDENTIALS', 'Invalid email or password.', 401)
     }
 
-    /* 5. Successful login — reset counter + stamp time */
+    /* 5. Second factor — only for accounts that actually enabled it.
+       The password step is not a session yet: hand back a challenge and
+       leave lastLoginAt / the failed-attempt counter untouched until the
+       code is verified. Accounts without 2FA fall straight through, so
+       their response is byte-for-byte what it always was. */
+    if (user.twoFactorEnabled) {
+      const challengeToken = await this.#issueTwoFactorChallenge(user.id)
+      logger.info({ userId: user.id }, 'password verified — awaiting 2FA code')
+      return { twoFactorRequired: true, challengeToken }
+    }
+
+    /* 6. Successful login — reset counter + stamp time */
     void this.userRepo.touchLastLogin(user.id)
 
-    /* 6. Issue tokens */
-    const tokens = await this.#issueTokens(user.id, user.email, user.role, meta)
+    /* 7. Issue tokens */
+    const tokens = await this.#issueTokens(user.id, user.email, user.role, meta, audience)
 
     logger.info({ userId: user.id }, 'User logged in')
+    return { user: toSafeUser(user), tokens }
+  }
+
+  /* ── Login step 2 — verify the TOTP code ───────────
+       Redeems a challenge from login() and, only then,
+       issues the real pair. */
+  async loginTwoFactor(
+    challengeToken: string,
+    code: string,
+    meta?: { userAgent?: string; ip?: string },
+    audience: TokenAudience = 'client',
+  ): Promise<{ user: SafeUser; tokens: TokenPair }> {
+    /* 1. Verify the challenge itself — signature, expiry, type */
+    let payload: JWTPayload
+    try {
+      ({ payload } = await jwtVerify(challengeToken, twoFactorKey, { algorithms: ['HS256'] }))
+    } catch {
+      throw new AuthError('INVALID_2FA_CHALLENGE', 'This sign-in request has expired. Please sign in again.', 401)
+    }
+    if (payload['type'] !== TWO_FACTOR_TYPE || !payload.sub || !payload.jti) {
+      throw new AuthError('INVALID_2FA_CHALLENGE', 'This sign-in request is not valid. Please sign in again.', 401)
+    }
+
+    /* 2. Burn one attempt — caps guessing per challenge and rejects a
+       handle that was already redeemed. */
+    this.#claimTwoFactorAttempt(payload.jti, payload.exp)
+
+    /* 3. Re-check the account — it may have been blocked, locked or had
+       2FA turned off in the minutes since the password step. */
+    const user = await this.userRepo.findById(payload.sub)
+    if (!user || !user.isActive) {
+      throw new AuthError('INVALID_CREDENTIALS', 'Invalid email or password.', 401)
+    }
+    if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
+      const mins = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000)
+      throw new AuthError(
+        'ACCOUNT_LOCKED',
+        `Too many failed attempts. Try again in ${mins} minute${mins === 1 ? '' : 's'}.`,
+        423,
+      )
+    }
+    if (!user.twoFactorEnabled) {
+      throw new AuthError(
+        'INVALID_2FA_CHALLENGE',
+        'Two-factor authentication is no longer enabled on this account. Please sign in again.',
+        401,
+      )
+    }
+
+    /* 4. Verify the code — the secret never leaves TotpService */
+    const ok = await this.totpService.verifyLoginCode(user.id, code)
+    if (!ok) {
+      /* Feed the same lockout counter a wrong password feeds, so guessing
+         survives neither a fresh challenge nor a process restart. */
+      const { lockedUntil } = await this.userRepo.incrementFailedLogin(user.id)
+      if (lockedUntil) {
+        throw new AuthError(
+          'ACCOUNT_LOCKED',
+          'Too many failed attempts. Account locked for 15 minutes.',
+          423,
+        )
+      }
+      throw new AuthError('INVALID_2FA_CODE', 'Verification code is incorrect or expired.', 401)
+    }
+
+    /* 5. Challenge redeemed — single use */
+    this.#consumeTwoFactorChallenge(payload.jti)
+
+    /* 6. Successful login — reset counter + stamp time */
+    void this.userRepo.touchLastLogin(user.id)
+
+    /* 7. Issue tokens */
+    const tokens = await this.#issueTokens(user.id, user.email, user.role, meta, audience)
+
+    logger.info({ userId: user.id }, 'User logged in (2FA verified)')
     return { user: toSafeUser(user), tokens }
   }
 
@@ -167,11 +371,12 @@ export class AuthService {
   async refresh(
     rawRefreshToken: string,
     meta?: { userAgent?: string; ip?: string },
+    audience: TokenAudience = 'client',
   ): Promise<TokenPair> {
     /* 1. Verify JWT */
     let payload
     try {
-      payload = await verifyRefreshToken(rawRefreshToken)
+      payload = await verifyRefreshToken(rawRefreshToken, audience)
     } catch {
       throw new AuthError('INVALID_REFRESH_TOKEN', 'Refresh token is invalid or expired.', 401)
     }
@@ -185,9 +390,9 @@ export class AuthService {
                                           expiry). Only escalate to a full
                                           session wipe once the rotation is
                                           older than a short grace window —
-                                          within the window we treat it as
-                                          the losing side of a race and just
-                                          issue a fresh pair.
+                                          within the window we hand back the
+                                          pair that rotation already issued,
+                                          so no second session is created.
        - Found, revoked any other way  → device was kicked legitimately, 401
        - Found, not revoked            → all good, rotate */
     const tokenHash = this.#hashToken(rawRefreshToken)
@@ -204,12 +409,16 @@ export class AuthService {
           logger.warn({ userId: payload.sub }, 'Refresh token reuse detected — all sessions revoked')
           throw new AuthError('TOKEN_REUSE', 'Security alert: session invalidated.', 401)
         }
-        logger.debug({ userId: payload.sub }, 'Concurrent refresh race detected — issuing fresh tokens instead of nuking sessions')
-        const user = await this.userRepo.findById(payload.sub!)
-        if (!user || !user.isActive) {
-          throw new AuthError('USER_NOT_FOUND', 'Account not found or deactivated.', 401)
+        const successor = await this.#awaitRotationSuccessor(tokenHash)
+        if (successor) {
+          logger.debug({ userId: payload.sub }, 'Concurrent refresh race — replaying the pair that rotation already issued')
+          return successor
         }
-        return this.#issueTokens(user.id, user.email, user.role, meta)
+        /* Another instance performed that rotation, so its pair is not
+           reachable from here (the map is per-process). Still a benign race —
+           issue a fresh pair rather than signing a legitimate racer out. */
+        logger.debug({ userId: payload.sub }, 'Concurrent refresh race — successor held by another instance, issuing a fresh pair')
+        return this.#rotateTokens(payload.sub!, meta, audience)
       }
       /* User-revoked / logged-out / security-revoked — just reject this device. */
       throw new AuthError('INVALID_REFRESH_TOKEN', 'This session has been signed out.', 401)
@@ -221,27 +430,33 @@ export class AuthService {
     /* 3. Atomically claim this token for rotation. If another concurrent
        request already claimed it between our read above and now, treat
        this one as the losing side of the race too (see block above) —
-       fetch the just-updated record and issue fresh tokens rather than
-       failing the request. */
+       hand back the pair that request is issuing rather than minting a
+       second session. */
     const claimed = await this.tokenRepo.claimForRotation(tokenHash)
     if (!claimed) {
-      logger.debug({ userId: payload.sub }, 'Concurrent refresh race detected — issuing fresh tokens instead of nuking sessions')
-      const user = await this.userRepo.findById(payload.sub!)
-      if (!user || !user.isActive) {
-        throw new AuthError('USER_NOT_FOUND', 'Account not found or deactivated.', 401)
+      const successor = await this.#awaitRotationSuccessor(tokenHash)
+      if (successor) {
+        logger.debug({ userId: payload.sub }, 'Concurrent refresh race — replaying the pair that rotation already issued')
+        return successor
       }
-      return this.#issueTokens(user.id, user.email, user.role, meta)
+      /* Re-read before falling back: only a concurrent *rotation* is a benign
+         race. A logout / logout-all / password change that landed in the same
+         moment must still reject, or it could be outrun by a refresh. */
+      const current = await this.tokenRepo.findByHash(tokenHash)
+      if (current?.revokedReason !== 'rotation') {
+        throw new AuthError('INVALID_REFRESH_TOKEN', 'This session has been signed out.', 401)
+      }
+      logger.debug({ userId: payload.sub }, 'Concurrent refresh race — successor held by another instance, issuing a fresh pair')
+      return this.#rotateTokens(payload.sub!, meta, audience)
     }
 
-    /* 4. Load fresh user */
-    const user = await this.userRepo.findById(payload.sub!)
-    if (!user || !user.isActive) {
-      throw new AuthError('USER_NOT_FOUND', 'Account not found or deactivated.', 401)
-    }
-
-    /* 5. Issue new pair */
-    const tokens = await this.#issueTokens(user.id, user.email, user.role, meta)
-    logger.debug({ userId: user.id }, 'Tokens rotated')
+    /* 4. Issue the new pair, publishing the in-flight work under the old
+       token's hash first so a concurrent presentation of the same token
+       is answered with this very pair. */
+    const pending = this.#rotateTokens(payload.sub!, meta, audience)
+    this.#rememberRotation(tokenHash, pending)
+    const tokens = await pending
+    logger.debug({ userId: payload.sub }, 'Tokens rotated')
     return tokens
   }
 
@@ -470,8 +685,17 @@ export class AuthService {
     return toSafeUser(updated)
   }
 
-  /* ── Change password (authenticated) ────────────── */
-  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
+  /* ── Change password (authenticated) ──────────────
+       Returns a fresh pair for the calling device: every
+       pre-existing session is revoked, so the caller needs
+       new cookies to stay signed in here. */
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+    meta?: { userAgent?: string; ip?: string },
+    audience: TokenAudience = 'client',
+  ): Promise<TokenPair> {
     /* Must opt-in to passwordHash (select: false on schema) */
     const { UserModel } = await import('@/models/schema.ts')
     const user = await UserModel.findById(userId).select('+passwordHash').exec()
@@ -491,7 +715,12 @@ export class AuthService {
     }
     const newHash = await hashPassword(newPassword)
     await this.userRepo.updatePasswordHash(userId, newHash)
-    logger.info({ userId }, 'password changed')
+    /* Revoke every live session so a stolen refresh token dies with the
+       old password, then re-issue for the device that made the change. */
+    await this.tokenRepo.revokeAllForUser(userId, 'security')
+    const tokens = await this.#issueTokens(user.id, user.email, user.role, meta, audience)
+    logger.info({ userId }, 'password changed — all sessions revoked')
+    return tokens
   }
 
   /* ── Forgot password ────────────────────────────── */
@@ -552,8 +781,12 @@ export class AuthService {
     email: string,
     role: UserRole,
     meta?: { userAgent?: string; ip?: string },
+    audience: TokenAudience = 'client',
   ): Promise<TokenPair> {
-    const pair = await generateTokenPair({ id: userId, email, role })
+    /* `audience` binds the pair to the portal that issued it (L-06). Defaults
+       to 'client' so any caller that forgets to pass one produces the LESS
+       privileged token rather than an admin one. */
+    const pair = await generateTokenPair({ id: userId, email, role }, audience)
 
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 30)
@@ -567,6 +800,121 @@ export class AuthService {
     })
 
     return pair
+  }
+
+  /* ── Mint the successor pair for a claimed rotation ─ */
+  async #rotateTokens(
+    userId: string,
+    meta?: { userAgent?: string; ip?: string },
+    audience: TokenAudience = 'client',
+  ): Promise<TokenPair> {
+    const user = await this.userRepo.findById(userId)
+    if (!user || !user.isActive) {
+      throw new AuthError('USER_NOT_FOUND', 'Account not found or deactivated.', 401)
+    }
+    /* A rotation must preserve the portal the session started in, or the
+       first refresh would silently re-issue the pair as 'client' (L-06). */
+    return this.#issueTokens(user.id, user.email, user.role, meta, audience)
+  }
+
+  /* ── Publish an in-flight rotation for racing callers ─ */
+  #rememberRotation(tokenHash: string, pending: Promise<TokenPair>): void {
+    const now = Date.now()
+    for (const [hash, entry] of rotationSuccessors) {
+      if (entry.expiresAt <= now) rotationSuccessors.delete(hash)
+    }
+    /* Keep a handler attached so a failed rotation neither surfaces as an
+       unhandled rejection nor lingers in the map. */
+    void pending.catch(() => rotationSuccessors.delete(tokenHash))
+    rotationSuccessors.set(tokenHash, { pending, expiresAt: now + ROTATION_RACE_GRACE_MS })
+  }
+
+  /* ── Await the pair a concurrent rotation issued ────
+       null when this process never rotated that token —
+       another instance did, or the window already closed. */
+  async #awaitRotationSuccessor(tokenHash: string): Promise<TokenPair | null> {
+    const deadline = Date.now() + SUCCESSOR_WAIT_MS
+    for (;;) {
+      const entry = rotationSuccessors.get(tokenHash)
+      if (entry && entry.expiresAt > Date.now()) {
+        try {
+          return await entry.pending
+        } catch {
+          return null
+        }
+      }
+      if (Date.now() >= deadline) return null
+      await new Promise(r => setTimeout(r, 20))
+    }
+  }
+
+  /* ── Mint a pending-2FA challenge ──────────────────
+       Carries only the user id + a jti; the attempt count
+       and the single-use flag live in twoFactorChallenges. */
+  async #issueTwoFactorChallenge(userId: string): Promise<string> {
+    const now   = Date.now()
+    const jti   = randomBytes(16).toString('hex')
+    const token = await new SignJWT({ type: TWO_FACTOR_TYPE })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setSubject(userId)
+      .setJti(jti)
+      .setIssuedAt()
+      .setExpirationTime(Math.floor((now + TWO_FACTOR_CHALLENGE_TTL_MS) / 1000))
+      .sign(twoFactorKey)
+
+    this.#sweepTwoFactorChallenges(now)
+    twoFactorChallenges.set(jti, {
+      attempts:  0,
+      consumed:  false,
+      expiresAt: now + TWO_FACTOR_CHALLENGE_TTL_MS,
+    })
+    return token
+  }
+
+  /* ── Burn one attempt against a challenge ──────────
+       An unknown jti was minted by another instance (or
+       before a restart): it is tracked from here on rather
+       than rejected, so a legitimate user is never stranded
+       — every wrong code still increments the account's
+       durable failed-login counter. */
+  #claimTwoFactorAttempt(jti: string, expSeconds?: number): void {
+    const now = Date.now()
+    this.#sweepTwoFactorChallenges(now)
+
+    let entry = twoFactorChallenges.get(jti)
+    if (!entry) {
+      entry = {
+        attempts:  0,
+        consumed:  false,
+        expiresAt: expSeconds ? expSeconds * 1000 : now + TWO_FACTOR_CHALLENGE_TTL_MS,
+      }
+      twoFactorChallenges.set(jti, entry)
+    }
+    if (entry.consumed) {
+      throw new AuthError(
+        'INVALID_2FA_CHALLENGE',
+        'This sign-in request has already been used. Please sign in again.',
+        401,
+      )
+    }
+    entry.attempts += 1
+    if (entry.attempts > TWO_FACTOR_MAX_ATTEMPTS) {
+      entry.consumed = true
+      throw new AuthError('TOO_MANY_2FA_ATTEMPTS', 'Too many incorrect codes. Please sign in again.', 429)
+    }
+  }
+
+  /* ── Mark a challenge as spent (single use) ──────── */
+  #consumeTwoFactorChallenge(jti: string): void {
+    const entry = twoFactorChallenges.get(jti)
+    if (entry) entry.consumed = true
+  }
+
+  /* ── Drop challenges that can no longer be valid ─── */
+  #sweepTwoFactorChallenges(now: number): void {
+    for (const [id, entry] of twoFactorChallenges) {
+      if (entry.expiresAt <= now) twoFactorChallenges.delete(id)
+    }
   }
 
   /* ── SHA-256 hash a token string ─────────────────── */
@@ -591,6 +939,17 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + ttlMs)
     await this.authTokenRepo.create_({ userId, tokenHash, purpose, expiresAt })
     return { raw }
+  }
+
+  /* ── Tell an account holder that someone tried to reuse their address ──
+       Looks the owner up by email so the notice goes to the registered
+       account, never to the caller. Silent when no account matches — this is
+       only reachable when one does, but the guard keeps it honest if the
+       call site ever moves. */
+  async #notifyRegistrationAttempt(email: string): Promise<void> {
+    const existing = await this.userRepo.findOne({ email: email.toLowerCase().trim() })
+    if (!existing || !existing.isActive) return
+    await sendRegistrationAttempt(existing.email, existing.name, `${env.CLIENT_URL}/login`)
   }
 
   /* ── Send a verification email for a user ────────── */

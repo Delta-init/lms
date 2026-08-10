@@ -5,6 +5,7 @@
  * route handler instead.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { pickClientIp } from '@/lib/clientIp'
 
 type Context = { params: Promise<{ path: string[] }> }
 
@@ -25,6 +26,23 @@ async function proxy(req: NextRequest, ctx: Context): Promise<NextResponse> {
   if (auth) fwdHeaders.set('authorization', auth)
   const orgId = req.headers.get('x-organization-id')
   if (orgId) fwdHeaders.set('x-organization-id', orgId)
+
+  /* Relay the visitor's real address so the backend can rate-limit per person
+     instead of per proxy (M-11). This fetch is server-to-server, so without it
+     every visitor looks like this server and they all share one bucket.
+
+     A dedicated header + shared secret is the only relay that survives the hop:
+     nginx rewrites X-Real-IP and appends to X-Forwarded-For, and any header a
+     browser can set is forgeable by anyone calling the API directly. With
+     PROXY_SHARED_SECRET unset nothing is sent and behaviour is unchanged. */
+  const proxySecret = process.env.PROXY_SHARED_SECRET
+  if (proxySecret) {
+    const clientIp = pickClientIp(req.headers)
+    if (clientIp) {
+      fwdHeaders.set('x-lms-client-ip', clientIp)
+      fwdHeaders.set('x-lms-proxy-secret', proxySecret)
+    }
+  }
 
   const hasBody = req.method !== 'GET' && req.method !== 'HEAD'
   const body    = hasBody ? await req.arrayBuffer() : undefined

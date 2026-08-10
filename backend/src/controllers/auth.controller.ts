@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express'
 import { AuthService } from '@/services/auth.service.ts'
 import { sendSuccess } from '@/utils/response.ts'
+import { verifyAccessToken } from '@/utils/jwt.ts'
 import {
   setAuthCookies,
   clearAuthCookies,
@@ -30,18 +31,54 @@ export class AuthController {
   /* ── POST /auth/register ────────────────────────── */
   register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { user, tokens } = await this.service.register(req.body, sessionMeta(req))
-      setAuthCookies(res, tokens)
-      sendSuccess(res, { user }, 'Account created successfully', 201)
+      const result = await this.service.register(req.body, sessionMeta(req))
+
+      /* Verification-first mode (M-05): no session, and deliberately the same
+         answer a taken address gets — that identity is the whole point. */
+      if ('verificationRequired' in result) {
+        sendSuccess(
+          res,
+          { verificationRequired: true },
+          'Check your inbox to finish setting up your account.',
+          201,
+        )
+        return
+      }
+
+      setAuthCookies(res, result.tokens)
+      sendSuccess(res, { user: result.user }, 'Account created successfully', 201)
     } catch (err) {
       next(err)
     }
   }
 
-  /* ── POST /auth/login ───────────────────────────── */
+  /* ── POST /auth/login ─────────────────────────────
+     An account with 2FA enabled gets a challenge instead
+     of cookies; every other account gets exactly the
+     response shape it always got. */
   login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { user, tokens } = await this.service.login(req.body, sessionMeta(req))
+      const result = await this.service.login(req.body, sessionMeta(req))
+      if ('twoFactorRequired' in result) {
+        sendSuccess(
+          res,
+          { twoFactorRequired: true, challengeToken: result.challengeToken },
+          'Enter the code from your authenticator app to finish signing in',
+        )
+        return
+      }
+      setAuthCookies(res, result.tokens)
+      sendSuccess(res, { user: result.user }, 'Signed in successfully')
+    } catch (err) {
+      next(err)
+    }
+  }
+
+  /* ── POST /auth/login/2fa ───────────────────────── */
+  loginTwoFactor = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { challengeToken, code } = req.body as { challengeToken: string; code: string }
+      const { user, tokens } = await this.service.loginTwoFactor(challengeToken, code, sessionMeta(req))
       setAuthCookies(res, tokens)
       sendSuccess(res, { user }, 'Signed in successfully')
     } catch (err) {
@@ -89,7 +126,36 @@ export class AuthController {
   ──────────────────────────────────────────────────── */
   adminLogin = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { user, tokens } = await this.service.login(req.body, sessionMeta(req))
+      const result = await this.service.login(req.body, sessionMeta(req), 'admin')
+      if ('twoFactorRequired' in result) {
+        sendSuccess(
+          res,
+          { twoFactorRequired: true, challengeToken: result.challengeToken },
+          'Enter the code from your authenticator app to finish signing in',
+        )
+        return
+      }
+      if (result.user.role === 'student') {
+        res.status(403).json({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'This portal is for admins and instructors only.' },
+        })
+        return
+      }
+      setAdminAuthCookies(res, result.tokens)
+      sendSuccess(res, { user: result.user }, 'Signed in successfully')
+    } catch (err) {
+      next(err)
+    }
+  }
+
+  /* ── POST /admin/auth/login/2fa ─────────────────────
+     Second factor for the admin portal — same challenge,
+     but it ends in the lms_admin_* cookies. */
+  adminLoginTwoFactor = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { challengeToken, code } = req.body as { challengeToken: string; code: string }
+      const { user, tokens } = await this.service.loginTwoFactor(challengeToken, code, sessionMeta(req), 'admin')
       if (user.role === 'student') {
         res.status(403).json({
           success: false,
@@ -112,7 +178,15 @@ export class AuthController {
         res.status(401).json({ success: false, error: { code: 'NO_REFRESH_TOKEN', message: 'No refresh token' } })
         return
       }
-      const tokens = await this.service.refresh(rawToken, sessionMeta(req))
+      const tokens = await this.service.refresh(rawToken, sessionMeta(req), 'admin')
+      const { role } = await verifyAccessToken(tokens.access_token)
+      if (role === 'student') {
+        res.status(403).json({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'This portal is for admins and instructors only.' },
+        })
+        return
+      }
       setAdminAuthCookies(res, tokens)
       sendSuccess(res, null, 'Session refreshed')
     } catch (err) {
@@ -187,8 +261,9 @@ export class AuthController {
   changePassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { currentPassword, newPassword } = req.body as { currentPassword: string; newPassword: string }
-      await this.service.changePassword(req.user!.id, currentPassword, newPassword)
-      sendSuccess(res, null, 'Password changed successfully.')
+      const tokens = await this.service.changePassword(req.user!.id, currentPassword, newPassword, sessionMeta(req))
+      setAuthCookies(res, tokens)
+      sendSuccess(res, null, 'Password changed successfully. Other devices have been signed out.')
     } catch (err) {
       next(err)
     }
