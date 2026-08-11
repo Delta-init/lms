@@ -80,7 +80,7 @@ export default function EditCoursePage({ params }: { params: Promise<{ id: strin
           <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.8)' }}>{errMsg}</p>
           {isForbidden && (
             <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
-              Admin login: admin@lms.local
+              Ask a super admin to grant you access to this course.
             </p>
           )}
           <Link href="/courses" className="text-sm font-semibold" style={{ color: '#0057b8' }}>

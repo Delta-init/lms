@@ -8,7 +8,7 @@ import {
   Settings, LogOut, Flame, Map, X, Video, CalendarDays, LifeBuoy, ClipboardList,
 } from 'lucide-react'
 import { useUIStore } from '@/store/ui.store'
-import { logout as apiLogout } from '@/lib/api/user'
+import { logout as apiLogout, useCurrentUser } from '@/lib/api/user'
 
 const navItems = [
   { label: 'My Learning',    href: '/my-learning',    icon: GraduationCap },
@@ -35,6 +35,17 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
   const pathname = usePathname()
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href)
+
+  /* The signed-in account. This row used to be hardcoded design placeholder
+     text ("Adit Irwan / student@learnos.com") — it shipped that way, so every
+     student on mobile was shown a stranger's name and email next to a logout
+     button. Same source and same shape as ClientTopbar, which was doing it
+     correctly all along. */
+  const { data: user } = useCurrentUser()
+  const displayName    = user?.name ?? 'Account'
+  const displayEmail   = user?.email ?? ''
+  const avatarInitial  = (user?.name?.trim()?.[0] ?? '?').toUpperCase()
+  const hasAvatarImage = !!user?.avatarUrl
 
   const handleLogout = async () => {
     await apiLogout()
@@ -106,17 +117,25 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
         <div className="mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5"
           style={{ background: '#F4F5F8', border: '1px solid #E4E7ED' }}>
           <div className="relative h-8 w-8 flex-shrink-0 overflow-hidden rounded-full">
-            <div className="flex h-full w-full items-center justify-center text-xs font-bold text-white"
-              style={{ background: '#0057b8' }}>A</div>
+            {hasAvatarImage
+              ? <img src={user!.avatarUrl} alt="" className="h-full w-full object-cover" />
+              : <div className="flex h-full w-full items-center justify-center text-xs font-bold text-white"
+                  style={{ background: '#0057b8' }}>{avatarInitial}</div>}
             <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white"
               style={{ background: '#0ECC8E' }} />
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold" style={{ color: '#0D0F1A' }}>Adit Irwan</p>
-            <p className="truncate text-[10px]" style={{ color: '#9CA3AF' }}>student@learnos.com</p>
-          </div>
+          {/* Tapping your own name should take you to your account, not sit
+              inert next to a bare sign-out icon. */}
+          <Link href="/settings" onClick={onClose} className="min-w-0 flex-1">
+            <p className="truncate text-xs font-semibold" style={{ color: '#0D0F1A' }}>{displayName}</p>
+            <p className="truncate text-[10px]" style={{ color: '#9CA3AF' }}>{displayEmail}</p>
+          </Link>
+          {/* An unlabelled icon beside your own name reads as "profile", which
+              is why signing out felt like a bug rather than a button. */}
           <button
             onClick={handleLogout}
+            title="Sign out"
+            aria-label="Sign out"
             className="flex-shrink-0 transition-all hover:text-red-500" style={{ color: '#9CA3AF' }}>
             <LogOut size={14} />
           </button>
