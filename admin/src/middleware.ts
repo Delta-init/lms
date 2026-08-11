@@ -21,8 +21,23 @@ export function middleware(req: NextRequest) {
 
   const hasToken = !!req.cookies.get('lms_admin_at')?.value
 
-  /* Already logged-in users visiting /login → dashboard */
-  if (pathname === '/login' && hasToken) {
+  /* Already logged-in users visiting /login → dashboard.
+
+     ...unless the app itself sent them here because the API rejected their
+     session. Presence is all this middleware can check; validity is the
+     API's answer, and when the two disagree this redirect is one half of an
+     endless bounce: /login sees a cookie and sends you to the dashboard, the
+     dashboard 401s and sends you back. Every hop is a full document
+     navigation, so the browser appears to reload itself forever and the
+     sign-in form is unreachable without clearing cookies by hand.
+
+     ?session=expired is the client saying "I already know this cookie is
+     dead" — honour it and show the form. It grants no access on its own:
+     every page behind it is still gated by the cookie check below and by
+     the API on each request. */
+  const sessionExpired = req.nextUrl.searchParams.get('session') === 'expired'
+
+  if (pathname === '/login' && hasToken && !sessionExpired) {
     return NextResponse.redirect(new URL('/', req.url))
   }
 

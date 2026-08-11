@@ -41,6 +41,57 @@ function drainQueue(ok: boolean) {
   refreshQueue = []
 }
 
+/* ── Refresh storm brake ──────────────────────────────────
+   `isRefreshing` only collapses 401s that arrive WHILE a refresh is in
+   flight. It does nothing about waves that arrive after one finishes — and
+   a screen whose 401 is not an expiry produces exactly that: refresh
+   succeeds, the retry 401s again, React Query retries, and the whole cycle
+   starts over on every mount, refetch and page change.
+
+   That is what happened to Learning Paths and Audit Logs: their routes were
+   guarded by the client-cookie middleware, so the admin panel could never
+   satisfy them and a refresh could never help. Each visit fired several
+   pointless refreshes, every one rotating the refresh token.
+
+   The guards are fixed, but the interceptor should not be able to storm in
+   the first place — the next misrouted endpoint must degrade to a plain
+   failed request, not a token rotation loop. So: at most MAX_REFRESHES in
+   any WINDOW_MS. Beyond that the 401 is simply rejected.
+
+   A cap rather than a check on the error code, because the codes cannot
+   distinguish the two cases. Access cookies carry maxAge = token lifetime,
+   so an ordinary expiry DELETES the cookie and the next call answers
+   MISSING_TOKEN — the very same code the misrouted endpoints returned.
+   Refusing to refresh on MISSING_TOKEN would have broken normal session
+   renewal for everybody. The cap is generous enough that no genuine flow
+   reaches it (one expiry collapses to a single refresh via the flag above)
+   and tight enough that a loop dies immediately. */
+const MAX_REFRESHES = 4
+const WINDOW_MS     = 20_000
+let refreshTimes: number[] = []
+
+function refreshAllowed(): boolean {
+  const now = Date.now()
+  refreshTimes = refreshTimes.filter(t => now - t < WINDOW_MS)
+  if (refreshTimes.length >= MAX_REFRESHES) return false
+  refreshTimes.push(now)
+  return true
+}
+
+/* Land on the sign-in form and STAY there. Without the marker the admin
+   middleware sees a cookie that has not been cleared yet, treats /login as
+   "already signed in" and redirects to the dashboard, which 401s and comes
+   straight back — a hard-navigation loop with no way out but clearing
+   cookies by hand. The backend now clears cookies on a definitive refresh
+   failure, which fixes the usual path; this marker also covers the ones it
+   cannot, such as a refresh that fails with 429 or never answers. */
+export const EXPIRED_PARAM = 'session=expired'
+
+function toLogin() {
+  if (window.location.pathname === '/login') return
+  window.location.href = `/login?${EXPIRED_PARAM}`
+}
+
 api.interceptors.response.use(
   res => res,
   async err => {
@@ -73,6 +124,12 @@ api.interceptors.response.use(
       })
     }
 
+    /* Brake before the network call, not after — the point is to stop
+       rotating refresh tokens, and a rejected 401 here surfaces to React
+       Query as an ordinary error, which is the correct outcome for an
+       endpoint this portal simply cannot satisfy. */
+    if (!refreshAllowed()) return Promise.reject(err)
+
     isRefreshing = true
     try {
       await axios.post('/api/v1/admin/auth/refresh', null, { withCredentials: true })
@@ -86,7 +143,7 @@ api.interceptors.response.use(
       // gone. Rate limiting (429), timeouts, or network hiccups are
       // transient — don't force-logout an active user over those.
       if (refreshErr?.response?.status === 401) {
-        window.location.href = '/login'
+        toLogin()
       }
       return Promise.reject(err)
     }

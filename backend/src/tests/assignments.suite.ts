@@ -265,6 +265,46 @@ try {
     check('...and it is not readable without a session', anon.status === 401, why(anon))
   }
 
+  /* ══════════ 1b. WHO SEES WHAT ══════════
+     The Assignments tab is in the client nav unconditionally, exactly like
+     every other tab in that app — navItems and TOPBAR_TABS are static
+     arrays with no role or enrolment gate. So the question that matters is
+     not "who sees the tab" but "what does the page do when they open it".
+
+     For anyone without a booking the answer must be a clean empty state:
+     the list endpoint returns 200 with [], NOT a 401 or 403. An error there
+     would render the section broken for every brand-new signup — the first
+     thing a new student would see. */
+  section('NEW ACCOUNTS — the page must open cleanly before anyone has booked anything')
+  {
+    const kinds: Array<[string, string, object]> = [
+      ['express signup, awaiting approval', 'new.express@t.local', { signupType: 'express', enrollmentStatus: 'pending' }],
+      ['full signup, awaiting approval',    'new.full@t.local',    { signupType: 'full',    enrollmentStatus: 'pending' }],
+      ['approved student, nothing booked',  'new.approved@t.local',{ signupType: 'full',    enrollmentStatus: 'approved' }],
+      ['a rejected applicant',              'new.rejected@t.local',{ signupType: 'full',    enrollmentStatus: 'rejected' }],
+    ]
+    for (const [label, email, extra] of kinds) {
+      await mk(email, 'student', dubai, extra)
+      const jar: Jar = new Map()
+      const li = await call('POST', '/auth/login', { jar, body: { email, password: PW } })
+      check(`${label} — signs in`, ok(li), why(li))
+
+      const list = await call('GET', '/class-assignments/submittable', { jar })
+      check(`${label} — the class list answers 200, not an error`, ok(list), why(list))
+      check(`${label} — ...and it is empty`, (list.body?.data ?? []).length === 0, JSON.stringify(list.body?.data ?? []).slice(0, 80))
+
+      const mine = await call('GET', '/class-assignments/me', { jar })
+      check(`${label} — their submissions list answers 200`, ok(mine), why(mine))
+
+      /* And they cannot submit anyway — a booking is the entitlement, and
+         booking itself is gated on enrolment approval. */
+      const attempt = await call('POST', '/class-assignments', {
+        jar, body: { liveClassId: String(sessionA._id), title: 'Not entitled', files: [upload('n.png')] },
+      })
+      check(`${label} — cannot submit against a class they never booked`, attempt.status === 403, why(attempt))
+    }
+  }
+
   /* ══════════ 2. SUBMIT ══════════ */
   let assignmentId = ''
   section('SUBMIT — the entitled student sends work, and the instructor hears about it')

@@ -26,9 +26,20 @@ export function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
+  /* The app itself sent us here because the API rejected the session. This
+     middleware can only see that a cookie EXISTS; the API decides whether it
+     still means anything. When they disagree the bounce below is one half of
+     an endless loop — /login sees a cookie and redirects to /my-learning,
+     which 401s and redirects back — and every hop is a full navigation, so
+     the page appears to reload itself and the sign-in form is unreachable.
+
+     The marker grants nothing on its own: every protected route is still
+     gated by the cookie check below and by the API on every request. */
+  const sessionExpired = req.nextUrl.searchParams.get('session') === 'expired'
+
   // Guest-only routes → bounce to My Learning if already signed in
   const isGuestOnly = GUEST_ONLY.some(p => pathname === p || pathname.startsWith(p + '/'))
-  if (isGuestOnly && authed) {
+  if (isGuestOnly && authed && !sessionExpired) {
     const url = req.nextUrl.clone()
     url.pathname = '/my-learning'
     return NextResponse.redirect(url)

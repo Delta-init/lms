@@ -1,14 +1,16 @@
 import type { Request, Response, NextFunction } from 'express'
-import { AuthService } from '@/services/auth.service.ts'
+import { AuthService, AuthError } from '@/services/auth.service.ts'
 import { sendSuccess } from '@/utils/response.ts'
 import { verifyAccessToken } from '@/utils/jwt.ts'
 import {
   setAuthCookies,
   clearAuthCookies,
   REFRESH_COOKIE,
+  ACCESS_COOKIE,
   setAdminAuthCookies,
   clearAdminAuthCookies,
   ADMIN_REFRESH_COOKIE,
+  ADMIN_ACCESS_COOKIE,
 } from '@/utils/authCookies.ts'
 
 /* ─────────────────────────────────────────────────────
@@ -23,6 +25,45 @@ function sessionMeta(req: Request): { userAgent?: string; ip?: string } {
   /* Express resolves req.ip via `trust proxy = 1`, so it handles X-Forwarded-For. */
   const ip = req.ip
   return { userAgent, ip }
+}
+
+/* ─────────────────────────────────────────────────────
+   Is this refresh failure proof the session is gone?
+   ─────────────────────────────────────────────────────
+   When it is, the caller CLEARS the cookies. That matters far more than it
+   looks, because both Next middlewares gate on cookie PRESENCE while the API
+   gates on validity. A dead-but-present cookie makes those two disagree
+   forever: /login sees a cookie and bounces to the dashboard, the dashboard
+   401s and bounces back to /login, and since each hop is a middleware
+   redirect the browser reloads endlessly with no way to reach the sign-in
+   form. Clearing on a definitive rejection is what keeps presence and
+   validity telling the same story.
+
+   Deliberately narrow. Only an AuthError carrying 401 counts — that is the
+   service saying "this refresh token is invalid, expired, revoked or
+   reused". A 429 from a limiter, a Mongo timeout, or any unexpected throw
+   must NOT sign anybody out: those are transient, and logging out every
+   admin over a blip would be a worse failure than the one being fixed. */
+function isDeadSession(err: unknown): boolean {
+  return err instanceof AuthError && err.statusCode === 401
+}
+
+/* Only clear when the caller actually presented one of our cookies.
+
+   Without this guard the "no refresh token" branches would answer every
+   anonymous POST with a cookie-deleting Set-Cookie — and since the cookies
+   are SameSite=Lax with no CSRF layer, a cross-site POST carries NO cookies
+   and would therefore hit exactly that branch. Any third-party page could
+   then sign a logged-in user out at will. SameSite governs whether a cookie
+   is SENT, not whether a Set-Cookie in the response is APPLIED, so the
+   deletion would land.
+
+   Requiring an access cookie to be present removes the vector completely: a
+   cross-site request has none, so nothing is emitted. The case that matters
+   — a stale access cookie whose refresh token is gone, which is precisely
+   the present-but-dead state that loops — still gets cleaned up. */
+function hasStaleCookie(req: Request, name: string): boolean {
+  return typeof req.cookies?.[name] === 'string' && req.cookies[name].length > 0
 }
 
 export class AuthController {
@@ -92,6 +133,11 @@ export class AuthController {
       const rawToken = req.cookies?.[REFRESH_COOKIE]
 
       if (!rawToken) {
+        /* No refresh cookie means the session cannot be recovered, so drop
+           the access cookie with it — see isDeadSession above for why a
+           dead-but-present cookie is the thing that loops. Guarded so an
+           anonymous cross-site POST cannot use this as a logout. */
+        if (hasStaleCookie(req, ACCESS_COOKIE)) clearAuthCookies(res)
         res.status(401).json({
           success: false,
           error: { code: 'MISSING_REFRESH_TOKEN', message: 'Refresh session not found' },
@@ -103,6 +149,7 @@ export class AuthController {
       setAuthCookies(res, tokens)
       sendSuccess(res, null, 'Session refreshed')
     } catch (err) {
+      if (isDeadSession(err)) clearAuthCookies(res)
       next(err)
     }
   }
@@ -175,12 +222,18 @@ export class AuthController {
     try {
       const rawToken = req.cookies?.[ADMIN_REFRESH_COOKIE]
       if (!rawToken) {
+        if (hasStaleCookie(req, ADMIN_ACCESS_COOKIE)) clearAdminAuthCookies(res)
         res.status(401).json({ success: false, error: { code: 'NO_REFRESH_TOKEN', message: 'No refresh token' } })
         return
       }
       const tokens = await this.service.refresh(rawToken, sessionMeta(req), 'admin')
       const { role } = await verifyAccessToken(tokens.access_token)
       if (role === 'student') {
+        /* The refresh already rotated the stored token, so the cookies still
+           in the browser are now stale. Leaving them would park this account
+           in the same present-but-dead state, and no future refresh could
+           ever succeed here. */
+        clearAdminAuthCookies(res)
         res.status(403).json({
           success: false,
           error: { code: 'FORBIDDEN', message: 'This portal is for admins and instructors only.' },
@@ -190,6 +243,7 @@ export class AuthController {
       setAdminAuthCookies(res, tokens)
       sendSuccess(res, null, 'Session refreshed')
     } catch (err) {
+      if (isDeadSession(err)) clearAdminAuthCookies(res)
       next(err)
     }
   }

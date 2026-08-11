@@ -25,6 +25,33 @@ function drainQueue(ok: boolean) {
   refreshQueue = []
 }
 
+/* ── Refresh storm brake ──────────────────────────────────
+   `isRefreshing` collapses only the 401s that arrive WHILE a refresh is in
+   flight; waves arriving after one finishes each start another. When a 401
+   is NOT an expiry — an endpoint this portal cannot satisfy, say — refresh
+   succeeds, the retry 401s again, React Query retries, and the cycle repeats
+   on every mount and refetch, rotating the refresh token each time. This is
+   the failure that took out two admin sections; the same shape is possible
+   here, so the same brake applies: at most MAX_REFRESHES per WINDOW_MS,
+   after which a 401 is simply rejected.
+
+   Capped rather than gated on the error code, because the codes cannot tell
+   the two apart: access cookies carry maxAge = token lifetime, so a normal
+   expiry deletes the cookie and the next call answers MISSING_TOKEN — the
+   same code a misrouted endpoint gives. Refusing MISSING_TOKEN would break
+   ordinary session renewal. */
+const MAX_REFRESHES = 4
+const WINDOW_MS     = 20_000
+let refreshTimes: number[] = []
+
+function refreshAllowed(): boolean {
+  const now = Date.now()
+  refreshTimes = refreshTimes.filter(t => now - t < WINDOW_MS)
+  if (refreshTimes.length >= MAX_REFRESHES) return false
+  refreshTimes.push(now)
+  return true
+}
+
 api.interceptors.response.use(
   res => res,
   async err => {
@@ -50,6 +77,8 @@ api.interceptors.response.use(
       })
     }
 
+    if (!refreshAllowed()) return Promise.reject(err)
+
     isRefreshing = true
     try {
       await axios.post('/api/v1/auth/refresh', null, { withCredentials: true })
@@ -63,7 +92,11 @@ api.interceptors.response.use(
       // gone. Rate limiting (429), timeouts, or network hiccups are
       // transient — don't force-logout an active user over those.
       if (refreshErr?.response?.status === 401) {
-        window.location.href = `/login?from=${encodeURIComponent(path)}`
+        /* session=expired tells the middleware this cookie is known-dead, so
+           /login shows the form instead of bouncing to /my-learning. Without
+           it a cookie that outlives its session makes those two redirects
+           chase each other forever. */
+        window.location.href = `/login?session=expired&from=${encodeURIComponent(path)}`
       }
       return Promise.reject(err)
     }

@@ -7,7 +7,7 @@ import { SectionService } from '@/services/section.service.ts'
 import { TranscriptError } from '@/services/transcript.service.ts'
 import { EnrollmentRepository } from '@/repositories/enrollment.repository.ts'
 import { LessonModel } from '@/models/schema.ts'
-import { authenticate, requireAdmin, requireInstructor, injectCategoryScope } from '@/middleware/auth.middleware.ts'
+import { authenticate, authenticateAny, requireAdmin, requireInstructor, injectCategoryScope } from '@/middleware/auth.middleware.ts'
 import { validate } from '@/middleware/validate.middleware.ts'
 
 const router   = Router()
@@ -60,8 +60,24 @@ router.post('/:id/watch-time',  authenticate, validate(watchTimeSchema), progres
 /* ── Transcript ───────────────────────────────────── */
 /* Read — enrolled students only */
 router.get('/:id/transcript', authenticate, requireLessonEnrollment, transcript.get)
-/* Admin/instructor write + AI generation — must own the lesson's course */
-router.patch('/:id/transcript',           authenticate, requireInstructor, injectCategoryScope, requireLessonOwnership, validate(transcriptSaveSchema), transcript.save)
-router.post ('/:id/generate-transcript',  authenticate, requireInstructor, injectCategoryScope, requireLessonOwnership, transcript.generate)
+/* Admin/instructor write + AI generation — must own the lesson's course.
+
+   authenticateAny, not authenticate. These two are only ever called from the
+   ADMIN panel (admin/src/lib/api/outline.ts), which carries lms_admin_at;
+   authenticate reads lms_at alone, so both answered 401 MISSING_TOKEN to
+   the only caller they have and the transcript editor could not save. Same
+   mistake that killed Learning Paths and Audit Logs — found by the sweep in
+   portalguards.suite.ts, which now probes every endpoint both frontends
+   call and fails if any of them cannot accept its caller's cookie.
+
+   This widens WHICH COOKIE is accepted and nothing else. requireInstructor
+   still gates the role, injectCategoryScope + requireLessonOwnership still
+   gate the resource, and authenticateAny populates organizationId, so P-22
+   academy scoping is unaffected.
+
+   The GET above deliberately keeps `authenticate` + requireLessonEnrollment:
+   that is the student read path, and the admin panel never calls it. */
+router.patch('/:id/transcript',           authenticateAny, requireInstructor, injectCategoryScope, requireLessonOwnership, validate(transcriptSaveSchema), transcript.save)
+router.post ('/:id/generate-transcript',  authenticateAny, requireInstructor, injectCategoryScope, requireLessonOwnership, transcript.generate)
 
 export default router

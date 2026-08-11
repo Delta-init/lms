@@ -17,16 +17,22 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isLoading) return
 
-    /* No session at all → middleware should have handled it, but fail safe. */
+    /* No session at all → middleware should have handled it, but fail safe.
+
+       Carries session=expired for the same reason the axios interceptor
+       does: the cookie is still in the jar (that is why middleware let us
+       render at all), so a bare /login would be bounced straight back here
+       and this guard would fire again — a reload loop. The marker tells the
+       middleware the cookie is known-dead and the form should be shown. */
     if (isError || !user) {
-      router.replace('/login')
+      router.replace('/login?session=expired')
       return
     }
 
     /* Logged in but not admin/instructor → end the session and bounce to login. */
     if (!isAllowed) {
       void logout().finally(() => {
-        router.replace('/login?reason=not-admin')
+        router.replace('/login?reason=not-admin&session=expired')
       })
     }
   }, [isLoading, isError, user, isAllowed, router])
