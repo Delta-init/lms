@@ -19,20 +19,32 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
 
     /* No session at all → middleware should have handled it, but fail safe.
 
-       Carries session=expired for the same reason the axios interceptor
-       does: the cookie is still in the jar (that is why middleware let us
-       render at all), so a bare /login would be bounced straight back here
-       and this guard would fire again — a reload loop. The marker tells the
-       middleware the cookie is known-dead and the form should be shown. */
+       Deliberately a BARE /login, with no session=expired marker.
+
+       isError here means one /admin/auth/me call failed, which is not the
+       same as "the session is gone" — a single blip, or one request caught
+       in a refresh retry, is enough to trip it. The screen recording of the
+       production fault shows exactly that: the admin was bounced off
+       Learning Paths to the dashboard and stayed perfectly signed in
+       afterwards, every other section working. Marking those redirects
+       "expired" would strand a working session on the sign-in form, which
+       is worse than the bounce it would be replacing.
+
+       The genuinely-dead case does not need help from here. When a refresh
+       is definitively rejected the API clears the cookies, so plain /login
+       renders the form; and the axios interceptor, which is the only place
+       that KNOWS the refresh was rejected, carries the marker itself. */
     if (isError || !user) {
-      router.replace('/login?session=expired')
+      router.replace('/login')
       return
     }
 
-    /* Logged in but not admin/instructor → end the session and bounce to login. */
+    /* Logged in but not admin/instructor → end the session and bounce to
+       login. No marker needed: logout() clears the cookies first, so the
+       middleware sees no session and serves the form. */
     if (!isAllowed) {
       void logout().finally(() => {
-        router.replace('/login?reason=not-admin&session=expired')
+        router.replace('/login?reason=not-admin')
       })
     }
   }, [isLoading, isError, user, isAllowed, router])
