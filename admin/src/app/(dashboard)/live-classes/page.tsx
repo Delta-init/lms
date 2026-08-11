@@ -677,6 +677,11 @@ function CalendarView({ items, onSlotClick }: { items: LiveClass[]; onSlotClick:
     const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d
   })
   const [editLive, setEditLive] = useState<LiveClass | null>(null)
+  /* The day whose full session list is open. A month cell can only show a few
+     chips before it stops being a calendar, so everything past the cap lives
+     here rather than being unreachable — which is what "+N more" used to be:
+     plain text, no handler, no way in. */
+  const [dayPanel, setDayPanel] = useState<Date | null>(null)
 
   const year  = monthDate.getFullYear()
   const month = monthDate.getMonth()
@@ -706,12 +711,30 @@ function CalendarView({ items, onSlotClick }: { items: LiveClass[]; onSlotClick:
   const nextMonth = () => { const d = new Date(monthDate); d.setMonth(month + 1); setMonthDate(d) }
   const goToday   = () => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); setMonthDate(d) }
 
-  const monthLabel = monthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  /* Built from the same `year`/`month` integers the grid is, NOT by formatting
+     a Date. toLocaleDateString renders in the timezone Intl resolves, while
+     getMonth() — which gridStart and every cell come from — renders in the
+     runtime's local zone. When those two disagree the label and the grid
+     disagree with them: a browser resolving Asia/Dubai (+04:00) while Date
+     runs in IST (+05:30) turns local midnight on Aug 1 into Jul 31 22:30, so
+     the header read "July 2026" above a grid of August. Deriving the label
+     from the integers removes the timezone from the question entirely. */
+  const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ]
+  const monthLabel = `${MONTH_NAMES[month]} ${year}`
   const DAY_ABBRS  = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   const MAX_CHIPS  = 3
 
+  /* Sorted by start time. Without this the three chips a cell shows were
+     whichever three happened to come first out of the API — so the 9am class
+     could be hidden behind the 6pm one, and "+2 more" gave no clue what was
+     missing. */
   const getSessionsForDay = (day: Date) =>
-    items.filter(l => new Date(l.scheduledStart).toDateString() === day.toDateString())
+    items
+      .filter(l => new Date(l.scheduledStart).toDateString() === day.toDateString())
+      .sort((a, b) => +new Date(a.scheduledStart) - +new Date(b.scheduledStart))
 
   const chipColor = (live: LiveClass) => {
     const isOffline = (live as any).isOnline === false
@@ -798,8 +821,11 @@ function CalendarView({ items, onSlotClick }: { items: LiveClass[]; onSlotClick:
                     background: isToday ? 'rgba(0,87,184,0.05)' : 'transparent',
                   }}>
 
-                  {/* Day number — top-left, orange circle for today */}
-                  <div className="px-3 pt-2.5 pb-1.5">
+                  {/* Day number — top-left, orange circle for today.
+                      Doubles as a way into the full day list once the day has
+                      anything on it, so a busy day is reachable from the
+                      obvious place as well as from "+N more". */}
+                  <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5">
                     <span
                       className="inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold leading-none"
                       style={isToday
@@ -807,6 +833,16 @@ function CalendarView({ items, onSlotClick }: { items: LiveClass[]; onSlotClick:
                         : { color: isCurrentMonth ? 'rgba(255,255,255,0.60)' : 'rgba(255,255,255,0.16)' }}>
                       {day.getDate()}
                     </span>
+                    {sessions.length > 0 && (
+                      <button
+                        type="button"
+                        title={`View all ${sessions.length} ${sessions.length === 1 ? 'class' : 'classes'}`}
+                        onClick={e => { e.stopPropagation(); setDayPanel(day) }}
+                        className="rounded-md px-1.5 py-0.5 text-[10px] font-bold leading-none transition-colors hover:bg-white/10"
+                        style={{ color: 'rgba(255,255,255,0.35)' }}>
+                        {sessions.length}
+                      </button>
+                    )}
                   </div>
 
                   {/* Session chips */}
@@ -828,9 +864,13 @@ function CalendarView({ items, onSlotClick }: { items: LiveClass[]; onSlotClick:
                       )
                     })}
                     {overflow > 0 && (
-                      <p className="px-2 text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.30)' }}>
+                      <button
+                        type="button"
+                        onClick={() => setDayPanel(day)}
+                        className="w-full rounded-md px-2 py-1 text-left text-[10px] font-semibold transition-colors hover:bg-white/10"
+                        style={{ color: 'rgba(255,255,255,0.45)' }}>
                         +{overflow} more
-                      </p>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -839,6 +879,19 @@ function CalendarView({ items, onSlotClick }: { items: LiveClass[]; onSlotClick:
           </div>
         ))}
       </div>
+
+      <AnimatePresence>
+        {dayPanel && (
+          <DaySessionsModal
+            day={dayPanel}
+            sessions={getSessionsForDay(dayPanel)}
+            chipColor={chipColor}
+            onEdit={s => { setDayPanel(null); setEditLive(s) }}
+            onAdd={() => { const d = dayPanel; setDayPanel(null); onSlotClick(d) }}
+            onClose={() => setDayPanel(null)}
+          />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {editLive && (
@@ -850,6 +903,118 @@ function CalendarView({ items, onSlotClick }: { items: LiveClass[]; onSlotClick:
         )}
       </AnimatePresence>
     </div>
+  )
+}
+
+/* ── All sessions on one day ─────────────────────────────
+   A month cell can show three chips before it stops looking like a calendar,
+   so this is where the rest live: every session for the day, in time order,
+   each one editable. That last part is what was missing — "+N more" was plain
+   text with no handler, so a seventh class on a day could not be opened at all.
+
+   The list scrolls here rather than inside the cell, because a ~70px scroll
+   region within a grid cell is awkward on a trackpad and worse on touch. It
+   also has room for the time, instructor and status a chip has to truncate. */
+function DaySessionsModal({
+  day, sessions, chipColor, onEdit, onAdd, onClose,
+}: {
+  day:       Date
+  sessions:  LiveClass[]
+  chipColor: (l: LiveClass) => { bg: string; color: string; border: string }
+  onEdit:    (l: LiveClass) => void
+  onAdd:     () => void
+  onClose:   () => void
+}) {
+  /* Escape closes, matching the other modals on this screen. */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const heading = day.toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+  })
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      onClick={onClose}
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.65)' }}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.97, y: 8 }}
+        transition={{ duration: 0.16, ease: 'easeOut' }}
+        onClick={e => e.stopPropagation()}
+        className="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl"
+        style={{ background: '#0F121C', border: '1px solid rgba(255,255,255,0.10)', maxHeight: '80vh' }}>
+
+        <div className="flex items-start justify-between gap-3 px-5 py-4"
+          style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-white">{heading}</p>
+            <p className="mt-0.5 text-xs" style={{ color: 'rgba(255,255,255,0.40)' }}>
+              {sessions.length} {sessions.length === 1 ? 'class' : 'classes'} scheduled
+            </p>
+          </div>
+          <Button variant="ghost" size="icon-sm" onClick={onClose}
+            className="h-7 w-7 flex-shrink-0 rounded-lg"
+            style={{ color: 'rgba(255,255,255,0.45)' }}>
+            <X size={15} />
+          </Button>
+        </div>
+
+        {/* The scroll lives here, so any number of classes stays reachable. */}
+        <div className="flex-1 overflow-y-auto px-3 py-3">
+          {sessions.length === 0 ? (
+            <p className="px-2 py-6 text-center text-sm" style={{ color: 'rgba(255,255,255,0.35)' }}>
+              Nothing scheduled on this day.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-1.5">
+              {sessions.map(s => {
+                const c = chipColor(s)
+                return (
+                  <li key={s.id}>
+                    <button
+                      type="button"
+                      onClick={() => onEdit(s)}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-white/[0.05]"
+                      style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+                      <span className="w-14 flex-shrink-0 text-xs font-bold" style={{ color: c.color }}>
+                        {fmtTime(s.scheduledStart)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-white">{s.title}</span>
+                        <span className="mt-0.5 block truncate text-[11px]" style={{ color: 'rgba(255,255,255,0.40)' }}>
+                          {s.instructor?.name ?? 'No instructor'}
+                          {s.course?.title ? ` · ${s.course.title}` : ''}
+                          {` · ${s.durationMins} min`}
+                        </span>
+                      </span>
+                      <span className="flex-shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold capitalize"
+                        style={{ background: c.bg, color: c.color, border: `1px solid ${c.border}` }}>
+                        {s.status}
+                      </span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+
+        <div className="px-5 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+          <Button variant="ghost" size="sm" onClick={onAdd}
+            className="w-full rounded-xl py-2 text-xs font-bold"
+            style={{ background: 'rgba(0,87,184,0.15)', color: '#4d94ff', border: '1px solid rgba(0,87,184,0.30)' }}>
+            + Add a class on this day
+          </Button>
+        </div>
+      </motion.div>
+    </motion.div>
   )
 }
 

@@ -456,7 +456,15 @@ export default function TimetablePage() {
 
   const liveNowCount = (allClasses ?? []).filter(l => l.status === 'live').length
 
-  const monthLabel    = monthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  /* Same integers the grid is built from, not a formatted Date — see the note
+     in ../page.tsx. Formatting renders in the zone Intl resolves while
+     getMonth() uses the runtime's local zone, and when those differ the header
+     names a different month than the cells below it. */
+  const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ]
+  const monthLabel    = `${MONTH_NAMES[month]} ${year}`
   const isThisMonth   = monthDate.getFullYear() === today.getFullYear() && monthDate.getMonth() === today.getMonth()
 
   const DAY_ABBRS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
