@@ -36,7 +36,7 @@ export function FavoriteButton({ courseId, variant = 'pill' }: Props) {
         style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', boxShadow: '0 4px 12px rgba(13,15,26,0.10)' }}>
         {toggle.isPending
           ? <Spinner size={14} variant="gray" />
-          : <Heart size={14} fill={isFav ? '#EF4444' : 'none'} style={{ color: isFav ? '#EF4444' : '#9CA3AF' }} />}
+          : <Heart size={14} fill={isFav ? '#EF4444' : 'none'} style={{ color: isFav ? '#EF4444' : 'var(--color-text-muted)' }} />}
       </MotionButton>
     )
   }
@@ -51,8 +51,8 @@ export function FavoriteButton({ courseId, variant = 'pill' }: Props) {
       size="sm"
       className="flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all"
       style={isFav
-        ? { background: 'rgba(239,68,68,0.10)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.22)' }
-        : { background: 'white', color: '#374151', border: '1px solid #E5E7EB' }}>
+        ? { background: 'rgba(239,68,68,0.10)', color: 'var(--color-danger)', border: '1px solid rgba(239,68,68,0.22)' }
+        : { background: 'var(--color-bg-surface)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
       {toggle.isPending
         ? <Spinner size={12} />
         : <Heart size={12} fill={isFav ? '#EF4444' : 'none'} />}

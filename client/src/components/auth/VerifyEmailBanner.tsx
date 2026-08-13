@@ -54,7 +54,7 @@ export function VerifyEmailBanner() {
           border: '1px solid rgba(0,87,184,0.16)',
         }}>
 
-        <Mail size={13} className="flex-shrink-0" style={{ color: '#0057b8' }} />
+        <Mail size={13} className="flex-shrink-0" style={{ color: 'var(--color-primary)' }} />
 
         <p className="min-w-0 flex-1 text-xs font-medium truncate" style={{ color: '#1e3a5f' }}>
           <span className="hidden sm:inline">Verify your email to unlock full access. </span>
@@ -63,14 +63,14 @@ export function VerifyEmailBanner() {
         </p>
 
         {error && (
-          <span className="hidden sm:inline text-xs" style={{ color: '#EF4444' }}>{error}</span>
+          <span className="hidden sm:inline text-xs" style={{ color: 'var(--color-danger)' }}>{error}</span>
         )}
 
         <button
           onClick={resend}
           disabled={sending || sent}
           className="flex-shrink-0 flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold text-white transition-all disabled:opacity-60"
-          style={{ background: '#0057b8' }}>
+          style={{ background: 'var(--color-primary)' }}>
           {sending
             ? <><Spinner size={11} /><span className="hidden sm:inline">Sending…</span></>
             : sent
@@ -79,8 +79,8 @@ export function VerifyEmailBanner() {
         </button>
 
         <button onClick={dismiss} aria-label="Dismiss"
-          className="flex-shrink-0 flex h-6 w-6 items-center justify-center rounded-lg transition-colors hover:bg-blue-50"
-          style={{ color: '#9CA3AF' }}>
+          className="flex-shrink-0 flex h-6 w-6 items-center justify-center rounded-lg transition-colors hover:bg-[var(--color-hover)]"
+          style={{ color: 'var(--color-text-muted)' }}>
           <X size={12} />
         </button>
       </motion.div>

@@ -89,15 +89,15 @@ export function AuthPage({ initialMode }: AuthPageProps) {
                 style={
                   mode === m
                     ? {
-                        background: '#FFFFFF',
+                        background: 'var(--color-bg-surface)',
                         color: '#1452BE',
                         border: '1.5px solid #1452BE',
                         boxShadow: '0 1px 4px rgba(20,82,190,0.12)',
                       }
                     : {
                         background: 'transparent',
-                        color: '#9CA3AF',
-                        border: '1.5px solid #E5E7EB',
+                        color: 'var(--color-text-muted)',
+                        border: '1.5px solid var(--color-border)',
                       }
                 }
               >
@@ -114,7 +114,7 @@ export function AuthPage({ initialMode }: AuthPageProps) {
             {/* Step dots */}
             <div className="mb-6 flex items-center justify-between">
               <StepDots mode={mode} />
-              <span className="text-xs font-medium" style={{ color: '#9CA3AF' }}>
+              <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>
                 {mode === 'login' ? 'Step 1 of 1' : 'Step 1 of 2'}
               </span>
             </div>
@@ -147,11 +147,11 @@ export function AuthPage({ initialMode }: AuthPageProps) {
 
         {/* ── Footer ── */}
         <div className="px-8 py-5 lg:px-12">
-          <p className="text-center text-xs" style={{ color: '#D1D5DB' }}>
+          <p className="text-center text-xs" style={{ color: 'var(--color-text-muted)' }}>
             © {new Date().getFullYear()} Delta Institutions · All rights reserved ·{' '}
-            <span className="cursor-pointer transition-colors hover:text-gray-400">Privacy</span>
+            <span className="cursor-pointer transition-colors hover:text-[var(--color-text-muted)]">Privacy</span>
             {' · '}
-            <span className="cursor-pointer transition-colors hover:text-gray-400">Terms</span>
+            <span className="cursor-pointer transition-colors hover:text-[var(--color-text-muted)]">Terms</span>
           </p>
         </div>
       </motion.div>

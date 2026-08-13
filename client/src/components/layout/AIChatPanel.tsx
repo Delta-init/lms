@@ -31,7 +31,7 @@ function Bubble({ msg }: { msg: ChatMessage }) {
       {/* Avatar */}
       <div className={`flex-shrink-0 flex h-7 w-7 items-center justify-center rounded-full text-white
         ${isUser ? '' : ''}`}
-        style={{ background: isUser ? '#0057b8' : '#6B7280' }}>
+        style={{ background: isUser ? '#0057b8' : 'var(--color-text-muted)' }}>
         {isUser ? <User size={12} /> : <Bot size={12} />}
       </div>
 
@@ -42,8 +42,8 @@ function Bubble({ msg }: { msg: ChatMessage }) {
             ? 'rounded-tr-sm text-white'
             : 'rounded-tl-sm'}`}
         style={isUser
-          ? { background: '#0057b8' }
-          : { background: '#F3F4F6', color: '#374151' }}>
+          ? { background: 'var(--color-primary)' }
+          : { background: 'var(--color-bg-subtle)', color: 'var(--color-text-secondary)' }}>
         {msg.content}
       </div>
     </div>
@@ -131,35 +131,35 @@ export function AIChatPanel({ open, onClose }: AIChatPanelProps) {
           {/* Panel */}
           <motion.div
             key="ai-panel"
-            className="fixed right-0 top-0 bottom-0 z-50 flex flex-col bg-white w-full sm:w-[380px]"
-            style={{ borderLeft: '1px solid #E5E7EB', boxShadow: '-8px 0 32px rgba(0,0,0,0.10)' }}
+            className="fixed right-0 top-0 bottom-0 z-50 flex flex-col bg-[var(--color-bg-surface)] w-full sm:w-[380px]"
+            style={{ borderLeft: '1px solid var(--color-border)', boxShadow: '-8px 0 32px rgba(0,0,0,0.10)' }}
             initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
             transition={{ type: 'spring', stiffness: 320, damping: 32 }}>
 
             {/* Header */}
             <div className="flex items-center gap-3 px-4 py-3.5 flex-shrink-0"
-              style={{ borderBottom: '1px solid #F3F4F6' }}>
+              style={{ borderBottom: '1px solid var(--color-border)' }}>
               <div className="flex h-8 w-8 items-center justify-center rounded-xl"
-                style={{ background: '#0057b8' }}>
+                style={{ background: 'var(--color-primary)' }}>
                 <Sparkles size={14} className="text-white" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold" style={{ color: '#111827' }}>Ask AI</p>
-                <p className="text-[10px]" style={{ color: '#9CA3AF' }}>{contextLabel}</p>
+                <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Ask AI</p>
+                <p className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{contextLabel}</p>
               </div>
               {history.length > 0 && (
                 <button
                   onClick={clearHistory}
                   title="Clear chat"
-                  className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
-                  style={{ color: '#9CA3AF' }}>
+                  className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-[var(--color-bg-muted)]"
+                  style={{ color: 'var(--color-text-muted)' }}>
                   <RotateCcw size={13} />
                 </button>
               )}
               <button
                 onClick={onClose}
-                className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
-                style={{ color: '#6B7280' }}>
+                className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-[var(--color-bg-muted)]"
+                style={{ color: 'var(--color-text-muted)' }}>
                 <X size={15} />
               </button>
             </div>
@@ -169,13 +169,13 @@ export function AIChatPanel({ open, onClose }: AIChatPanelProps) {
               {history.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full text-center py-8">
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl mb-3"
-                    style={{ background: '#FFF7ED' }}>
-                    <Sparkles size={22} style={{ color: '#0057b8' }} />
+                    style={{ background: 'var(--color-primary-light)' }}>
+                    <Sparkles size={22} style={{ color: 'var(--color-primary)' }} />
                   </div>
-                  <p className="text-sm font-semibold mb-1" style={{ color: '#111827' }}>
+                  <p className="text-sm font-semibold mb-1" style={{ color: 'var(--color-text-primary)' }}>
                     Hi, I&apos;m your AI tutor
                   </p>
-                  <p className="text-xs leading-relaxed max-w-[220px]" style={{ color: '#9CA3AF' }}>
+                  <p className="text-xs leading-relaxed max-w-[220px]" style={{ color: 'var(--color-text-muted)' }}>
                     Ask me anything about this {lessonId ? 'lesson' : courseSlug ? 'course' : 'topic'}.
                     I&apos;ll help you understand concepts, work through problems, and review material.
                   </p>
@@ -188,8 +188,8 @@ export function AIChatPanel({ open, onClose }: AIChatPanelProps) {
                       <button
                         key={suggestion}
                         onClick={() => { setInput(suggestion); inputRef.current?.focus() }}
-                        className="text-left rounded-xl px-3 py-2 text-xs transition-colors hover:bg-blue-50"
-                        style={{ border: '1px solid #E5E7EB', color: '#374151' }}>
+                        className="text-left rounded-xl px-3 py-2 text-xs transition-colors hover:bg-[var(--color-hover)]"
+                        style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>
                         {suggestion}
                       </button>
                     ))}
@@ -204,13 +204,13 @@ export function AIChatPanel({ open, onClose }: AIChatPanelProps) {
               {chat.isPending && (
                 <div className="flex gap-2">
                   <div className="flex h-7 w-7 items-center justify-center rounded-full"
-                    style={{ background: '#6B7280' }}>
+                    style={{ background: 'var(--color-text-muted)' }}>
                     <Bot size={12} className="text-white" />
                   </div>
                   <div className="flex items-center gap-1 rounded-2xl rounded-tl-sm px-3.5 py-2.5"
-                    style={{ background: '#F3F4F6' }}>
+                    style={{ background: 'var(--color-bg-subtle)' }}>
                     <Spinner size={12} variant="gray" />
-                    <span className="text-xs" style={{ color: '#9CA3AF' }}>Thinking…</span>
+                    <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Thinking…</span>
                   </div>
                 </div>
               )}
@@ -219,9 +219,9 @@ export function AIChatPanel({ open, onClose }: AIChatPanelProps) {
             </div>
 
             {/* Input */}
-            <div className="px-4 pb-4 flex-shrink-0" style={{ borderTop: '1px solid #F3F4F6', paddingTop: '12px' }}>
+            <div className="px-4 pb-4 flex-shrink-0" style={{ borderTop: '1px solid var(--color-border)', paddingTop: '12px' }}>
               <div className="flex items-end gap-2 rounded-xl p-2"
-                style={{ border: '1.5px solid #E5E7EB', background: '#FAFAFA' }}>
+                style={{ border: '1.5px solid var(--color-border)', background: 'var(--color-bg-inset)' }}>
                 <textarea
                   ref={inputRef}
                   value={input}
@@ -231,7 +231,7 @@ export function AIChatPanel({ open, onClose }: AIChatPanelProps) {
                   rows={1}
                   className="flex-1 resize-none bg-transparent text-xs outline-none leading-relaxed"
                   style={{
-                    color: '#111827',
+                    color: 'var(--color-text-primary)',
                     maxHeight: '120px',
                     minHeight: '20px',
                   }}
@@ -241,11 +241,11 @@ export function AIChatPanel({ open, onClose }: AIChatPanelProps) {
                   disabled={!input.trim() || chat.isPending}
                   whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                   className="flex-shrink-0 flex h-7 w-7 items-center justify-center rounded-lg text-white disabled:opacity-40 disabled:cursor-not-allowed"
-                  style={{ background: '#0057b8' }}>
+                  style={{ background: 'var(--color-primary)' }}>
                   <Send size={12} />
                 </motion.button>
               </div>
-              <p className="mt-1.5 text-center text-[9px]" style={{ color: '#D1D5DB' }}>
+              <p className="mt-1.5 text-center text-[9px]" style={{ color: 'var(--color-text-muted)' }}>
                 AI can make mistakes. Verify important information.
               </p>
             </div>

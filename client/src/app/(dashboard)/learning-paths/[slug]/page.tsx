@@ -38,55 +38,55 @@ function CourseCard({
       {/* Step indicator */}
       <div className="flex-shrink-0 flex flex-col items-center">
         <div className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white"
-          style={{ background: isPrerequisiteBlocked ? '#E5E7EB' : '#0057b8' }}>
+          style={{ background: isPrerequisiteBlocked ? 'var(--color-border)' : '#0057b8' }}>
           {index + 1}
         </div>
         {index < 99 && (
-          <div className="mt-1 w-px h-full min-h-[24px]" style={{ background: '#E5E7EB' }} />
+          <div className="mt-1 w-px h-full min-h-[24px]" style={{ background: 'var(--color-border)' }} />
         )}
       </div>
 
       {/* Card */}
       <div className="flex-1 mb-4">
         <Link href={href}>
-          <div className="group flex gap-3 overflow-hidden rounded-2xl bg-white p-4 transition-shadow hover:shadow-md"
-            style={{ border: '1px solid #E4E7ED', opacity: isPrerequisiteBlocked ? 0.6 : 1 }}>
+          <div className="group flex gap-3 overflow-hidden rounded-2xl bg-[var(--color-bg-surface)] p-4 transition-shadow hover:shadow-md"
+            style={{ border: '1px solid var(--color-border)', opacity: isPrerequisiteBlocked ? 0.6 : 1 }}>
             {/* Thumbnail */}
             <div className="relative h-16 w-24 flex-shrink-0 overflow-hidden rounded-xl"
-              style={{ background: '#F4F5F8' }}>
+              style={{ background: 'var(--color-bg-page)' }}>
               {course.thumbnailUrl
                 ? <img src={course.thumbnailUrl} alt={course.title} className="h-full w-full object-cover" />
                 : <div className="flex h-full w-full items-center justify-center">
-                    <BookOpen size={18} style={{ color: '#D1D5DB' }} />
+                    <BookOpen size={18} style={{ color: 'var(--color-text-muted)' }} />
                   </div>
               }
               {isPrerequisiteBlocked && (
                 <div className="absolute inset-0 flex items-center justify-center rounded-xl"
                   style={{ background: 'rgba(255,255,255,0.7)' }}>
-                  <Lock size={14} style={{ color: '#9CA3AF' }} />
+                  <Lock size={14} style={{ color: 'var(--color-text-muted)' }} />
                 </div>
               )}
             </div>
 
             <div className="flex flex-1 flex-col min-w-0">
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold line-clamp-2 flex-1" style={{ color: '#0D0F1A' }}>
+                <h3 className="text-sm font-semibold line-clamp-2 flex-1" style={{ color: 'var(--color-text-primary)' }}>
                   {course.title}
                 </h3>
                 {item.isPrerequisite && (
                   <span className="flex-shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold"
-                    style={{ background: 'rgba(0,87,184,0.1)', color: '#0057b8' }}>
+                    style={{ background: 'rgba(0,87,184,0.1)', color: 'var(--color-primary)' }}>
                     Prerequisite
                   </span>
                 )}
               </div>
-              <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[11px]" style={{ color: '#9CA3AF' }}>
+              <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
                 <span className="flex items-center gap-1">
                   <Users size={10} />{course.enrolledCount.toLocaleString()}
                 </span>
                 {course.ratingAvg > 0 && (
                   <span className="flex items-center gap-1">
-                    <Star size={10} fill="#F59E0B" style={{ color: '#F59E0B' }} />
+                    <Star size={10} fill="#F59E0B" style={{ color: 'var(--color-warning)' }} />
                     {course.ratingAvg.toFixed(1)}
                   </span>
                 )}
@@ -94,10 +94,10 @@ function CourseCard({
                 <span className="capitalize">{course.level}</span>
               </div>
               <div className="mt-auto pt-1.5 flex items-center justify-between">
-                <span className="text-xs font-semibold" style={{ color: course.isFree ? '#22C55E' : '#0D0F1A' }}>
+                <span className="text-xs font-semibold" style={{ color: course.isFree ? '#22C55E' : 'var(--color-text-primary)' }}>
                   {course.isFree ? 'Free' : `$${course.price}`}
                 </span>
-                <ChevronRight size={13} style={{ color: '#D1D5DB' }}
+                <ChevronRight size={13} style={{ color: 'var(--color-text-muted)' }}
                   className="transition-transform group-hover:translate-x-0.5" />
               </div>
             </div>
@@ -125,10 +125,10 @@ export default function LearningPathDetailPage({ params }: { params: Promise<{ s
       <div className="flex h-[60vh] flex-col items-center justify-center gap-4">
         <div className="flex h-14 w-14 items-center justify-center rounded-3xl"
           style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.18)' }}>
-          <AlertCircle size={24} style={{ color: '#EF4444' }} />
+          <AlertCircle size={24} style={{ color: 'var(--color-danger)' }} />
         </div>
-        <p className="text-base font-semibold" style={{ color: '#0D0F1A' }}>Learning path not found</p>
-        <Link href="/learning-paths" className="text-sm font-semibold" style={{ color: '#0057b8' }}>
+        <p className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>Learning path not found</p>
+        <Link href="/learning-paths" className="text-sm font-semibold" style={{ color: 'var(--color-primary)' }}>
           ← Back to paths
         </Link>
       </div>
@@ -148,14 +148,14 @@ export default function LearningPathDetailPage({ params }: { params: Promise<{ s
     <div className="mx-auto max-w-3xl space-y-8">
       {/* Back */}
       <Link href="/learning-paths" className="inline-flex items-center gap-1.5 text-sm transition-opacity hover:opacity-70"
-        style={{ color: '#9CA3AF' }}>
+        style={{ color: 'var(--color-text-muted)' }}>
         <ArrowLeft size={13} /> All learning paths
       </Link>
 
       {/* Hero */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
         className="overflow-hidden rounded-3xl"
-        style={{ background: 'rgba(0,87,184,0.08)', border: '1px solid #E4E7ED' }}>
+        style={{ background: 'rgba(0,87,184,0.08)', border: '1px solid var(--color-border)' }}>
         <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-start">
           {/* Thumbnail */}
           {path.thumbnailUrl && (
@@ -164,13 +164,13 @@ export default function LearningPathDetailPage({ params }: { params: Promise<{ s
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold" style={{ color: '#0D0F1A', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
+            <h1 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
               {path.title}
             </h1>
             {path.description && (
-              <p className="mt-2 text-sm leading-relaxed" style={{ color: '#4B5563' }}>{path.description}</p>
+              <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{path.description}</p>
             )}
-            <div className="mt-3 flex flex-wrap items-center gap-4 text-xs" style={{ color: '#9CA3AF' }}>
+            <div className="mt-3 flex flex-wrap items-center gap-4 text-xs" style={{ color: 'var(--color-text-muted)' }}>
               {instructor && (
                 <span className="flex items-center gap-1.5">
                   {instructor.avatarUrl
@@ -197,9 +197,9 @@ export default function LearningPathDetailPage({ params }: { params: Promise<{ s
             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 + i * 0.04 }}
             className="rounded-2xl p-4 text-center"
-            style={{ background: 'white', border: '1px solid #E4E7ED' }}>
-            <p className="text-xl font-bold" style={{ color: '#0D0F1A' }}>{s.value}</p>
-            <p className="mt-0.5 text-[11px]" style={{ color: '#9CA3AF' }}>{s.label}</p>
+            style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)' }}>
+            <p className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>{s.value}</p>
+            <p className="mt-0.5 text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{s.label}</p>
           </motion.div>
         ))}
       </div>
@@ -207,14 +207,14 @@ export default function LearningPathDetailPage({ params }: { params: Promise<{ s
       {/* Prerequisite legend */}
       {sortedCourses.some(c => c.isPrerequisite) && (
         <div className="flex items-center gap-2 rounded-xl px-4 py-3 text-xs"
-          style={{ background: 'rgba(0,87,184,0.06)', border: '1px solid rgba(0,87,184,0.15)', color: '#0057b8' }}>
+          style={{ background: 'rgba(0,87,184,0.06)', border: '1px solid rgba(0,87,184,0.15)', color: 'var(--color-primary)' }}>
           <Lock size={12} /> Prerequisite courses must be completed before advancing to the next step.
         </div>
       )}
 
       {/* Course list */}
       <div>
-        <h2 className="mb-4 text-base font-bold" style={{ color: '#0D0F1A', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
+        <h2 className="mb-4 text-base font-bold" style={{ color: 'var(--color-text-primary)', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
           Course Sequence
         </h2>
         <div>

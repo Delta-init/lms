@@ -14,7 +14,7 @@ export function RatingHistogram({ slug }: Props) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 py-6 text-sm" style={{ color: '#9CA3AF' }}>
+      <div className="flex items-center gap-2 py-6 text-sm" style={{ color: 'var(--color-text-muted)' }}>
         <Spinner size={14} />Loading ratings…
       </div>
     )
@@ -23,7 +23,7 @@ export function RatingHistogram({ slug }: Props) {
   if (!data || data.total === 0) {
     return (
       <div className="rounded-2xl p-5 text-center text-sm"
-        style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', color: '#9CA3AF' }}>
+        style={{ background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)' }}>
         No ratings yet. Be the first to leave a review.
       </div>
     )
@@ -37,20 +37,20 @@ export function RatingHistogram({ slug }: Props) {
   })
 
   return (
-    <div className="rounded-2xl bg-white p-5" style={{ border: '1px solid #E5E7EB' }}>
+    <div className="rounded-2xl bg-[var(--color-bg-surface)] p-5" style={{ border: '1px solid var(--color-border)' }}>
       <div className="flex items-start gap-6">
         {/* Big average */}
         <div className="flex flex-col items-center text-center">
-          <p className="text-4xl font-bold" style={{ color: '#0D0F1A', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
+          <p className="text-4xl font-bold" style={{ color: 'var(--color-text-primary)', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
             {data.avg.toFixed(1)}
           </p>
           <div className="mt-1 flex">
             {[1,2,3,4,5].map(s => (
               <Star key={s} size={14} fill={s <= Math.round(data.avg) ? '#F59E0B' : 'none'}
-                style={{ color: '#F59E0B' }} />
+                style={{ color: 'var(--color-warning)' }} />
             ))}
           </div>
-          <p className="mt-1 text-xs" style={{ color: '#9CA3AF' }}>
+          <p className="mt-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
             {data.total.toLocaleString()} {data.total === 1 ? 'rating' : 'ratings'}
           </p>
         </div>
@@ -60,17 +60,17 @@ export function RatingHistogram({ slug }: Props) {
           {rows.map(r => (
             <div key={r.stars} className="flex items-center gap-2.5">
               <span className="flex items-center gap-0.5 text-xs font-semibold w-8"
-                style={{ color: '#6B7280' }}>
-                {r.stars}<Star size={10} fill="#F59E0B" style={{ color: '#F59E0B' }} />
+                style={{ color: 'var(--color-text-muted)' }}>
+                {r.stars}<Star size={10} fill="#F59E0B" style={{ color: 'var(--color-warning)' }} />
               </span>
-              <div className="h-2 flex-1 overflow-hidden rounded-full" style={{ background: '#F3F4F6' }}>
+              <div className="h-2 flex-1 overflow-hidden rounded-full" style={{ background: 'var(--color-bg-subtle)' }}>
                 <motion.div className="h-full rounded-full"
                   initial={{ width: 0 }}
                   animate={{ width: `${r.pct}%` }}
                   transition={{ duration: 0.7, ease: 'easeOut' }}
-                  style={{ background: '#F59E0B' }} />
+                  style={{ background: 'var(--color-warning)' }} />
               </div>
-              <span className="w-12 text-right text-xs tabular-nums" style={{ color: '#9CA3AF' }}>
+              <span className="w-12 text-right text-xs tabular-nums" style={{ color: 'var(--color-text-muted)' }}>
                 {r.count.toLocaleString()}
               </span>
             </div>

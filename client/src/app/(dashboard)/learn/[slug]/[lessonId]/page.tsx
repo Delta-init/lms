@@ -61,7 +61,7 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ slug: s
     return (
       <div className="flex h-[70vh] flex-col items-center justify-center gap-3">
         <Spinner size={30} />
-        <p className="text-sm" style={{ color: '#9CA3AF' }}>Loading lesson…</p>
+        <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Loading lesson…</p>
       </div>
     )
   }
@@ -71,10 +71,10 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ slug: s
       <div className="flex h-[70vh] flex-col items-center justify-center gap-4">
         <div className="flex h-14 w-14 items-center justify-center rounded-3xl"
           style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.18)' }}>
-          <AlertCircle size={24} style={{ color: '#EF4444' }} />
+          <AlertCircle size={24} style={{ color: 'var(--color-danger)' }} />
         </div>
-        <p className="text-base font-semibold" style={{ color: '#0D0F1A' }}>Course not found</p>
-        <Link href="/courses" className="text-sm font-semibold" style={{ color: '#0057b8' }}>← Back to courses</Link>
+        <p className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>Course not found</p>
+        <Link href="/courses" className="text-sm font-semibold" style={{ color: 'var(--color-primary)' }}>← Back to courses</Link>
       </div>
     )
   }
@@ -85,15 +85,15 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ slug: s
       <div className="flex h-[70vh] flex-col items-center justify-center gap-4">
         <div className="flex h-14 w-14 items-center justify-center rounded-3xl"
           style={{ background: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.25)' }}>
-          <Lock size={22} style={{ color: '#F59E0B' }} />
+          <Lock size={22} style={{ color: 'var(--color-warning)' }} />
         </div>
-        <p className="text-base font-semibold" style={{ color: '#0D0F1A' }}>Lesson locked (viewer mode)</p>
-        <p className="max-w-xs text-center text-sm" style={{ color: '#9CA3AF' }}>
+        <p className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>Lesson locked (viewer mode)</p>
+        <p className="max-w-xs text-center text-sm" style={{ color: 'var(--color-text-muted)' }}>
           Your account is pending admin approval. Course content will be unlocked once you're approved.
         </p>
         <Link href={`/courses/${slug}`}
           className="rounded-xl px-5 py-2.5 text-sm font-bold text-white"
-          style={{ background: '#0057b8' }}>
+          style={{ background: 'var(--color-primary)' }}>
           Back to course
         </Link>
       </div>
@@ -107,12 +107,12 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ slug: s
       <div className="flex h-[70vh] flex-col items-center justify-center gap-4">
         <div className="flex h-14 w-14 items-center justify-center rounded-3xl"
           style={{ background: 'rgba(0,87,184,0.10)', border: '1px solid rgba(0,87,184,0.22)' }}>
-          <Lock size={22} style={{ color: '#0057b8' }} />
+          <Lock size={22} style={{ color: 'var(--color-primary)' }} />
         </div>
-        <p className="text-base font-semibold" style={{ color: '#0D0F1A' }}>You need to enroll to watch this lesson</p>
+        <p className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>You need to enroll to watch this lesson</p>
         <Link href={`/courses/${slug}`}
           className="rounded-xl px-5 py-2.5 text-sm font-bold text-white"
-          style={{ background: '#0057b8' }}>
+          style={{ background: 'var(--color-primary)' }}>
           Go to course page
         </Link>
       </div>
@@ -127,8 +127,8 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ slug: s
           style={{ background: 'rgba(99,102,241,0.10)', border: '1px solid rgba(99,102,241,0.22)' }}>
           <Lock size={22} style={{ color: '#6366F1' }} />
         </div>
-        <p className="text-base font-semibold" style={{ color: '#0D0F1A' }}>This lesson is not available to you</p>
-        <p className="text-sm text-center max-w-xs" style={{ color: '#9CA3AF' }}>
+        <p className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>This lesson is not available to you</p>
+        <p className="text-sm text-center max-w-xs" style={{ color: 'var(--color-text-muted)' }}>
           Your instructor has restricted access to this lesson. Contact them for more information.
         </p>
         <Link href={`/courses/${slug}`}
@@ -154,8 +154,8 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ slug: s
   if (!lesson) {
     return (
       <div className="flex h-[70vh] flex-col items-center justify-center gap-4">
-        <p className="text-base font-semibold" style={{ color: '#0D0F1A' }}>Lesson not found in this course</p>
-        <Link href={`/courses/${slug}`} className="text-sm font-semibold" style={{ color: '#0057b8' }}>
+        <p className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>Lesson not found in this course</p>
+        <Link href={`/courses/${slug}`} className="text-sm font-semibold" style={{ color: 'var(--color-primary)' }}>
           ← Back to course
         </Link>
       </div>
@@ -177,13 +177,13 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ slug: s
   const SidebarContent = () => (
     <>
       {/* Tab bar */}
-      <div className="flex border-b flex-shrink-0" style={{ borderColor: '#F0F1F5' }}>
+      <div className="flex border-b flex-shrink-0" style={{ borderColor: 'var(--color-border)' }}>
         {tabs.map(t => (
           <Button key={t.key} onClick={() => setActiveTab(t.key)}
             variant="ghost"
             className="flex flex-1 flex-col items-center gap-0.5 px-1 py-2.5 text-[10px] font-semibold transition-colors h-auto rounded-none"
             style={{
-              color:        activeTab === t.key ? '#0057b8' : '#9CA3AF',
+              color:        activeTab === t.key ? '#0057b8' : 'var(--color-text-muted)',
               borderBottom: activeTab === t.key ? '2px solid #0057b8' : '2px solid transparent',
             }}>
             {t.icon}{t.label}
@@ -195,16 +195,16 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ slug: s
       <div className="flex-1 overflow-y-auto">
         {activeTab === 'curriculum' && (
           <div>
-            <div className="border-b px-4 py-3" style={{ borderColor: '#F0F1F5' }}>
-              <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: '#9CA3AF' }}>Course</p>
-              <p className="mt-0.5 text-sm font-bold line-clamp-2" style={{ color: '#0D0F1A' }}>{course.title}</p>
+            <div className="border-b px-4 py-3" style={{ borderColor: 'var(--color-border)' }}>
+              <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--color-text-muted)' }}>Course</p>
+              <p className="mt-0.5 text-sm font-bold line-clamp-2" style={{ color: 'var(--color-text-primary)' }}>{course.title}</p>
               <div className="mt-2 flex items-center gap-2">
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: '#F3F4F6' }}>
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: 'var(--color-bg-subtle)' }}>
                   <motion.div className="h-full rounded-full"
                     initial={{ width: 0 }} animate={{ width: `${progress?.progressPercent ?? 0}%` }}
-                    transition={{ duration: 0.6, ease: 'easeOut' }} style={{ background: '#22C55E' }} />
+                    transition={{ duration: 0.6, ease: 'easeOut' }} style={{ background: 'var(--color-success)' }} />
                 </div>
-                <span className="text-[11px] font-semibold" style={{ color: '#22C55E' }}>{progress?.progressPercent ?? 0}%</span>
+                <span className="text-[11px] font-semibold" style={{ color: 'var(--color-success)' }}>{progress?.progressPercent ?? 0}%</span>
               </div>
             </div>
             <div className="p-2">
@@ -212,7 +212,7 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ slug: s
                 const sectionLessons = lessons.filter(l => l.sectionId === s.id).sort((a, b) => a.order - b.order)
                 return (
                   <div key={s.id} className={si > 0 ? 'mt-3' : ''}>
-                    <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-widest" style={{ color: '#9CA3AF' }}>{s.title}</p>
+                    <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--color-text-muted)' }}>{s.title}</p>
                     {sectionLessons.map(l => {
                       const isCurrent = l.id === lessonId
                       const done = completedSet.has(l.id)
@@ -220,18 +220,18 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ slug: s
                         <Link key={l.id} href={`/learn/${slug}/${l.id}`} onClick={() => setSidebarOpen(false)}>
                           <div className="group flex items-center gap-2.5 rounded-xl px-2 py-2 transition-colors"
                             style={isCurrent ? { background: 'rgba(0,87,184,0.10)' } : {}}
-                            onMouseEnter={e => { if (!isCurrent) e.currentTarget.style.background = '#F4F5F8' }}
+                            onMouseEnter={e => { if (!isCurrent) e.currentTarget.style.background = 'var(--color-bg-page)' }}
                             onMouseLeave={e => { if (!isCurrent) e.currentTarget.style.background = 'transparent' }}>
                             <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center">
-                              {done ? <CheckCircle2 size={16} style={{ color: '#22C55E' }} />
+                              {done ? <CheckCircle2 size={16} style={{ color: 'var(--color-success)' }} />
                                 : isCurrent ? <Play size={12} fill="#0057b8" color="#0057b8" />
-                                  : <Circle size={14} style={{ color: '#D1D5DB' }} />}
+                                  : <Circle size={14} style={{ color: 'var(--color-text-muted)' }} />}
                             </span>
                             <p className="flex-1 text-xs leading-snug line-clamp-2"
-                              style={{ color: isCurrent ? '#0057b8' : done ? '#0D0F1A' : '#4B5563', fontWeight: isCurrent ? 600 : 500 }}>
+                              style={{ color: isCurrent ? '#0057b8' : done ? 'var(--color-text-primary)' : 'var(--color-text-secondary)', fontWeight: isCurrent ? 600 : 500 }}>
                               {l.title}
                             </p>
-                            <span className="text-[10px]" style={{ color: '#9CA3AF' }}>{fmt(l.durationMins)}</span>
+                            <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{fmt(l.durationMins)}</span>
                           </div>
                         </Link>
                       )
@@ -245,15 +245,15 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ slug: s
         {activeTab === 'transcript' && (
           <div className="p-4">
             {transcriptLoading ? (
-              <div className="flex items-center gap-2 text-sm" style={{ color: '#9CA3AF' }}>
+              <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-text-muted)' }}>
                 <Spinner size={14} />Loading transcript…
               </div>
             ) : transcriptText ? (
               <div>
-                <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest" style={{ color: '#9CA3AF' }}>
+                <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--color-text-muted)' }}>
                   Lesson transcript
                 </p>
-                <div className="space-y-3 text-sm leading-relaxed" style={{ color: '#374151' }}>
+                <div className="space-y-3 text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
                   {transcriptText.split(/\n\n+/).map((para, i) => (
                     <p key={i}>{para.trim()}</p>
                   ))}
@@ -261,9 +261,9 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ slug: s
               </div>
             ) : (
               <div className="flex flex-col items-center gap-2 py-10 text-center">
-                <AlignLeft size={28} style={{ color: '#D1D5DB' }} />
-                <p className="text-sm font-semibold" style={{ color: '#6B7280' }}>No transcript yet</p>
-                <p className="text-xs" style={{ color: '#9CA3AF' }}>
+                <AlignLeft size={28} style={{ color: 'var(--color-text-muted)' }} />
+                <p className="text-sm font-semibold" style={{ color: 'var(--color-text-muted)' }}>No transcript yet</p>
+                <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
                   The instructor hasn&apos;t added a transcript for this lesson.
                 </p>
               </div>
@@ -282,7 +282,7 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ slug: s
       {/* Back nav */}
       <div className="mb-4">
         <Link href={`/courses/${slug}`} className="inline-flex items-center gap-1.5 text-sm transition-opacity hover:opacity-70"
-          style={{ color: '#9CA3AF' }}>
+          style={{ color: 'var(--color-text-muted)' }}>
           <ArrowLeft size={13} />Back to course
         </Link>
       </div>
@@ -296,15 +296,15 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ slug: s
             ? <QuizPlayer lessonId={lesson.id} onPassed={() => { if (nextLesson) router.push(`/learn/${slug}/${nextLesson.id}`) }} />
             : <PlayerArea lesson={lesson} playerRef={playerRef} lessonId={lessonId} />}
 
-          <div className="mt-4 flex items-center justify-between rounded-2xl bg-white p-4" style={{ border: '1px solid #E4E7ED' }}>
+          <div className="mt-4 flex items-center justify-between rounded-2xl bg-[var(--color-bg-surface)] p-4" style={{ border: '1px solid var(--color-border)' }}>
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: '#9CA3AF' }}>
+              <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--color-text-muted)' }}>
                 Lesson {currentIdx + 1} / {orderedLessons.length}
               </p>
-              <h2 className="mt-0.5 truncate text-base font-bold" style={{ color: '#0D0F1A', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
+              <h2 className="mt-0.5 truncate text-base font-bold" style={{ color: 'var(--color-text-primary)', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
                 {lesson.title}
               </h2>
-              <p className="text-xs" style={{ color: '#9CA3AF' }}>{fmt(lesson.durationMins)}</p>
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{fmt(lesson.durationMins)}</p>
             </div>
             <div className="flex items-center gap-2">
               {prevLesson && (
@@ -337,17 +337,17 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ slug: s
             <Button
               variant="ghost"
               onClick={() => setSidebarOpen(v => !v)}
-              className="flex w-full items-center justify-between rounded-2xl bg-white px-4 py-3 h-auto"
-              style={{ border: '1px solid #E4E7ED' }}>
-              <span className="text-sm font-semibold" style={{ color: '#0D0F1A' }}>
-                <List size={14} className="inline mr-2 -mt-0.5" style={{ color: '#0057b8' }} />
+              className="flex w-full items-center justify-between rounded-2xl bg-[var(--color-bg-surface)] px-4 py-3 h-auto"
+              style={{ border: '1px solid var(--color-border)' }}>
+              <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                <List size={14} className="inline mr-2 -mt-0.5" style={{ color: 'var(--color-primary)' }} />
                 Course content
               </span>
-              <ChevronDown size={16} style={{ color: '#9CA3AF', transform: sidebarOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+              <ChevronDown size={16} style={{ color: 'var(--color-text-muted)', transform: sidebarOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
             </Button>
             {sidebarOpen && (
-              <div className="mt-2 flex flex-col rounded-2xl bg-white overflow-hidden max-h-[60vh]"
-                style={{ border: '1px solid #E4E7ED' }}>
+              <div className="mt-2 flex flex-col rounded-2xl bg-[var(--color-bg-surface)] overflow-hidden max-h-[60vh]"
+                style={{ border: '1px solid var(--color-border)' }}>
                 <SidebarContent />
               </div>
             )}
@@ -355,8 +355,8 @@ export default function LessonPlayerPage({ params }: { params: Promise<{ slug: s
         </main>
 
         {/* ── Sidebar — desktop only ───────────────────── */}
-        <aside className="hidden lg:flex lg:order-1 rounded-2xl bg-white flex-col max-h-[calc(100vh-160px)]"
-          style={{ border: '1px solid #E4E7ED' }}>
+        <aside className="hidden lg:flex lg:order-1 rounded-2xl bg-[var(--color-bg-surface)] flex-col max-h-[calc(100vh-160px)]"
+          style={{ border: '1px solid var(--color-border)' }}>
           <SidebarContent />
         </aside>
       </div>
@@ -522,7 +522,7 @@ function PlayerArea({
                 onClick={addBookmark}
                 disabled={bookmarking}
                 className="h-auto p-0 text-xs font-semibold hover:bg-transparent"
-                style={{ color: '#0057b8' }}>
+                style={{ color: 'var(--color-primary)' }}>
                 {bookmarking ? '…' : 'Save'}
               </Button>
               <Button

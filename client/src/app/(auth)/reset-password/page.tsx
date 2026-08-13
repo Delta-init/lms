@@ -37,7 +37,7 @@ function ResetPasswordForm() {
   if (!token) {
     return (
       <div className="rounded-2xl p-4 flex items-start gap-2 text-sm"
-        style={{ background: '#FEE2E2', color: '#DC2626', border: '1px solid #FCA5A5' }}>
+        style={{ background: '#FEE2E2', color: 'var(--color-danger)', border: '1px solid #FCA5A5' }}>
         <AlertCircle size={15} className="mt-0.5" />
         <div>
           <p className="font-semibold">Missing reset token</p>
@@ -61,11 +61,11 @@ function ResetPasswordForm() {
   if (done) {
     return (
       <div className="rounded-2xl p-4 flex items-start gap-2 text-sm"
-        style={{ background: 'rgba(16,185,129,0.10)', color: '#10B981', border: '1px solid rgba(16,185,129,0.22)' }}>
+        style={{ background: 'rgba(16,185,129,0.10)', color: 'var(--color-success)', border: '1px solid rgba(16,185,129,0.22)' }}>
         <CheckCircle2 size={16} className="mt-0.5" />
         <div>
           <p className="font-semibold">Password updated</p>
-          <p className="mt-1 text-xs" style={{ color: '#4B5563' }}>Redirecting you to sign in…</p>
+          <p className="mt-1 text-xs" style={{ color: 'var(--color-text-secondary)' }}>Redirecting you to sign in…</p>
         </div>
       </div>
     )
@@ -74,35 +74,35 @@ function ResetPasswordForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
       <div>
-        <label className="mb-1.5 block text-sm font-semibold" style={{ color: '#0D0F1A' }}>
+        <label className="mb-1.5 block text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
           New password
         </label>
         <div className="relative">
-          <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: errors.password ? '#EF4444' : '#9CA3AF' }} />
+          <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: errors.password ? '#EF4444' : 'var(--color-text-muted)' }} />
           <input {...register('password')} type={show ? 'text' : 'password'}
             placeholder="At least 8 characters, mixed case + number"
             autoComplete="new-password"
             className="w-full rounded-xl py-3 pl-10 pr-11 text-sm outline-none"
             style={{
-              background: errors.password ? '#FEF2F2' : '#F4F5F8',
+              background: errors.password ? '#FEF2F2' : 'var(--color-bg-page)',
               border: `1.5px solid ${errors.password ? '#FCA5A5' : 'transparent'}`,
-              color: '#0D0F1A',
+              color: 'var(--color-text-primary)',
             }} />
           <button type="button" onClick={() => setShow(v => !v)}
             className="absolute right-3.5 top-1/2 -translate-y-1/2 transition-opacity hover:opacity-70"
-            style={{ color: '#9CA3AF' }}>
+            style={{ color: 'var(--color-text-muted)' }}>
             {show ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
         </div>
         {errors.password && (
-          <p className="mt-1.5 flex items-center gap-1 text-xs" style={{ color: '#EF4444' }}>
+          <p className="mt-1.5 flex items-center gap-1 text-xs" style={{ color: 'var(--color-danger)' }}>
             <AlertCircle size={11} />{errors.password.message}
           </p>
         )}
       </div>
 
       <div>
-        <label className="mb-1.5 block text-sm font-semibold" style={{ color: '#0D0F1A' }}>
+        <label className="mb-1.5 block text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
           Confirm password
         </label>
         <input {...register('confirm')} type={show ? 'text' : 'password'}
@@ -110,12 +110,12 @@ function ResetPasswordForm() {
           autoComplete="new-password"
           className="w-full rounded-xl py-3 pl-3.5 pr-4 text-sm outline-none"
           style={{
-            background: errors.confirm ? '#FEF2F2' : '#F4F5F8',
+            background: errors.confirm ? '#FEF2F2' : 'var(--color-bg-page)',
             border: `1.5px solid ${errors.confirm ? '#FCA5A5' : 'transparent'}`,
-            color: '#0D0F1A',
+            color: 'var(--color-text-primary)',
           }} />
         {errors.confirm && (
-          <p className="mt-1.5 flex items-center gap-1 text-xs" style={{ color: '#EF4444' }}>
+          <p className="mt-1.5 flex items-center gap-1 text-xs" style={{ color: 'var(--color-danger)' }}>
             <AlertCircle size={11} />{errors.confirm.message}
           </p>
         )}
@@ -123,7 +123,7 @@ function ResetPasswordForm() {
 
       {error && (
         <div className="flex items-start gap-2 rounded-xl px-3 py-2.5 text-xs"
-          style={{ background: '#FEE2E2', color: '#DC2626', border: '1px solid #FCA5A5' }}>
+          style={{ background: '#FEE2E2', color: 'var(--color-danger)', border: '1px solid #FCA5A5' }}>
           <AlertCircle size={13} className="mt-0.5" />{error}
         </div>
       )}
@@ -131,7 +131,7 @@ function ResetPasswordForm() {
       <motion.button type="submit" disabled={isSubmitting}
         whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}
         className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white transition-all disabled:opacity-60"
-        style={{ background: '#0057b8', boxShadow: '0 4px 18px rgba(0,87,184,0.30)' }}>
+        style={{ background: 'var(--color-primary)', boxShadow: '0 4px 18px rgba(0,87,184,0.30)' }}>
         {isSubmitting ? <><Spinner size={14} />Updating…</> : 'Set new password'}
       </motion.button>
     </form>
@@ -140,23 +140,23 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center px-6 py-10" style={{ background: '#F4F5F8' }}>
+    <div className="flex min-h-screen items-center justify-center px-6 py-10" style={{ background: 'var(--color-bg-page)' }}>
       <motion.div
         initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 280, damping: 26 }}
-        className="w-full max-w-[420px] rounded-3xl bg-white p-8"
-        style={{ border: '1px solid #E4E7ED', boxShadow: '0 24px 80px rgba(13,15,26,0.08)' }}>
+        className="w-full max-w-[420px] rounded-3xl bg-[var(--color-bg-surface)] p-8"
+        style={{ border: '1px solid var(--color-border)', boxShadow: '0 24px 80px rgba(13,15,26,0.08)' }}>
 
         <Link href="/login" className="mb-6 inline-flex items-center gap-1.5 text-xs font-semibold transition-opacity hover:opacity-70"
-          style={{ color: '#6B7280' }}>
+          style={{ color: 'var(--color-text-muted)' }}>
           <ArrowLeft size={12} />Back to sign in
         </Link>
 
         <h1 className="text-[26px] font-bold leading-tight tracking-tight"
-          style={{ color: '#0D0F1A', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
+          style={{ color: 'var(--color-text-primary)', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
           Reset your password
         </h1>
-        <p className="mt-1.5 text-sm" style={{ color: '#6B7280' }}>
+        <p className="mt-1.5 text-sm" style={{ color: 'var(--color-text-muted)' }}>
           Choose a strong new password. We&apos;ll sign you out of every device after the reset.
         </p>
 

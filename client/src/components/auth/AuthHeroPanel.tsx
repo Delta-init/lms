@@ -19,7 +19,7 @@ export function AuthHeroPanel() {
   return (
     <div
       className="relative h-full w-full overflow-hidden select-none flex flex-col items-center justify-center"
-      style={{ background: '#0057b8' }}
+      style={{ background: 'var(--color-primary)' }}
     >
       {/* CSS animations */}
       <style>{`

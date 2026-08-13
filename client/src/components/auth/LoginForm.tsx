@@ -155,16 +155,16 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
           transition={{ delay: 0.05 }}
           className="mb-8"
         >
-          <p className="mb-1 text-sm font-medium" style={{ color: '#0057b8' }}>
+          <p className="mb-1 text-sm font-medium" style={{ color: 'var(--color-primary)' }}>
             One more step 🔐
           </p>
           <h2
             className="text-[28px] font-bold leading-tight tracking-tight"
-            style={{ fontFamily: 'var(--font-display), sans-serif', color: '#0D0F1A' }}
+            style={{ fontFamily: 'var(--font-display), sans-serif', color: 'var(--color-text-primary)' }}
           >
             Two-factor verification
           </h2>
-          <p className="mt-1.5 text-sm" style={{ color: '#6B7280' }}>
+          <p className="mt-1.5 text-sm" style={{ color: 'var(--color-text-muted)' }}>
             Enter the 6-digit code from your authenticator app.
           </p>
         </motion.div>
@@ -172,14 +172,14 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
         <form onSubmit={onVerify} noValidate className="space-y-4">
           {/* Code */}
           <motion.div custom={2} variants={fieldVariant} initial="hidden" animate="visible">
-            <label className="mb-1.5 block text-sm font-semibold" style={{ color: '#0D0F1A' }}>
+            <label className="mb-1.5 block text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
               Authentication code
             </label>
             <div className="relative">
               <ShieldCheck
                 size={16}
                 className="absolute left-3.5 top-1/2 -translate-y-1/2"
-                style={{ color: serverError ? '#EF4444' : '#9CA3AF' }}
+                style={{ color: serverError ? '#EF4444' : 'var(--color-text-muted)' }}
               />
               <input
                 value={code}
@@ -192,9 +192,9 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
                 placeholder="000000"
                 className="w-full rounded-xl py-3 pl-10 pr-4 text-sm tracking-[0.4em] outline-none transition-all"
                 style={{
-                  background: serverError ? '#FEF2F2' : '#F4F5F8',
+                  background: serverError ? '#FEF2F2' : 'var(--color-bg-page)',
                   border: `1.5px solid ${serverError ? '#FCA5A5' : 'transparent'}`,
-                  color: '#0D0F1A',
+                  color: 'var(--color-text-primary)',
                   fontFamily: 'DM Sans, sans-serif',
                 }}
                 onFocus={e => {
@@ -206,7 +206,7 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
                 }}
                 onBlur={e => {
                   e.currentTarget.style.border = `1.5px solid ${serverError ? '#FCA5A5' : 'transparent'}`
-                  e.currentTarget.style.background = serverError ? '#FEF2F2' : '#F4F5F8'
+                  e.currentTarget.style.background = serverError ? '#FEF2F2' : 'var(--color-bg-page)'
                   e.currentTarget.style.boxShadow = 'none'
                 }}
               />
@@ -221,7 +221,7 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -4 }}
                 className="flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm"
-                style={{ background: '#FEE2E2', color: '#DC2626' }}
+                style={{ background: '#FEE2E2', color: 'var(--color-danger)' }}
               >
                 <AlertCircle size={15} />
                 {serverError}
@@ -238,7 +238,7 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
               whileTap={{ scale: 0.98 }}
               className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold text-white transition-all disabled:cursor-not-allowed disabled:opacity-60"
               style={{
-                background: '#0057b8',
+                background: 'var(--color-primary)',
                 boxShadow: '0 4px 20px rgba(0,87,184,0.30)',
               }}
             >
@@ -264,13 +264,13 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
           initial="hidden"
           animate="visible"
           className="mt-6 text-center text-sm"
-          style={{ color: '#6B7280' }}
+          style={{ color: 'var(--color-text-muted)' }}
         >
           <button
             type="button"
             onClick={cancelChallenge}
             className="inline-flex items-center gap-1 font-semibold transition-opacity hover:opacity-70"
-            style={{ color: '#0057b8' }}
+            style={{ color: 'var(--color-primary)' }}
           >
             <ArrowLeft size={14} />
             Back to sign in
@@ -296,16 +296,16 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
         transition={{ delay: 0.05 }}
         className="mb-8"
       >
-        <p className="mb-1 text-sm font-medium" style={{ color: '#0057b8' }}>
+        <p className="mb-1 text-sm font-medium" style={{ color: 'var(--color-primary)' }}>
           Welcome back 👋
         </p>
         <h2
           className="text-[28px] font-bold leading-tight tracking-tight"
-          style={{ fontFamily: 'var(--font-display), sans-serif', color: '#0D0F1A' }}
+          style={{ fontFamily: 'var(--font-display), sans-serif', color: 'var(--color-text-primary)' }}
         >
           Sign in to your account
         </h2>
-        <p className="mt-1.5 text-sm" style={{ color: '#6B7280' }}>
+        <p className="mt-1.5 text-sm" style={{ color: 'var(--color-text-muted)' }}>
           Pick up right where you left off.
         </p>
       </motion.div>
@@ -314,14 +314,14 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
         {/* Email */}
         <motion.div custom={2} variants={fieldVariant} initial="hidden" animate="visible">
-          <label className="mb-1.5 block text-sm font-semibold" style={{ color: '#0D0F1A' }}>
+          <label className="mb-1.5 block text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
             Email address
           </label>
           <div className="relative">
             <Mail
               size={16}
               className="absolute left-3.5 top-1/2 -translate-y-1/2"
-              style={{ color: errors.email ? '#EF4444' : '#9CA3AF' }}
+              style={{ color: errors.email ? '#EF4444' : 'var(--color-text-muted)' }}
             />
             <input
               {...register('email')}
@@ -330,9 +330,9 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
               autoComplete="email"
               className="w-full rounded-xl py-3 pl-10 pr-4 text-sm outline-none transition-all"
               style={{
-                background: errors.email ? '#FEF2F2' : '#F4F5F8',
+                background: errors.email ? '#FEF2F2' : 'var(--color-bg-page)',
                 border: `1.5px solid ${errors.email ? '#FCA5A5' : 'transparent'}`,
-                color: '#0D0F1A',
+                color: 'var(--color-text-primary)',
                 fontFamily: 'DM Sans, sans-serif',
               }}
               onFocus={e => {
@@ -344,7 +344,7 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
               }}
               onBlur={e => {
                 e.currentTarget.style.border = `1.5px solid ${errors.email ? '#FCA5A5' : 'transparent'}`
-                e.currentTarget.style.background = errors.email ? '#FEF2F2' : '#F4F5F8'
+                e.currentTarget.style.background = errors.email ? '#FEF2F2' : 'var(--color-bg-page)'
                 e.currentTarget.style.boxShadow = 'none'
               }}
             />
@@ -356,7 +356,7 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
                 className="mt-1.5 flex items-center gap-1 text-xs"
-                style={{ color: '#EF4444' }}
+                style={{ color: 'var(--color-danger)' }}
               >
                 <AlertCircle size={11} />
                 {errors.email.message}
@@ -368,13 +368,13 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
         {/* Password */}
         <motion.div custom={3} variants={fieldVariant} initial="hidden" animate="visible">
           <div className="mb-1.5 flex items-center justify-between">
-            <label className="text-sm font-semibold" style={{ color: '#0D0F1A' }}>
+            <label className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
               Password
             </label>
             <a
               href="/forgot-password"
               className="text-xs font-medium transition-colors hover:opacity-70"
-              style={{ color: '#0057b8' }}
+              style={{ color: 'var(--color-primary)' }}
             >
               Forgot password?
             </a>
@@ -383,7 +383,7 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
             <Lock
               size={16}
               className="absolute left-3.5 top-1/2 -translate-y-1/2"
-              style={{ color: errors.password ? '#EF4444' : '#9CA3AF' }}
+              style={{ color: errors.password ? '#EF4444' : 'var(--color-text-muted)' }}
             />
             <input
               {...register('password')}
@@ -392,9 +392,9 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
               autoComplete="current-password"
               className="w-full rounded-xl py-3 pl-10 pr-11 text-sm outline-none transition-all"
               style={{
-                background: errors.password ? '#FEF2F2' : '#F4F5F8',
+                background: errors.password ? '#FEF2F2' : 'var(--color-bg-page)',
                 border: `1.5px solid ${errors.password ? '#FCA5A5' : 'transparent'}`,
-                color: '#0D0F1A',
+                color: 'var(--color-text-primary)',
                 fontFamily: 'DM Sans, sans-serif',
               }}
               onFocus={e => {
@@ -406,7 +406,7 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
               }}
               onBlur={e => {
                 e.currentTarget.style.border = `1.5px solid ${errors.password ? '#FCA5A5' : 'transparent'}`
-                e.currentTarget.style.background = errors.password ? '#FEF2F2' : '#F4F5F8'
+                e.currentTarget.style.background = errors.password ? '#FEF2F2' : 'var(--color-bg-page)'
                 e.currentTarget.style.boxShadow = 'none'
               }}
             />
@@ -414,7 +414,7 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
               type="button"
               onClick={() => setShowPassword(v => !v)}
               className="absolute right-3.5 top-1/2 -translate-y-1/2 transition-opacity hover:opacity-70"
-              style={{ color: '#9CA3AF' }}
+              style={{ color: 'var(--color-text-muted)' }}
             >
               {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
@@ -426,7 +426,7 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
                 className="mt-1.5 flex items-center gap-1 text-xs"
-                style={{ color: '#EF4444' }}
+                style={{ color: 'var(--color-danger)' }}
               >
                 <AlertCircle size={11} />
                 {errors.password.message}
@@ -450,7 +450,7 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
             className="h-4 w-4 cursor-pointer rounded"
             style={{ accentColor: '#0057b8' }}
           />
-          <label htmlFor="remember" className="cursor-pointer text-sm" style={{ color: '#6B7280' }}>
+          <label htmlFor="remember" className="cursor-pointer text-sm" style={{ color: 'var(--color-text-muted)' }}>
             Remember me for 30 days
           </label>
         </motion.div>
@@ -463,7 +463,7 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -4 }}
               className="flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm"
-              style={{ background: '#FEE2E2', color: '#DC2626' }}
+              style={{ background: '#FEE2E2', color: 'var(--color-danger)' }}
             >
               <AlertCircle size={15} />
               {serverError}
@@ -480,7 +480,7 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
             whileTap={{ scale: 0.98 }}
             className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold text-white transition-all disabled:cursor-not-allowed disabled:opacity-60"
             style={{
-              background: '#0057b8',
+              background: 'var(--color-primary)',
               boxShadow: '0 4px 20px rgba(0,87,184,0.30)',
             }}
           >
@@ -506,14 +506,14 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
         initial="hidden"
         animate="visible"
         className="mt-6 text-center text-sm"
-        style={{ color: '#6B7280' }}
+        style={{ color: 'var(--color-text-muted)' }}
       >
         Don&apos;t have an account?{' '}
         <button
           type="button"
           onClick={onSwitch}
           className="font-semibold transition-opacity hover:opacity-70"
-          style={{ color: '#0057b8' }}
+          style={{ color: 'var(--color-primary)' }}
         >
           Create one free →
         </button>

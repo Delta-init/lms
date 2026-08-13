@@ -130,15 +130,15 @@ function getSlotStatus(lc: LiveClass, booking: MyBooking|undefined, hasOther: bo
 }
 
 const SC: Record<SlotStatus,{color:string;bg:string;border:string;label:string}> = {
-  live:      {color:'#EF4444',bg:'rgba(239,68,68,0.08)',  border:'rgba(239,68,68,0.22)',  label:'Live Now'},
-  booked:    {color:'#059669',bg:'rgba(5,150,105,0.08)',  border:'rgba(5,150,105,0.22)',  label:'Reserved'},
-  bookable:  {color:'#0057b8',bg:'rgba(0,87,184,0.08)', border:'rgba(0,87,184,0.22)', label:'Open'},
-  full:      {color:'#6B7280',bg:'rgba(107,114,128,0.07)',border:'rgba(107,114,128,0.18)',label:'Full'},
-  locked:    {color:'#6B7280',bg:'rgba(107,114,128,0.07)',border:'rgba(107,114,128,0.15)',label:'Locked'},
-  attended:  {color:'#2563EB',bg:'rgba(37,99,235,0.08)',  border:'rgba(37,99,235,0.20)',  label:'Attended'},
-  missed:    {color:'#D97706',bg:'rgba(217,119,6,0.08)',  border:'rgba(217,119,6,0.20)',  label:'Missed'},
-  cancelled: {color:'#9CA3AF',bg:'rgba(156,163,175,0.06)',border:'rgba(156,163,175,0.15)',label:'Cancelled'},
-  ended:     {color:'#9CA3AF',bg:'rgba(156,163,175,0.06)',border:'rgba(156,163,175,0.15)',label:'Ended'},
+  live:      {color: 'var(--color-danger)',bg:'rgba(239,68,68,0.08)',  border:'rgba(239,68,68,0.22)',  label:'Live Now'},
+  booked:    {color: 'var(--color-success)',bg:'rgba(5,150,105,0.08)',  border:'rgba(5,150,105,0.22)',  label:'Reserved'},
+  bookable:  {color: 'var(--color-primary)',bg:'rgba(0,87,184,0.08)', border:'rgba(0,87,184,0.22)', label:'Open'},
+  full:      {color: 'var(--color-text-muted)',bg:'rgba(107,114,128,0.07)',border:'rgba(107,114,128,0.18)',label:'Full'},
+  locked:    {color: 'var(--color-text-muted)',bg:'rgba(107,114,128,0.07)',border:'rgba(107,114,128,0.15)',label:'Locked'},
+  attended:  {color: '#2563EB',bg:'rgba(37,99,235,0.08)',  border:'rgba(37,99,235,0.20)',  label:'Attended'},
+  missed:    {color: '#D97706',bg:'rgba(217,119,6,0.08)',  border:'rgba(217,119,6,0.20)',  label:'Missed'},
+  cancelled: {color: 'var(--color-text-muted)',bg:'rgba(156,163,175,0.06)',border:'rgba(156,163,175,0.15)',label:'Cancelled'},
+  ended:     {color: 'var(--color-text-muted)',bg:'rgba(156,163,175,0.06)',border:'rgba(156,163,175,0.15)',label:'Ended'},
 }
 
 /* ── Types ─────────────────────────────────────────────────── */
@@ -167,18 +167,18 @@ function PanelChip({ active, onClick, count, children }: {
     <button type="button" onClick={onClick}
       className="dm inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-[12px] font-medium transition-all duration-150 select-none"
       style={active ? {
-        background:'rgba(0,87,184,0.10)', color:'#EA6010',
+        background:'rgba(0,87,184,0.10)', color: '#EA6010',
         border:'1.5px solid rgba(0,87,184,0.32)',
         fontWeight:600,
       } : {
-        background:'#F8FAFC', color:'#475569', border:'1px solid #E2EAF4',
+        background: 'var(--color-bg-inset)', color: '#475569', border: '1px solid var(--color-border)',
       }}>
       {children}
       {count !== undefined && (
         <span className="rounded-full px-1.5 min-w-[18px] text-center text-[10px] font-semibold"
           style={{
             background:active?'rgba(0,87,184,0.15)':'#EEF2F7',
-            color:active?'#EA6010':'#94A3B8',
+            color:active?'#EA6010':'var(--color-text-muted)',
           }}>
           {count}
         </span>
@@ -194,8 +194,8 @@ function PanelSection({ label, icon, children }: {
   return (
     <div>
       <div className="mb-2 flex items-center gap-1.5">
-        <span style={{color:'#94A3B8'}}>{icon}</span>
-        <span className="dm text-[10px] font-bold uppercase tracking-widest" style={{color:'#94A3B8'}}>{label}</span>
+        <span style={{color: 'var(--color-text-muted)'}}>{icon}</span>
+        <span className="dm text-[10px] font-bold uppercase tracking-widest" style={{color: 'var(--color-text-muted)'}}>{label}</span>
       </div>
       <div className="flex flex-wrap gap-1.5">{children}</div>
     </div>
@@ -239,23 +239,23 @@ function MiniCalendar({rangeStart,rangeEnd,onRangeChange,onClose}: {
     <motion.div initial={{opacity:0,y:-6,scale:0.97}} animate={{opacity:1,y:0,scale:1}}
       exit={{opacity:0,y:-4,scale:0.97}} transition={{type:'spring',stiffness:420,damping:32}}
       className="absolute right-0 top-full mt-2 z-30 w-[270px] rounded-2xl p-4"
-      style={{background:'white',border:'1px solid #E2EAF4',boxShadow:'0 20px 48px rgba(0,0,0,0.13)'}}>
+      style={{background: 'var(--color-bg-surface)',border: '1px solid var(--color-border)',boxShadow:'0 20px 48px rgba(0,0,0,0.13)'}}>
       <div className="mb-3 flex items-center justify-between">
         <button onClick={()=>setMonth(new Date(month.getFullYear(),month.getMonth()-1,1))}
-          className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-slate-50">
-          <ChevronLeft size={13} style={{color:'#94A3B8'}}/>
+          className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-[var(--color-bg-muted)]">
+          <ChevronLeft size={13} style={{color: 'var(--color-text-muted)'}}/>
         </button>
-        <span className="syne text-[13px] font-700" style={{color:'#0F172A'}}>
+        <span className="syne text-[13px] font-700" style={{color: 'var(--color-text-primary)'}}>
           {month.toLocaleDateString('en-US',{month:'long',year:'numeric'})}
         </span>
         <button onClick={()=>setMonth(new Date(month.getFullYear(),month.getMonth()+1,1))}
-          className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-slate-50">
-          <ChevronRight size={13} style={{color:'#94A3B8'}}/>
+          className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-[var(--color-bg-muted)]">
+          <ChevronRight size={13} style={{color: 'var(--color-text-muted)'}}/>
         </button>
       </div>
       <div className="mb-1 grid grid-cols-7">
         {['S','M','T','W','T','F','S'].map((d,i)=>(
-          <div key={i} className="py-1 text-center text-[9px] font-bold tracking-wider" style={{color:'#CBD5E1'}}>{d}</div>
+          <div key={i} className="py-1 text-center text-[9px] font-bold tracking-wider" style={{color: 'var(--color-text-muted)'}}>{d}</div>
         ))}
       </div>
       <div className="grid grid-cols-7 gap-px">
@@ -267,20 +267,20 @@ function MiniCalendar({rangeStart,rangeEnd,onRangeChange,onClose}: {
               onMouseEnter={()=>anchor&&setHover(day)} onMouseLeave={()=>anchor&&setHover(null)}
               className="flex h-7 w-full items-center justify-center rounded-lg text-[11px] transition-all"
               style={{background:ep?'#0057b8':rng?'rgba(0,87,184,0.10)':'transparent',
-                color:ep?'white':tod?'#0057b8':'#374151',fontWeight:tod&&!ep?700:400}}>
+                color:ep?'white':tod?'#0057b8':'var(--color-text-secondary)',fontWeight:tod&&!ep?700:400}}>
               {day.getDate()}
             </button>
           )
         })}
       </div>
-      <p className="my-2 text-center text-[9px]" style={{color:'#CBD5E1'}}>
+      <p className="my-2 text-center text-[9px]" style={{color: 'var(--color-text-muted)'}}>
         {anchor?'Now pick the end date':'Click to set start date'}
       </p>
       <div className="flex flex-wrap gap-1.5">
         {presets.map(p=>(
           <button key={p.l} onClick={p.f}
             className="rounded-full px-2.5 py-1 text-[10px] font-semibold"
-            style={{background:'rgba(0,87,184,0.07)',color:'#0057b8',border:'1px solid rgba(0,87,184,0.16)'}}>
+            style={{background:'rgba(0,87,184,0.07)',color: 'var(--color-primary)',border:'1px solid rgba(0,87,184,0.16)'}}>
             {p.l}
           </button>
         ))}
@@ -301,28 +301,28 @@ function SlotChip({lc,status,isSelected,onClick}: {
       whileHover={clickable?{scale:1.02}:undefined} whileTap={clickable?{scale:0.97}:undefined}
       className="relative flex flex-col rounded-xl p-2.5 text-left"
       style={{
-        background:isSelected?c.bg:'#F8FAFC', border:`1.5px solid ${isSelected?c.border:'#E2EAF4'}`,
+        background:isSelected?c.bg:'var(--color-bg-inset)', border:`1.5px solid ${isSelected?c.border: 'var(--color-border)'}`,
         boxShadow:isSelected?`0 0 0 3px ${c.bg}`:'none',
         cursor:clickable?'pointer':'default',
         opacity:['full','cancelled','ended','locked','missed'].includes(status)?0.55:1,
       }}>
-      <span className="mb-1 text-[9px] font-bold uppercase tracking-wider" style={{color:'#94A3B8'}}>
+      <span className="mb-1 text-[9px] font-bold uppercase tracking-wider" style={{color: 'var(--color-text-muted)'}}>
         {zonedDayLabel(lc.scheduledStart)}
       </span>
-      <span className="syne mb-2 text-[14px] font-700" style={{color:'#0F172A'}}>{fmtTime(lc.scheduledStart)}</span>
+      <span className="syne mb-2 text-[14px] font-700" style={{color: 'var(--color-text-primary)'}}>{fmtTime(lc.scheduledStart)}</span>
       <span className="self-start rounded-full px-1.5 py-0.5 text-[9px] font-bold"
         style={{background:c.bg,color:c.color,border:`1px solid ${c.border}`}}>
         {status==='bookable'&&lc.sessionCapacity>0 ? `${lc.sessionCapacity-lc.bookedCount} left` : c.label}
       </span>
       {lc.sessionCapacity>0&&['bookable','booked','live'].includes(status)&&(
-        <div className="mt-2 h-0.5 w-full overflow-hidden rounded-full" style={{background:'#E2EAF4'}}>
+        <div className="mt-2 h-0.5 w-full overflow-hidden rounded-full" style={{background: 'var(--color-border)'}}>
           <motion.div initial={{width:0}} animate={{width:`${capPct}%`}} transition={{duration:0.6}}
             style={{height:'100%',borderRadius:99,background:capPct>=90?'#EF4444':capPct>=70?'#D97706':'#059669'}}/>
         </div>
       )}
       {status==='live'&&(
         <motion.span animate={{opacity:[1,0.1,1]}} transition={{duration:1,repeat:Infinity}}
-          className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full" style={{background:'#EF4444'}}/>
+          className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full" style={{background: 'var(--color-danger)'}}/>
       )}
     </motion.button>
   )
@@ -344,7 +344,7 @@ function ClassCard({group,bookingMap,onClick}: {
 
   type S='live'|'booked'|'ended'|'open'
   const state: S = hasLive?'live':bookedSlot?'booked':allEnded?'ended':'open'
-  const accentMap: Record<S,string> = { live:'#EF4444', booked:'#059669', ended:'#CBD5E1', open:'#0057b8' }
+  const accentMap: Record<S,string> = { live:'#EF4444', booked:'#059669', ended:'var(--color-text-muted)', open:'#0057b8' }
   const accent = accentMap[state]
 
   return(
@@ -353,7 +353,7 @@ function ClassCard({group,bookingMap,onClick}: {
       whileTap={{scale:0.985}}
       className="dm flex h-full w-full flex-col rounded-2xl text-left overflow-hidden"
       style={{
-        background:'white', border:'1px solid #E8EEF4',
+        background: 'var(--color-bg-surface)', border: '1px solid #E8EEF4',
         borderTop:`3px solid ${accent}`,
         boxShadow:'0 2px 8px rgba(15,23,42,0.05)',
         opacity:allEnded?0.65:1,
@@ -366,29 +366,29 @@ function ClassCard({group,bookingMap,onClick}: {
             <>
               <motion.span animate={{scale:[1,1.5,1],opacity:[0.8,0,0.8]}}
                 transition={{duration:1.8,repeat:Infinity}}
-                className="h-2 w-2 rounded-full flex-shrink-0" style={{background:'#EF4444'}}/>
-              <span className="text-[9px] font-bold tracking-widest uppercase" style={{color:'#EF4444'}}>Live Now</span>
+                className="h-2 w-2 rounded-full flex-shrink-0" style={{background: 'var(--color-danger)'}}/>
+              <span className="text-[9px] font-bold tracking-widest uppercase" style={{color: 'var(--color-danger)'}}>Live Now</span>
             </>
           )}
           {!hasLive&&bookedSlot&&(
             <div className="flex items-center gap-1">
-              <CheckCircle2 size={9} style={{color:'#059669'}} strokeWidth={3}/>
-              <span className="text-[9px] font-bold uppercase tracking-wider" style={{color:'#059669'}}>Reserved</span>
+              <CheckCircle2 size={9} style={{color: 'var(--color-success)'}} strokeWidth={3}/>
+              <span className="text-[9px] font-bold uppercase tracking-wider" style={{color: 'var(--color-success)'}}>Reserved</span>
             </div>
           )}
           {!hasLive&&!bookedSlot&&bookable>0&&(
-            <span className="text-[9px] font-bold uppercase tracking-wider" style={{color:'#0057b8'}}>{bookable} open</span>
+            <span className="text-[9px] font-bold uppercase tracking-wider" style={{color: 'var(--color-primary)'}}>{bookable} open</span>
           )}
-          {allEnded&&<span className="text-[9px] font-bold uppercase tracking-wider" style={{color:'#94A3B8'}}>Ended</span>}
+          {allEnded&&<span className="text-[9px] font-bold uppercase tracking-wider" style={{color: 'var(--color-text-muted)'}}>Ended</span>}
         </div>
         {isOffline?(
           <span className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[8px] font-bold"
-            style={{background:'rgba(5,150,105,0.08)',color:'#059669',border:'1px solid rgba(5,150,105,0.18)'}}>
+            style={{background:'rgba(5,150,105,0.08)',color: 'var(--color-success)',border:'1px solid rgba(5,150,105,0.18)'}}>
             <Building2 size={7}/>In-Person
           </span>
         ):(
           <span className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[8px] font-bold"
-            style={{background:'rgba(99,102,241,0.08)',color:'#6366F1',border:'1px solid rgba(99,102,241,0.16)'}}>
+            style={{background:'rgba(99,102,241,0.08)',color: '#6366F1',border:'1px solid rgba(99,102,241,0.16)'}}>
             <Wifi size={7}/>Online
           </span>
         )}
@@ -396,7 +396,7 @@ function ClassCard({group,bookingMap,onClick}: {
 
       {/* Title */}
       <div className="px-3.5 pb-2">
-        <h3 className="syne line-clamp-2 text-[13px] font-700 leading-snug" style={{color:allEnded?'#94A3B8':'#0F172A'}}>
+        <h3 className="syne line-clamp-2 text-[13px] font-700 leading-snug" style={{color:allEnded?'var(--color-text-muted)':'var(--color-text-primary)'}}>
           {group.title}
         </h3>
       </div>
@@ -405,49 +405,49 @@ function ClassCard({group,bookingMap,onClick}: {
       <div className="flex flex-col gap-1 px-3.5 pb-2">
         {courseTitle&&(
           <div className="flex items-center gap-1.5">
-            <BookOpen size={9} style={{color:'#CBD5E1'}} className="flex-shrink-0"/>
-            <span className="truncate text-[10px]" style={{color:'#94A3B8'}}>{courseTitle}</span>
+            <BookOpen size={9} style={{color: 'var(--color-text-muted)'}} className="flex-shrink-0"/>
+            <span className="truncate text-[10px]" style={{color: 'var(--color-text-muted)'}}>{courseTitle}</span>
             {isEnrolled
-              ?<CheckCircle2 size={9} style={{color:'#059669'}} className="ml-auto flex-shrink-0" strokeWidth={3}/>
-              :<Lock size={9} style={{color:'#CBD5E1'}} className="ml-auto flex-shrink-0"/>}
+              ?<CheckCircle2 size={9} style={{color: 'var(--color-success)'}} className="ml-auto flex-shrink-0" strokeWidth={3}/>
+              :<Lock size={9} style={{color: 'var(--color-text-muted)'}} className="ml-auto flex-shrink-0"/>}
           </div>
         )}
         {instructor&&(
           <div className="flex items-center gap-1.5">
-            <User size={9} style={{color:'#CBD5E1'}} className="flex-shrink-0"/>
-            <span className="truncate text-[10px]" style={{color:'#94A3B8'}}>{instructor.name}</span>
+            <User size={9} style={{color: 'var(--color-text-muted)'}} className="flex-shrink-0"/>
+            <span className="truncate text-[10px]" style={{color: 'var(--color-text-muted)'}}>{instructor.name}</span>
           </div>
         )}
         {isOffline&&(first as any)?.location&&(
           <div className="flex items-center gap-1.5">
-            <MapPin size={9} style={{color:'#34D399'}} className="flex-shrink-0"/>
-            <span className="truncate text-[10px]" style={{color:'#059669'}}>
+            <MapPin size={9} style={{color: '#34D399'}} className="flex-shrink-0"/>
+            <span className="truncate text-[10px]" style={{color: 'var(--color-success)'}}>
               {(first as any).location}{(first as any).room?` · ${(first as any).room}`:''}
             </span>
           </div>
         )}
         {moduleTitle&&(
           <div className="flex items-center gap-1.5">
-            <span className="h-1 w-1 rounded-full flex-shrink-0" style={{background:'#0057b8'}}/>
-            <span className="truncate text-[10px] font-medium" style={{color:'#0057b8'}}>{moduleTitle}</span>
+            <span className="h-1 w-1 rounded-full flex-shrink-0" style={{background: 'var(--color-primary)'}}/>
+            <span className="truncate text-[10px] font-medium" style={{color: 'var(--color-primary)'}}>{moduleTitle}</span>
           </div>
         )}
       </div>
 
       {/* Footer */}
       <div className="mt-auto flex items-center justify-between px-3.5 py-2.5"
-        style={{borderTop:'1px solid #F1F5F9'}}>
+        style={{borderTop: '1px solid #F1F5F9'}}>
         {nextSlot?(
           <div className="flex items-center gap-1">
-            <Clock size={9} style={{color:bookedSlot?'#059669':'#CBD5E1'}}/>
-            <span className="text-[10px] font-semibold" style={{color:bookedSlot?'#059669':'#64748B'}}>
+            <Clock size={9} style={{color:bookedSlot?'#059669':'var(--color-text-muted)'}}/>
+            <span className="text-[10px] font-semibold" style={{color:bookedSlot?'#059669':'var(--color-text-secondary)'}}>
               {fmtShortSlot(nextSlot.scheduledStart)}
             </span>
           </div>
         ):<div/>}
         <div className="flex items-center gap-1">
-          <CalendarDays size={9} style={{color:'#CBD5E1'}}/>
-          <span className="text-[9px]" style={{color:'#CBD5E1'}}>{slots.length}s</span>
+          <CalendarDays size={9} style={{color: 'var(--color-text-muted)'}}/>
+          <span className="text-[9px]" style={{color: 'var(--color-text-muted)'}}>{slots.length}s</span>
         </div>
       </div>
     </motion.button>
@@ -490,62 +490,62 @@ function SlotModal({group,bookingMap,onBook,onCancel,bookPending,cancelPending,o
         className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose}/>
       <motion.div initial={{opacity:0,y:40}} animate={{opacity:1,y:0}} exit={{opacity:0,y:40}}
         transition={{type:'spring',stiffness:360,damping:32}} onClick={e=>e.stopPropagation()}
-        className="dm relative w-full overflow-y-auto bg-white sm:max-w-md"
+        className="dm relative w-full overflow-y-auto bg-[var(--color-bg-surface)] sm:max-w-md"
         style={{borderRadius:'24px 24px 20px 20px',maxHeight:'92vh',boxShadow:'0 -8px 48px rgba(15,23,42,0.20)'}}>
         <div className="flex justify-center pb-1 pt-3 sm:hidden">
-          <div className="h-1 w-10 rounded-full" style={{background:'#E2E8F0'}}/>
+          <div className="h-1 w-10 rounded-full" style={{background: '#E2E8F0'}}/>
         </div>
-        <div className="px-5 pt-4 pb-4" style={{borderBottom:'1px solid #F1F5F9'}}>
+        <div className="px-5 pt-4 pb-4" style={{borderBottom: '1px solid #F1F5F9'}}>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <h2 className="syne text-[17px] font-700 leading-tight" style={{color:'#0F172A'}}>{group.title}</h2>
-              {instructor&&<p className="mt-1 flex items-center gap-1 text-xs" style={{color:'#94A3B8'}}><User size={10}/>{instructor.name}</p>}
+              <h2 className="syne text-[17px] font-700 leading-tight" style={{color: 'var(--color-text-primary)'}}>{group.title}</h2>
+              {instructor&&<p className="mt-1 flex items-center gap-1 text-xs" style={{color: 'var(--color-text-muted)'}}><User size={10}/>{instructor.name}</p>}
               {courseTitle&&(
-                <p className="mt-0.5 flex items-center gap-1 text-[11px]" style={{color:'#94A3B8'}}>
+                <p className="mt-0.5 flex items-center gap-1 text-[11px]" style={{color: 'var(--color-text-muted)'}}>
                   <BookOpen size={9}/>{courseTitle}
-                  {isEnr?<CheckCircle2 size={9} style={{color:'#059669'}} className="ml-1" strokeWidth={3}/>
-                        :<Lock size={9} style={{color:'#CBD5E1'}} className="ml-1"/>}
+                  {isEnr?<CheckCircle2 size={9} style={{color: 'var(--color-success)'}} className="ml-1" strokeWidth={3}/>
+                        :<Lock size={9} style={{color: 'var(--color-text-muted)'}} className="ml-1"/>}
                 </p>
               )}
               {moduleTitle&&(
-                <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium" style={{color:'#0057b8'}}>
-                  <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{background:'#0057b8'}}/>
+                <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium" style={{color: 'var(--color-primary)'}}>
+                  <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{background: 'var(--color-primary)'}}/>
                   {moduleTitle}
                 </p>
               )}
               {isOff&&sAny?.location&&(
-                <p className="mt-1 flex items-center gap-1 text-[11px]" style={{color:'#059669'}}>
+                <p className="mt-1 flex items-center gap-1 text-[11px]" style={{color: 'var(--color-success)'}}>
                   <MapPin size={9}/>{sAny.location}{sAny.room?` · ${sAny.room}`:''}
                 </p>
               )}
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {slots[0]?.language&&(
                   <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                    style={{background:'rgba(5,150,105,0.08)',color:'#059669',border:'1px solid rgba(5,150,105,0.18)'}}>
+                    style={{background:'rgba(5,150,105,0.08)',color: 'var(--color-success)',border:'1px solid rgba(5,150,105,0.18)'}}>
                     🌐 {slots[0].language}
                   </span>
                 )}
                 {isOff?(
                   <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                    style={{background:'rgba(5,150,105,0.08)',color:'#059669',border:'1px solid rgba(5,150,105,0.18)'}}>
+                    style={{background:'rgba(5,150,105,0.08)',color: 'var(--color-success)',border:'1px solid rgba(5,150,105,0.18)'}}>
                     <Building2 size={9}/>In-Person
                   </span>
                 ):(
                   <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                    style={{background:'rgba(99,102,241,0.08)',color:'#6366F1',border:'1px solid rgba(99,102,241,0.16)'}}>
+                    style={{background:'rgba(99,102,241,0.08)',color: '#6366F1',border:'1px solid rgba(99,102,241,0.16)'}}>
                     <Wifi size={9}/>Online
                   </span>
                 )}
               </div>
             </div>
             <button type="button" onClick={onClose}
-              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl hover:bg-slate-50">
-              <X size={14} style={{color:'#94A3B8'}}/>
+              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl hover:bg-[var(--color-bg-muted)]">
+              <X size={14} style={{color: 'var(--color-text-muted)'}}/>
             </button>
           </div>
         </div>
         <div className="px-5 pt-4 pb-3">
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest" style={{color:'#CBD5E1'}}>
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest" style={{color: 'var(--color-text-muted)'}}>
             {bookedSlot?'Your reservation · other times':'Choose a time slot'}
           </p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -574,12 +574,12 @@ function SlotModal({group,bookingMap,onBook,onCancel,bookPending,cancelPending,o
                       </div>
                       {booked?(
                         <div className="rounded-xl px-3 py-2.5 text-[11px] leading-relaxed"
-                          style={{background:'rgba(5,150,105,0.08)',color:'#064E3B',border:'1px solid rgba(5,150,105,0.18)'}}>
-                          <CheckCircle2 size={11} className="mr-1.5 inline" style={{color:'#059669'}} strokeWidth={3}/>
+                          style={{background:'rgba(5,150,105,0.08)',color: '#064E3B',border:'1px solid rgba(5,150,105,0.18)'}}>
+                          <CheckCircle2 size={11} className="mr-1.5 inline" style={{color: 'var(--color-success)'}} strokeWidth={3}/>
                           You reserved a seat. Your <strong>join link was emailed 5 min before</strong> class. Check your inbox!
                         </div>
                       ):(
-                        <p className="text-[11px] leading-relaxed" style={{color:'#64748B'}}>
+                        <p className="text-[11px] leading-relaxed" style={{color: 'var(--color-text-secondary)'}}>
                           Booking is closed. Only students who reserved beforehand receive an email join link.
                         </p>
                       )}
@@ -590,7 +590,7 @@ function SlotModal({group,bookingMap,onBook,onCancel,bookPending,cancelPending,o
                   isEnr&&isPendingAny?(
                     <Link href="/complete-registration"
                       className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white"
-                      style={{background:'#0057b8'}}>
+                      style={{background: 'var(--color-primary)'}}>
                       <BookOpen size={14}/>Complete Registration to Book
                     </Link>
                   ):isEnr?(
@@ -599,17 +599,17 @@ function SlotModal({group,bookingMap,onBook,onCancel,bookPending,cancelPending,o
                       whileTap={{scale:0.98}}
                       onClick={()=>onBook(sel.id)} disabled={bookPending.has(sel.id)}
                       className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white disabled:opacity-60"
-                      style={{background:'#0057b8'}}>
+                      style={{background: 'var(--color-primary)'}}>
                       {bookPending.has(sel.id)
                         ?<><Spinner size={14}/>Booking…</>
                         :<><BookOpen size={14}/>Reserve Seat · {fmtShortSlot(sel.scheduledStart)}</>}
                     </motion.button>
                   ):(
-                    <div className="flex items-start gap-3 rounded-2xl px-4 py-3" style={{background:'#F8FAFC',border:'1px solid #E8EEF4'}}>
-                      <Lock size={14} style={{color:'#94A3B8',flexShrink:0,marginTop:1}}/>
+                    <div className="flex items-start gap-3 rounded-2xl px-4 py-3" style={{background: 'var(--color-bg-inset)',border: '1px solid #E8EEF4'}}>
+                      <Lock size={14} style={{color: 'var(--color-text-muted)',flexShrink:0,marginTop:1}}/>
                       <div>
-                        <p className="text-[12px] font-semibold" style={{color:'#334155'}}>Enroll to Reserve</p>
-                        <p className="mt-0.5 text-[11px] leading-relaxed" style={{color:'#94A3B8'}}>
+                        <p className="text-[12px] font-semibold" style={{color: 'var(--color-text-secondary)'}}>Enroll to Reserve</p>
+                        <p className="mt-0.5 text-[11px] leading-relaxed" style={{color: 'var(--color-text-muted)'}}>
                           Purchase this course to reserve seats and get email join links before class.
                         </p>
                       </div>
@@ -625,14 +625,14 @@ function SlotModal({group,bookingMap,onBook,onCancel,bookPending,cancelPending,o
                         <CheckCircle2 size={14} style={{color:cfg.color}} strokeWidth={3}/>
                         <p className="text-[12px] font-semibold" style={{color:cfg.color}}>Reserved · {fmtSlotLabel(sel.scheduledStart,sel.durationMins)}</p>
                       </div>
-                      <div className="rounded-2xl px-4 py-3 text-[11px] leading-relaxed" style={{background:'#F8FAFC',border:'1px solid #E8EEF4',color:'#64748B'}}>
-                        <Clock size={11} className="mr-1.5 inline" style={{color:'#94A3B8'}}/>
+                      <div className="rounded-2xl px-4 py-3 text-[11px] leading-relaxed" style={{background: 'var(--color-bg-inset)',border: '1px solid #E8EEF4',color: 'var(--color-text-secondary)'}}>
+                        <Clock size={11} className="mr-1.5 inline" style={{color: 'var(--color-text-muted)'}}/>
                         {mins<=5?'Join link sent. Check your inbox!':<>Your <strong>join link will be emailed 5 min before</strong> class.</>}
                       </div>
                       {!(isOff && offlineDayOffset(sel.scheduledStart) === 0) && (
                         <button type="button" onClick={()=>onCancel(selBk.id,fmtShortSlot(sel.scheduledStart))} disabled={cancelPending.has(selBk.id)}
                           className="flex w-full items-center justify-center gap-1.5 rounded-2xl py-2 text-xs font-medium disabled:opacity-50"
-                          style={{color:'#EF4444',border:'1px solid rgba(239,68,68,0.18)'}}>
+                          style={{color: 'var(--color-danger)',border:'1px solid rgba(239,68,68,0.18)'}}>
                           {cancelPending.has(selBk.id)?<Spinner size={11}/>:<X size={11}/>}Cancel reservation
                         </button>
                       )}
@@ -640,37 +640,37 @@ function SlotModal({group,bookingMap,onBook,onCancel,bookPending,cancelPending,o
                   )
                 })()}
                 {selSt==='full'&&(
-                  <div className="flex items-center justify-center gap-2 rounded-2xl py-3 text-sm" style={{background:'#F8FAFC',color:'#94A3B8',border:'1px solid #E8EEF4'}}>
+                  <div className="flex items-center justify-center gap-2 rounded-2xl py-3 text-sm" style={{background: 'var(--color-bg-inset)',color: 'var(--color-text-muted)',border: '1px solid #E8EEF4'}}>
                     <Users size={14}/>Fully booked
                   </div>
                 )}
                 {selSt==='locked'&&(
                   isOff && offlineDayOffset(sel.scheduledStart) === 0 ? (
                     <div className="flex items-start gap-2 rounded-2xl px-4 py-3" style={{background:'rgba(99,102,241,0.06)',border:'1px solid rgba(99,102,241,0.18)'}}>
-                      <Lock size={14} style={{color:'#6366F1',flexShrink:0,marginTop:1}}/>
+                      <Lock size={14} style={{color: '#6366F1',flexShrink:0,marginTop:1}}/>
                       <div>
-                        <p className="text-[12px] font-semibold" style={{color:'#4338CA'}}>Same-day registration closed</p>
-                        <p className="mt-0.5 text-[11px] leading-relaxed" style={{color:'#6366F1'}}>
+                        <p className="text-[12px] font-semibold" style={{color: '#4338CA'}}>Same-day registration closed</p>
+                        <p className="mt-0.5 text-[11px] leading-relaxed" style={{color: '#6366F1'}}>
                           Bookings must be made at least <strong>1 day in advance</strong>. Register tomorrow for an upcoming session.
                         </p>
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-start gap-2 rounded-2xl px-4 py-3" style={{background:'#FFFBEB',border:'1px solid rgba(217,119,6,0.25)'}}>
-                      <AlertCircle size={14} style={{color:'#D97706',flexShrink:0,marginTop:1}}/>
-                      <span className="text-xs" style={{color:'#92400E'}}>You already have a reservation. Cancel it first to pick a different time.</span>
+                    <div className="flex items-start gap-2 rounded-2xl px-4 py-3" style={{background: 'var(--color-primary-light)',border:'1px solid rgba(217,119,6,0.25)'}}>
+                      <AlertCircle size={14} style={{color: '#D97706',flexShrink:0,marginTop:1}}/>
+                      <span className="text-xs" style={{color: '#92400E'}}>You already have a reservation. Cancel it first to pick a different time.</span>
                     </div>
                   )
                 )}
                 {selSt==='attended'&&(
                   <div className="flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold"
-                    style={{background:'rgba(37,99,235,0.07)',color:'#1D4ED8',border:'1px solid rgba(37,99,235,0.18)'}}>
+                    style={{background:'rgba(37,99,235,0.07)',color: '#1D4ED8',border:'1px solid rgba(37,99,235,0.18)'}}>
                     <CheckCircle2 size={14} strokeWidth={3}/>Attended! Great work!
                   </div>
                 )}
                 {selSt==='missed'&&(
                   <div className="flex items-center justify-center gap-2 rounded-2xl py-3 text-sm"
-                    style={{background:'rgba(217,119,6,0.07)',color:'#92400E',border:'1px solid rgba(217,119,6,0.20)'}}>
+                    style={{background:'rgba(217,119,6,0.07)',color: '#92400E',border:'1px solid rgba(217,119,6,0.20)'}}>
                     <AlertCircle size={14}/>Missed this session
                   </div>
                 )}
@@ -678,12 +678,12 @@ function SlotModal({group,bookingMap,onBook,onCancel,bookPending,cancelPending,o
                   sel.recordingUrl?(
                     <a href={sel.recordingUrl} target="_blank" rel="noreferrer"
                       className="flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-medium"
-                      style={{background:'#F8FAFC',color:'#64748B',border:'1px solid #E8EEF4'}}>
+                      style={{background: 'var(--color-bg-inset)',color: 'var(--color-text-secondary)',border: '1px solid #E8EEF4'}}>
                       <Video size={13}/>Watch Recording
                     </a>
                   ):(
                     <div className="flex items-center justify-center rounded-2xl py-3 text-xs"
-                      style={{background:'#F8FAFC',color:'#CBD5E1',border:'1px solid #F1F5F9'}}>
+                      style={{background: 'var(--color-bg-inset)',color: 'var(--color-text-muted)',border: '1px solid #F1F5F9'}}>
                       Session ended · no recording
                     </div>
                   )
@@ -740,16 +740,16 @@ function CourseDropdown({ value, onChange, options }: {
         onClick={toggleOpen}
         className="dm flex items-center gap-1.5 rounded-2xl py-2 pl-3 pr-8 text-[12px] font-semibold outline-none cursor-pointer transition-all whitespace-nowrap"
         style={{
-          background: active ? 'rgba(0,87,184,0.08)' : 'white',
+          background: active ? 'rgba(0,87,184,0.08)' : 'var(--color-bg-surface)',
           color:      active ? '#EA6010' : '#475569',
-          border:     active ? '1.5px solid rgba(0,87,184,0.30)' : '1px solid #E2EAF4',
+          border:     active ? '1.5px solid rgba(0,87,184,0.30)' : '1px solid var(--color-border)',
           boxShadow:  active ? '0 0 0 3px rgba(0,87,184,0.07)' : '0 1px 4px rgba(15,23,42,0.04)',
         }}
       >
-        <BookOpen size={12} style={{ color: active ? '#0057b8' : '#94A3B8', flexShrink: 0 }} />
+        <BookOpen size={12} style={{ color: active ? '#0057b8' : 'var(--color-text-muted)', flexShrink: 0 }} />
         <span className="max-w-[130px] truncate">{selected ? selected.label : 'All Courses'}</span>
         <ChevronDown size={11} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2"
-          style={{ color: active ? '#0057b8' : '#94A3B8' }} />
+          style={{ color: active ? '#0057b8' : 'var(--color-text-muted)' }} />
       </button>
 
       <AnimatePresence>
@@ -766,8 +766,8 @@ function CourseDropdown({ value, onChange, options }: {
               left: pos.left,
               zIndex: 9999,
               minWidth: 210,
-              background: 'white',
-              border: '1px solid #E2EAF4',
+              background: 'var(--color-bg-surface)',
+              border: '1px solid var(--color-border)',
               boxShadow: '0 8px 32px rgba(15,23,42,0.12)',
               borderRadius: 16,
               overflow: 'hidden',
@@ -775,15 +775,15 @@ function CourseDropdown({ value, onChange, options }: {
           >
             {options.length > 5 && (
               <div className="p-2 border-b border-slate-100">
-                <div className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 bg-slate-50 border border-slate-100">
-                  <Search size={11} style={{ color: '#94A3B8' }} />
+                <div className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 bg-[var(--color-bg-muted)] border border-slate-100">
+                  <Search size={11} style={{ color: 'var(--color-text-muted)' }} />
                   <input
                     value={query}
                     onChange={e => setQuery(e.target.value)}
                     placeholder="Search courses…"
                     autoFocus
                     className="dm flex-1 bg-transparent text-[12px] outline-none placeholder:text-slate-400"
-                    style={{ color: '#0F172A' }}
+                    style={{ color: 'var(--color-text-primary)' }}
                   />
                 </div>
               </div>
@@ -792,11 +792,11 @@ function CourseDropdown({ value, onChange, options }: {
               <button
                 type="button"
                 onClick={() => { onChange('all'); setOpen(false); setQuery('') }}
-                className="dm flex w-full items-center gap-2.5 px-3 py-2 text-[12px] font-semibold transition-colors hover:bg-blue-50"
+                className="dm flex w-full items-center gap-2.5 px-3 py-2 text-[12px] font-semibold transition-colors hover:bg-[var(--color-hover)]"
                 style={{ color: value === 'all' ? '#0057b8' : '#475569' }}
               >
                 <div className="h-5 w-5 rounded-lg flex-shrink-0 flex items-center justify-center" style={{ background: '#F1F5F9' }}>
-                  <BookOpen size={10} style={{ color: '#94A3B8' }} />
+                  <BookOpen size={10} style={{ color: 'var(--color-text-muted)' }} />
                 </div>
                 <span>All Courses</span>
                 {value === 'all' && <span className="ml-auto text-blue-500 text-[10px]">✓</span>}
@@ -806,11 +806,11 @@ function CourseDropdown({ value, onChange, options }: {
                   key={o.value}
                   type="button"
                   onClick={() => { onChange(o.value); setOpen(false); setQuery('') }}
-                  className="dm flex w-full items-center gap-2.5 px-3 py-2 text-[12px] font-semibold transition-colors hover:bg-blue-50"
+                  className="dm flex w-full items-center gap-2.5 px-3 py-2 text-[12px] font-semibold transition-colors hover:bg-[var(--color-hover)]"
                   style={{ color: value === o.value ? '#0057b8' : '#475569' }}
                 >
                   <div className="h-5 w-5 rounded-lg flex-shrink-0 flex items-center justify-center text-[9px] font-bold text-white"
-                    style={{ background: '#0057b8' }}>
+                    style={{ background: 'var(--color-primary)' }}>
                     {o.label[0]?.toUpperCase()}
                   </div>
                   <span className="truncate">{o.label}</span>
@@ -873,18 +873,18 @@ function LanguageDropdown({ value, onChange }: {
         onClick={toggleOpen}
         className="dm flex items-center gap-1.5 rounded-2xl py-2 pl-3 pr-8 text-[12px] font-semibold outline-none cursor-pointer transition-all whitespace-nowrap"
         style={{
-          background: active ? 'rgba(0,87,184,0.08)' : 'white',
+          background: active ? 'rgba(0,87,184,0.08)' : 'var(--color-bg-surface)',
           color:      active ? '#EA6010' : '#475569',
-          border:     active ? '1.5px solid rgba(0,87,184,0.30)' : '1px solid #E2EAF4',
+          border:     active ? '1.5px solid rgba(0,87,184,0.30)' : '1px solid var(--color-border)',
           boxShadow:  active ? '0 0 0 3px rgba(0,87,184,0.07)' : '0 1px 4px rgba(15,23,42,0.04)',
         }}
       >
         {selected
           ? <span className="text-sm leading-none flex-shrink-0">{selected.flag}</span>
-          : <Globe size={12} style={{ color: '#94A3B8', flexShrink: 0 }} />}
+          : <Globe size={12} style={{ color: 'var(--color-text-muted)', flexShrink: 0 }} />}
         <span>{selected ? selected.label : 'All Languages'}</span>
         <ChevronDown size={11} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2"
-          style={{ color: active ? '#0057b8' : '#94A3B8' }} />
+          style={{ color: active ? '#0057b8' : 'var(--color-text-muted)' }} />
       </button>
 
       <AnimatePresence>
@@ -901,8 +901,8 @@ function LanguageDropdown({ value, onChange }: {
               left: pos.left,
               zIndex: 9999,
               minWidth: 170,
-              background: 'white',
-              border: '1px solid #E2EAF4',
+              background: 'var(--color-bg-surface)',
+              border: '1px solid var(--color-border)',
               boxShadow: '0 8px 32px rgba(15,23,42,0.12)',
               borderRadius: 16,
               overflow: 'hidden',
@@ -913,11 +913,11 @@ function LanguageDropdown({ value, onChange }: {
             <button
               type="button"
               onClick={() => { onChange('all'); setOpen(false) }}
-              className="dm flex w-full items-center gap-2.5 px-3 py-2 text-[12px] font-semibold transition-colors hover:bg-blue-50"
+              className="dm flex w-full items-center gap-2.5 px-3 py-2 text-[12px] font-semibold transition-colors hover:bg-[var(--color-hover)]"
               style={{ color: value === 'all' ? '#0057b8' : '#475569' }}
             >
               <div className="h-5 w-5 rounded-lg flex-shrink-0 flex items-center justify-center" style={{ background: '#F1F5F9' }}>
-                <Globe size={10} style={{ color: '#94A3B8' }} />
+                <Globe size={10} style={{ color: 'var(--color-text-muted)' }} />
               </div>
               <span>All Languages</span>
               {value === 'all' && <span className="ml-auto text-blue-500 text-[10px]">✓</span>}
@@ -927,7 +927,7 @@ function LanguageDropdown({ value, onChange }: {
                 key={o.value}
                 type="button"
                 onClick={() => { onChange(o.value); setOpen(false) }}
-                className="dm flex w-full items-center gap-2.5 px-3 py-2 text-[12px] font-semibold transition-colors hover:bg-blue-50"
+                className="dm flex w-full items-center gap-2.5 px-3 py-2 text-[12px] font-semibold transition-colors hover:bg-[var(--color-hover)]"
                 style={{ color: value === o.value ? '#0057b8' : '#475569' }}
               >
                 <span className="text-sm leading-none w-5 text-center flex-shrink-0">{o.flag}</span>
@@ -982,9 +982,9 @@ function InstructorFilterSelect({ value, onChange, instructors }: {
         onClick={toggleOpen}
         className="dm flex items-center gap-2 rounded-2xl py-2 pl-3 pr-8 text-[12px] font-semibold outline-none cursor-pointer transition-all whitespace-nowrap"
         style={{
-          background: active ? 'rgba(0,87,184,0.08)' : 'white',
+          background: active ? 'rgba(0,87,184,0.08)' : 'var(--color-bg-surface)',
           color:      active ? '#EA6010'              : '#475569',
-          border:     active ? '1.5px solid rgba(0,87,184,0.30)' : '1px solid #E2EAF4',
+          border:     active ? '1.5px solid rgba(0,87,184,0.30)' : '1px solid var(--color-border)',
           boxShadow:  active ? '0 0 0 3px rgba(0,87,184,0.07)' : '0 1px 4px rgba(15,23,42,0.04)',
         }}
       >
@@ -992,7 +992,7 @@ function InstructorFilterSelect({ value, onChange, instructors }: {
           <>
             {selected.avatarUrl
               ? <img src={selected.avatarUrl} alt="" className="h-5 w-5 rounded-full object-cover flex-shrink-0" />
-              : <div className="h-5 w-5 rounded-full flex-shrink-0 flex items-center justify-center text-[9px] font-bold text-white" style={{ background: '#0057b8' }}>
+              : <div className="h-5 w-5 rounded-full flex-shrink-0 flex items-center justify-center text-[9px] font-bold text-white" style={{ background: 'var(--color-primary)' }}>
                   {selected.name[0]?.toUpperCase()}
                 </div>}
             <span className="max-w-[110px] truncate">{selected.name}</span>
@@ -1000,7 +1000,7 @@ function InstructorFilterSelect({ value, onChange, instructors }: {
         ) : (
           <span>All Instructors</span>
         )}
-        <ChevronDown size={11} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" style={{ color: active ? '#0057b8' : '#94A3B8' }} />
+        <ChevronDown size={11} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" style={{ color: active ? '#0057b8' : 'var(--color-text-muted)' }} />
       </button>
 
       <AnimatePresence>
@@ -1017,8 +1017,8 @@ function InstructorFilterSelect({ value, onChange, instructors }: {
               left: pos.left,
               zIndex: 9999,
               minWidth: 190,
-              background: 'white',
-              border: '1px solid #E2EAF4',
+              background: 'var(--color-bg-surface)',
+              border: '1px solid var(--color-border)',
               boxShadow: '0 8px 32px rgba(15,23,42,0.12)',
               borderRadius: 16,
               overflow: 'hidden',
@@ -1029,11 +1029,11 @@ function InstructorFilterSelect({ value, onChange, instructors }: {
             <button
               type="button"
               onClick={() => { onChange('all'); setOpen(false) }}
-              className="dm flex w-full items-center gap-2.5 px-3 py-2 text-[12px] font-semibold transition-colors hover:bg-blue-50"
+              className="dm flex w-full items-center gap-2.5 px-3 py-2 text-[12px] font-semibold transition-colors hover:bg-[var(--color-hover)]"
               style={{ color: value === 'all' ? '#0057b8' : '#475569' }}
             >
               <div className="h-6 w-6 rounded-full flex-shrink-0 flex items-center justify-center" style={{ background: '#F1F5F9' }}>
-                <User size={11} style={{ color: '#94A3B8' }} />
+                <User size={11} style={{ color: 'var(--color-text-muted)' }} />
               </div>
               All Instructors
             </button>
@@ -1042,12 +1042,12 @@ function InstructorFilterSelect({ value, onChange, instructors }: {
                 key={i.id}
                 type="button"
                 onClick={() => { onChange(i.id); setOpen(false) }}
-                className="dm flex w-full items-center gap-2.5 px-3 py-2 text-[12px] font-semibold transition-colors hover:bg-blue-50"
+                className="dm flex w-full items-center gap-2.5 px-3 py-2 text-[12px] font-semibold transition-colors hover:bg-[var(--color-hover)]"
                 style={{ color: value === i.id ? '#0057b8' : '#475569' }}
               >
                 {i.avatarUrl
                   ? <img src={i.avatarUrl} alt="" className="h-6 w-6 rounded-full object-cover flex-shrink-0 ring-1 ring-slate-200" />
-                  : <div className="h-6 w-6 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-white" style={{ background: '#0057b8' }}>
+                  : <div className="h-6 w-6 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-white" style={{ background: 'var(--color-primary)' }}>
                       {i.name[0]?.toUpperCase()}
                     </div>}
                 <span className="truncate">{i.name}</span>
@@ -1067,19 +1067,19 @@ function ContactAdminModal({onClose}:{onClose:()=>void}) {
       <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose}/>
       <motion.div initial={{opacity:0,scale:0.93}} animate={{opacity:1,scale:1}}
         exit={{opacity:0,scale:0.93}} onClick={e=>e.stopPropagation()}
-        className="dm relative w-full max-w-sm rounded-3xl bg-white p-6 text-center"
+        className="dm relative w-full max-w-sm rounded-3xl bg-[var(--color-bg-surface)] p-6 text-center"
         style={{boxShadow:'0 24px 64px rgba(15,23,42,0.18)'}}>
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl"
           style={{background:'rgba(0,87,184,0.08)',border:'1px solid rgba(0,87,184,0.20)'}}>
-          <AlertCircle size={22} style={{color:'#0057b8'}}/>
+          <AlertCircle size={22} style={{color: 'var(--color-primary)'}}/>
         </div>
-        <h3 className="syne mb-2 text-base font-700" style={{color:'#0F172A'}}>Attendance Limit Reached</h3>
-        <p className="mb-5 text-sm leading-relaxed" style={{color:'#64748B'}}>
+        <h3 className="syne mb-2 text-base font-700" style={{color: 'var(--color-text-primary)'}}>Attendance Limit Reached</h3>
+        <p className="mb-5 text-sm leading-relaxed" style={{color: 'var(--color-text-secondary)'}}>
           You&apos;ve attended this class twice. Please contact the admin team for additional access.
         </p>
         <button type="button" onClick={onClose}
           className="w-full rounded-2xl py-3 text-sm font-bold text-white"
-          style={{background:'#0057b8'}}>Got it</button>
+          style={{background: 'var(--color-primary)'}}>Got it</button>
       </motion.div>
     </div>
   )
@@ -1389,13 +1389,13 @@ export default function ClassBookingsPage() {
   const liveTabIcon   = isOfflineMode
     ? <CalendarDays size={11} className="mr-1 flex-shrink-0" style={{color:'currentColor'}}/>
     : statusCounts.live>0
-      ? <motion.span animate={{opacity:[1,0.3,1]}} transition={{duration:1.5,repeat:Infinity}} className="h-1.5 w-1.5 rounded-full inline-block mr-1 flex-shrink-0" style={{background:'#EF4444'}}/>
-      : <span className="h-1.5 w-1.5 rounded-full inline-block mr-1 flex-shrink-0" style={{background:'#EF4444'}}/>
+      ? <motion.span animate={{opacity:[1,0.3,1]}} transition={{duration:1.5,repeat:Infinity}} className="h-1.5 w-1.5 rounded-full inline-block mr-1 flex-shrink-0" style={{background: 'var(--color-danger)'}}/>
+      : <span className="h-1.5 w-1.5 rounded-full inline-block mr-1 flex-shrink-0" style={{background: 'var(--color-danger)'}}/>
 
   const STATUS_TABS = [
-    {key:'live'     as StatusFilter, label:liveTabLabel, icon:liveTabIcon, color:'#EF4444', activeStyle:{background:'rgba(239,68,68,0.10)',color:'#EF4444',border:'1.5px solid rgba(239,68,68,0.28)'}},
-    {key:'upcoming' as StatusFilter, label:'Upcoming',   icon:<CalendarDays size={11} className="mr-1 flex-shrink-0"/>, color:'#0057b8', activeStyle:{background:'rgba(0,87,184,0.10)',color:'#EA6010',border:'1.5px solid rgba(0,87,184,0.28)'}},
-    {key:'ended'    as StatusFilter, label:'Completed',  icon:<CheckCircle2 size={11} className="mr-1 flex-shrink-0" strokeWidth={3}/>, color:'#6366F1', activeStyle:{background:'rgba(99,102,241,0.10)',color:'#6366F1',border:'1.5px solid rgba(99,102,241,0.28)'}},
+    {key:'live'     as StatusFilter, label:liveTabLabel, icon:liveTabIcon, color: 'var(--color-danger)', activeStyle:{background:'rgba(239,68,68,0.10)',color: 'var(--color-danger)',border:'1.5px solid rgba(239,68,68,0.28)'}},
+    {key:'upcoming' as StatusFilter, label:'Upcoming',   icon:<CalendarDays size={11} className="mr-1 flex-shrink-0"/>, color: 'var(--color-primary)', activeStyle:{background:'rgba(0,87,184,0.10)',color: '#EA6010',border:'1.5px solid rgba(0,87,184,0.28)'}},
+    {key:'ended'    as StatusFilter, label:'Completed',  icon:<CheckCircle2 size={11} className="mr-1 flex-shrink-0" strokeWidth={3}/>, color: '#6366F1', activeStyle:{background:'rgba(99,102,241,0.10)',color: '#6366F1',border:'1.5px solid rgba(99,102,241,0.28)'}},
   ]
 
   return(
@@ -1410,12 +1410,12 @@ export default function ClassBookingsPage() {
             <div>
               <div className="mb-1 flex items-center gap-2">
                 <div className="flex h-6 w-6 items-center justify-center rounded-lg"
-                  style={{background:'#0057b8',boxShadow:'0 3px 10px rgba(0,87,184,0.30)'}}>
+                  style={{background: 'var(--color-primary)',boxShadow:'0 3px 10px rgba(0,87,184,0.30)'}}>
                   <CalendarDays size={12} color="white"/>
                 </div>
-                <span className="dm text-[10px] font-bold uppercase tracking-widest" style={{color:'#0057b8'}}>Class Schedule</span>
+                <span className="dm text-[10px] font-bold uppercase tracking-widest" style={{color: 'var(--color-primary)'}}>Class Schedule</span>
               </div>
-              <h1 className="syne text-[26px] font-800 leading-none tracking-tight" style={{color:'#0F172A'}}>
+              <h1 className="syne text-[26px] font-800 leading-none tracking-tight" style={{color: 'var(--color-text-primary)'}}>
                 {filterStatus==='all'?fmtDateRange(rangeStart,rangeEnd):filterStatus==='live'?(isOfflineMode?"Today's Classes":'Live Now'):filterStatus==='upcoming'?'Upcoming Sessions':'Completed Sessions'}
               </h1>
             </div>
@@ -1427,26 +1427,26 @@ export default function ClassBookingsPage() {
                   <button type="button"
                     onClick={()=>{const m=getMondayOfWeek(new Date());setRangeStart(m);setRangeEnd(addDays(m,6))}}
                     className="rounded-full px-3 py-1.5 text-[11px] font-semibold"
-                    style={{background:'rgba(0,87,184,0.10)',color:'#0057b8',border:'1px solid rgba(0,87,184,0.22)'}}>
+                    style={{background:'rgba(0,87,184,0.10)',color: 'var(--color-primary)',border:'1px solid rgba(0,87,184,0.22)'}}>
                     ← Today
                   </button>
                 )}
-                <div className="flex items-center gap-0.5 rounded-2xl bg-white p-1"
-                  style={{border:'1px solid #E2EAF4',boxShadow:'0 1px 4px rgba(15,23,42,0.05)'}}>
+                <div className="flex items-center gap-0.5 rounded-2xl bg-[var(--color-bg-surface)] p-1"
+                  style={{border: '1px solid var(--color-border)',boxShadow:'0 1px 4px rgba(15,23,42,0.05)'}}>
                   <button type="button" onClick={()=>shiftRange(-1)}
-                    className="flex h-7 w-7 items-center justify-center rounded-xl hover:bg-slate-50">
-                    <ChevronLeft size={13} style={{color:'#64748B'}}/>
+                    className="flex h-7 w-7 items-center justify-center rounded-xl hover:bg-[var(--color-bg-muted)]">
+                    <ChevronLeft size={13} style={{color: 'var(--color-text-secondary)'}}/>
                   </button>
                   <button type="button" onClick={()=>setShowCal(v=>!v)}
-                    className="flex items-center gap-1.5 rounded-xl px-2 py-1 hover:bg-slate-50">
-                    <Calendar size={11} style={{color:showCal?'#0057b8':'#94A3B8'}}/>
-                    <span className="dm whitespace-nowrap text-[11px] font-semibold" style={{color:'#334155'}}>
+                    className="flex items-center gap-1.5 rounded-xl px-2 py-1 hover:bg-[var(--color-bg-muted)]">
+                    <Calendar size={11} style={{color:showCal?'#0057b8':'var(--color-text-muted)'}}/>
+                    <span className="dm whitespace-nowrap text-[11px] font-semibold" style={{color: 'var(--color-text-secondary)'}}>
                       {rangeStart.toLocaleDateString('en-US',{month:'short',day:'numeric'})} to {rangeEnd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}
                     </span>
                   </button>
                   <button type="button" onClick={()=>shiftRange(1)}
-                    className="flex h-7 w-7 items-center justify-center rounded-xl hover:bg-slate-50">
-                    <ChevronRight size={13} style={{color:'#64748B'}}/>
+                    className="flex h-7 w-7 items-center justify-center rounded-xl hover:bg-[var(--color-bg-muted)]">
+                    <ChevronRight size={13} style={{color: 'var(--color-text-secondary)'}}/>
                   </button>
                 </div>
                 <AnimatePresence>
@@ -1462,10 +1462,10 @@ export default function ClassBookingsPage() {
         {!isLoading&&filterDelivery!=='offline'&&(
           <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {[
-              {icon:<CalendarDays size={13}/>,label:'Total Classes',   value:stats.total,    color:'#334155',accent:'#64748B',bg:'white',                         border:'#E2EAF4'},
-              {icon:<Flame size={13}/>,       label:'Live Now',        value:stats.liveNow,  color:'#EF4444',accent:'#EF4444',bg:'rgba(239,68,68,0.04)',           border:'rgba(239,68,68,0.15)'},
-              {icon:<CheckCircle2 size={13} strokeWidth={3}/>,label:'My Reservations',value:stats.myBooked,color:'#059669',accent:'#059669',bg:'rgba(5,150,105,0.04)',border:'rgba(5,150,105,0.15)'},
-              {icon:<TrendingUp size={13}/>,  label:'Open Slots',      value:stats.open,     color:'#0057b8',accent:'#0057b8',bg:'rgba(0,87,184,0.04)',          border:'rgba(0,87,184,0.15)'},
+              {icon:<CalendarDays size={13}/>,label:'Total Classes',   value:stats.total,    color: 'var(--color-text-secondary)',accent:'var(--color-text-secondary)',bg:'var(--color-bg-surface)',                         border: 'var(--color-border)'},
+              {icon:<Flame size={13}/>,       label:'Live Now',        value:stats.liveNow,  color: 'var(--color-danger)',accent:'#EF4444',bg:'rgba(239,68,68,0.04)',           border:'rgba(239,68,68,0.15)'},
+              {icon:<CheckCircle2 size={13} strokeWidth={3}/>,label:'My Reservations',value:stats.myBooked,color: 'var(--color-success)',accent:'#059669',bg:'rgba(5,150,105,0.04)',border:'rgba(5,150,105,0.15)'},
+              {icon:<TrendingUp size={13}/>,  label:'Open Slots',      value:stats.open,     color: 'var(--color-primary)',accent:'#0057b8',bg:'rgba(0,87,184,0.04)',          border:'rgba(0,87,184,0.15)'},
             ].map((p,i)=>(
               <motion.div key={p.label} initial={{opacity:0,y:8}} animate={{opacity:1,y:0}}
                 transition={{delay:i*0.05}}
@@ -1490,10 +1490,10 @@ export default function ClassBookingsPage() {
               transition={{type:'spring',stiffness:320,damping:28}}
               className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {[
-                {icon:<CalendarDays size={13}/>,label:'Total Sessions',    value:offlineStats.total,          color:'#334155',accent:'#64748B',bg:'white',                         border:'#E2EAF4'},
-                {icon:<Flame size={13}/>,       label:"Today's Classes",   value:offlineStats.today,          color:'#EF4444',accent:'#EF4444',bg:'rgba(239,68,68,0.04)',           border:'rgba(239,68,68,0.15)'},
-                {icon:<CheckCircle2 size={13} strokeWidth={3}/>,label:'My Reservations',value:offlineStats.myReservations,color:'#059669',accent:'#059669',bg:'rgba(5,150,105,0.04)',border:'rgba(5,150,105,0.15)'},
-                {icon:<TrendingUp size={13}/>,  label:'Available Seats',   value:offlineStats.availableSeats, color:'#0057b8',accent:'#0057b8',bg:'rgba(0,87,184,0.04)',          border:'rgba(0,87,184,0.15)'},
+                {icon:<CalendarDays size={13}/>,label:'Total Sessions',    value:offlineStats.total,          color: 'var(--color-text-secondary)',accent:'var(--color-text-secondary)',bg:'var(--color-bg-surface)',                         border: 'var(--color-border)'},
+                {icon:<Flame size={13}/>,       label:"Today's Classes",   value:offlineStats.today,          color: 'var(--color-danger)',accent:'#EF4444',bg:'rgba(239,68,68,0.04)',           border:'rgba(239,68,68,0.15)'},
+                {icon:<CheckCircle2 size={13} strokeWidth={3}/>,label:'My Reservations',value:offlineStats.myReservations,color: 'var(--color-success)',accent:'#059669',bg:'rgba(5,150,105,0.04)',border:'rgba(5,150,105,0.15)'},
+                {icon:<TrendingUp size={13}/>,  label:'Available Seats',   value:offlineStats.availableSeats, color: 'var(--color-primary)',accent:'#0057b8',bg:'rgba(0,87,184,0.04)',          border:'rgba(0,87,184,0.15)'},
               ].map((p,i)=>(
                 <motion.div key={p.label} initial={{opacity:0,y:8}} animate={{opacity:1,y:0}}
                   transition={{delay:i*0.05}}
@@ -1517,11 +1517,11 @@ export default function ClassBookingsPage() {
           <button type="button" onClick={()=>setFilterStatus('all')}
             className="dm inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[12px] font-semibold transition-all"
             style={filterStatus==='all'
-              ?{background:'#0F172A',color:'white',border:'1.5px solid transparent',fontWeight:700}
-              :{background:'white',color:'#64748B',border:'1px solid #E2EAF4'}}>
+              ?{background: 'var(--color-text-primary)',color:'var(--color-text-inverse)',border:'1.5px solid transparent',fontWeight:700}
+              :{background: 'var(--color-bg-surface)',color: 'var(--color-text-secondary)',border: '1px solid var(--color-border)'}}>
             All
             <span className="rounded-full px-1.5 text-[10px] font-bold"
-              style={{background:filterStatus==='all'?'rgba(255,255,255,0.15)':'#EEF2F7',color:filterStatus==='all'?'white':'#94A3B8'}}>
+              style={{background:filterStatus==='all'?'rgba(255,255,255,0.15)':'var(--color-bg-muted)',color:filterStatus==='all'?'white':'var(--color-text-muted)'}}>
               {allClasses.length}
             </span>
           </button>
@@ -1530,14 +1530,14 @@ export default function ClassBookingsPage() {
               className="dm inline-flex items-center rounded-full px-4 py-2 text-[12px] font-semibold transition-all"
               style={filterStatus===tab.key
                 ?{...tab.activeStyle,fontWeight:700}
-                :{background:'white',color:'#64748B',border:'1px solid #E2EAF4'}}>
+                :{background: 'var(--color-bg-surface)',color: 'var(--color-text-secondary)',border: '1px solid var(--color-border)'}}>
               {tab.icon}
               {tab.label}
               {(()=>{const cnt=(isOfflineMode&&tab.key==='live')?statusCounts.today:(statusCounts as Record<string,number>)[tab.key];return cnt>0&&(
                 <span className="ml-1.5 rounded-full px-1.5 text-[10px] font-bold"
                   style={{
                     background:filterStatus===tab.key?'rgba(255,255,255,0.20)':'#EEF2F7',
-                    color:filterStatus===tab.key?'currentColor':'#94A3B8',
+                    color:filterStatus===tab.key?'currentColor':'var(--color-text-muted)',
                   }}>
                   {cnt}
                 </span>
@@ -1549,40 +1549,40 @@ export default function ClassBookingsPage() {
         {/* ─── FILTER BAR ───────────────────────────────────────── */}
         <div className="mb-4 relative" ref={panelRef}>
           <motion.div initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} transition={{delay:0.08}}
-            className="flex items-center gap-2 rounded-2xl bg-white px-3 py-2.5"
-            style={{border:'1px solid #E2EAF4',boxShadow:'0 1px 6px rgba(15,23,42,0.05)'}}>
+            className="flex items-center gap-2 rounded-2xl bg-[var(--color-bg-surface)] px-3 py-2.5"
+            style={{border: '1px solid var(--color-border)',boxShadow:'0 1px 6px rgba(15,23,42,0.05)'}}>
 
             {/* Delivery toggles */}
             <button type="button" onClick={()=>toggleDelivery('online')}
               className="dm flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold transition-all flex-shrink-0"
               style={filterDelivery==='online'
-                ?{background:'rgba(99,102,241,0.12)',color:'#6366F1',border:'1.5px solid rgba(99,102,241,0.30)',fontWeight:600}
-                :{background:'#F8FAFC',color:'#64748B',border:'1px solid #E2EAF4'}}>
+                ?{background:'rgba(99,102,241,0.12)',color: '#6366F1',border:'1.5px solid rgba(99,102,241,0.30)',fontWeight:600}
+                :{background: 'var(--color-bg-inset)',color: 'var(--color-text-secondary)',border: '1px solid var(--color-border)'}}>
               <Wifi size={12}/>Online
             </button>
             <button type="button" onClick={()=>toggleDelivery('offline')}
               className="dm flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold transition-all flex-shrink-0"
               style={filterDelivery==='offline'
-                ?{background:'rgba(5,150,105,0.10)',color:'#059669',border:'1.5px solid rgba(5,150,105,0.28)',fontWeight:600}
-                :{background:'#F8FAFC',color:'#64748B',border:'1px solid #E2EAF4'}}>
+                ?{background:'rgba(5,150,105,0.10)',color: 'var(--color-success)',border:'1.5px solid rgba(5,150,105,0.28)',fontWeight:600}
+                :{background: 'var(--color-bg-inset)',color: 'var(--color-text-secondary)',border: '1px solid var(--color-border)'}}>
               <Building2 size={12}/>In-Person
             </button>
 
-            <div className="h-5 w-px flex-shrink-0" style={{background:'#E2EAF4'}}/>
+            <div className="h-5 w-px flex-shrink-0" style={{background: 'var(--color-border)'}}/>
 
             {/* Search */}
             <div className="relative flex-1 min-w-0">
               <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                style={{color:search?'#0057b8':'#CBD5E1'}}/>
+                style={{color:search?'#0057b8':'var(--color-text-muted)'}}/>
               <input type="text" value={search} onChange={e=>setSearch(e.target.value)}
                 placeholder="Search classes, instructors…"
                 className="dm w-full rounded-xl py-1.5 pl-8 pr-7 text-[12px] outline-none"
-                style={{background:search?'rgba(0,87,184,0.04)':'#F8FAFC',color:'#334155',
-                  border:`1px solid ${search?'rgba(0,87,184,0.25)':'#E2EAF4'}`}}/>
+                style={{background:search?'rgba(0,87,184,0.04)':'var(--color-bg-inset)',color: 'var(--color-text-secondary)',
+                  border:`1px solid ${search?'rgba(0,87,184,0.25)':'var(--color-border)'}`}}/>
               {search&&(
                 <button type="button" onClick={()=>setSearch('')}
                   className="absolute right-2 top-1/2 -translate-y-1/2">
-                  <X size={10} style={{color:'#94A3B8'}}/>
+                  <X size={10} style={{color: 'var(--color-text-muted)'}}/>
                 </button>
               )}
             </div>
@@ -1591,13 +1591,13 @@ export default function ClassBookingsPage() {
             <button type="button" onClick={()=>setShowPanel(v=>!v)}
               className="dm flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold flex-shrink-0 transition-all"
               style={showPanel||panelFilterCount>0
-                ?{background:'rgba(0,87,184,0.10)',color:'#EA6010',border:'1.5px solid rgba(0,87,184,0.30)',fontWeight:600}
-                :{background:'#F8FAFC',color:'#64748B',border:'1px solid #E2EAF4'}}>
+                ?{background:'rgba(0,87,184,0.10)',color: '#EA6010',border:'1.5px solid rgba(0,87,184,0.30)',fontWeight:600}
+                :{background: 'var(--color-bg-inset)',color: 'var(--color-text-secondary)',border: '1px solid var(--color-border)'}}>
               <SlidersHorizontal size={12}/>
               Filters
               {panelFilterCount>0&&(
                 <span className="flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white flex-shrink-0"
-                  style={{background:'#0057b8'}}>
+                  style={{background: 'var(--color-primary)'}}>
                   {panelFilterCount}
                 </span>
               )}
@@ -1606,7 +1606,7 @@ export default function ClassBookingsPage() {
             {hasAnyFilter&&(
               <button type="button" onClick={clearAll}
                 className="dm hidden sm:flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-semibold flex-shrink-0"
-                style={{color:'#EF4444',border:'1px solid rgba(239,68,68,0.18)'}}>
+                style={{color: 'var(--color-danger)',border:'1px solid rgba(239,68,68,0.18)'}}>
                 <X size={10}/>Clear
               </button>
             )}
@@ -1617,8 +1617,8 @@ export default function ClassBookingsPage() {
             {showPanel&&(
               <motion.div initial={{opacity:0,y:-6}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-6}}
                 transition={{type:'spring',stiffness:380,damping:30}}
-                className="mt-2 rounded-2xl bg-white overflow-hidden"
-                style={{border:'1px solid #E2EAF4',boxShadow:'0 8px 32px rgba(15,23,42,0.10)'}}>
+                className="mt-2 rounded-2xl bg-[var(--color-bg-surface)] overflow-hidden"
+                style={{border: '1px solid var(--color-border)',boxShadow:'0 8px 32px rgba(15,23,42,0.10)'}}>
                 <div className="p-5 space-y-5">
 
                   <PanelSection label="Access" icon={<Lock size={11}/>}>
@@ -1637,21 +1637,21 @@ export default function ClassBookingsPage() {
                   </PanelSection>
 
 
-                  <div className="flex items-center justify-between pt-1" style={{borderTop:'1px solid #F1F5F9'}}>
-                    <span className="dm text-[11px]" style={{color:'#94A3B8'}}>
+                  <div className="flex items-center justify-between pt-1" style={{borderTop: '1px solid #F1F5F9'}}>
+                    <span className="dm text-[11px]" style={{color: 'var(--color-text-muted)'}}>
                       {panelFilterCount>0?`${panelFilterCount} filter${panelFilterCount>1?'s':''} active`:'No filters active'}
                     </span>
                     <div className="flex gap-2">
                       {panelFilterCount>0&&(
                         <button type="button" onClick={clearPanel}
                           className="dm rounded-full px-3 py-1 text-[11px] font-semibold"
-                          style={{color:'#EF4444',border:'1px solid rgba(239,68,68,0.18)'}}>
+                          style={{color: 'var(--color-danger)',border:'1px solid rgba(239,68,68,0.18)'}}>
                           Clear filters
                         </button>
                       )}
                       <button type="button" onClick={()=>setShowPanel(false)}
                         className="dm rounded-full px-3 py-1 text-[11px] font-semibold"
-                        style={{background:'#0F172A',color:'white'}}>
+                        style={{background: 'var(--color-text-primary)',color:'var(--color-text-inverse)'}}>
                         Done
                       </button>
                     </div>
@@ -1672,10 +1672,10 @@ export default function ClassBookingsPage() {
               <div className="flex items-center gap-2 flex-wrap pt-0.5">
                 {/* Program label pill */}
                 <span className="dm flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold"
-                  style={{background:'rgba(0,87,184,0.08)',color:'#EA6010',border:'1px solid rgba(0,87,184,0.20)'}}>
+                  style={{background:'rgba(0,87,184,0.08)',color: '#EA6010',border:'1px solid rgba(0,87,184,0.20)'}}>
                   <GraduationCap size={11}/>{PROGRAM_LABELS[filterProgram]}
                 </span>
-                <ChevronRight size={12} style={{color:'#CBD5E1'}}/>
+                <ChevronRight size={12} style={{color: 'var(--color-text-muted)'}}/>
                 {/* Course dropdown */}
                 {programCourses.length>0&&(
                   <CourseDropdown
@@ -1702,7 +1702,7 @@ export default function ClassBookingsPage() {
                   <button type="button"
                     onClick={()=>{setFilterCourse('all');setFilterInstructor('all');setFilterLanguage('all')}}
                     className="dm flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-semibold"
-                    style={{color:'#EF4444',border:'1px solid rgba(239,68,68,0.18)'}}>
+                    style={{color: 'var(--color-danger)',border:'1px solid rgba(239,68,68,0.18)'}}>
                     <X size={10}/>Reset
                   </button>
                 )}
@@ -1716,7 +1716,7 @@ export default function ClassBookingsPage() {
           <div className="flex flex-col items-center justify-center gap-3 py-24">
             <motion.div className="h-6 w-6 rounded-full border-2 border-transparent border-t-blue-500"
               animate={{rotate:360}} transition={{duration:1,repeat:Infinity,ease:'linear'}}/>
-            <p className="dm text-sm" style={{color:'#94A3B8'}}>Loading schedule…</p>
+            <p className="dm text-sm" style={{color: 'var(--color-text-muted)'}}>Loading schedule…</p>
           </div>
         )}
 
@@ -1728,38 +1728,38 @@ export default function ClassBookingsPage() {
 
               {dateSections.length===0?(
                 <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}}
-                  className="flex flex-col items-center gap-4 rounded-3xl bg-white py-20 text-center"
-                  style={{border:'1px solid #E2EAF4'}}>
+                  className="flex flex-col items-center gap-4 rounded-3xl bg-[var(--color-bg-surface)] py-20 text-center"
+                  style={{border: '1px solid var(--color-border)'}}>
                   <div className="flex h-16 w-16 items-center justify-center rounded-3xl"
                     style={{background:'rgba(0,87,184,0.07)',border:'1px solid rgba(0,87,184,0.14)'}}>
-                    <Calendar size={26} style={{color:'#0057b8'}}/>
+                    <Calendar size={26} style={{color: 'var(--color-primary)'}}/>
                   </div>
                   {allClasses.length===0?(
                     <>
-                      <p className="syne font-700 text-lg" style={{color:'#0F172A'}}>No classes yet</p>
-                      <p className="dm max-w-xs text-sm" style={{color:'#94A3B8'}}>Enroll in a course to see live sessions appear here.</p>
+                      <p className="syne font-700 text-lg" style={{color: 'var(--color-text-primary)'}}>No classes yet</p>
+                      <p className="dm max-w-xs text-sm" style={{color: 'var(--color-text-muted)'}}>Enroll in a course to see live sessions appear here.</p>
                     </>
                   ):filterDelivery==='offline'?(
                     <>
-                      <p className="syne font-700 text-lg" style={{color:'#0F172A'}}>No in-person classes found</p>
-                      <p className="dm text-sm" style={{color:'#94A3B8'}}>No classroom sessions have been scheduled yet. Check back soon.</p>
+                      <p className="syne font-700 text-lg" style={{color: 'var(--color-text-primary)'}}>No in-person classes found</p>
+                      <p className="dm text-sm" style={{color: 'var(--color-text-muted)'}}>No classroom sessions have been scheduled yet. Check back soon.</p>
                     </>
                   ):hasAnyFilter?(
                     <>
-                      <p className="syne font-700 text-lg" style={{color:'#0F172A'}}>No classes match</p>
-                      <p className="dm text-sm" style={{color:'#94A3B8'}}>Try adjusting your filters{filterStatus==='all'?' or date range':''}.</p>
+                      <p className="syne font-700 text-lg" style={{color: 'var(--color-text-primary)'}}>No classes match</p>
+                      <p className="dm text-sm" style={{color: 'var(--color-text-muted)'}}>Try adjusting your filters{filterStatus==='all'?' or date range':''}.</p>
                       <button type="button" onClick={clearAll}
                         className="rounded-full px-4 py-2 text-sm font-semibold"
-                        style={{background:'rgba(0,87,184,0.10)',color:'#0057b8',border:'1px solid rgba(0,87,184,0.20)'}}>
+                        style={{background:'rgba(0,87,184,0.10)',color: 'var(--color-primary)',border:'1px solid rgba(0,87,184,0.20)'}}>
                         Clear all filters
                       </button>
                     </>
                   ):(
                     <>
-                      <p className="syne font-700 text-lg" style={{color:'#0F172A'}}>No classes this period</p>
+                      <p className="syne font-700 text-lg" style={{color: 'var(--color-text-primary)'}}>No classes this period</p>
                       <button type="button" onClick={()=>shiftRange(1)}
                         className="flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
-                        style={{background:'rgba(0,87,184,0.10)',color:'#0057b8',border:'1px solid rgba(0,87,184,0.20)'}}>
+                        style={{background:'rgba(0,87,184,0.10)',color: 'var(--color-primary)',border:'1px solid rgba(0,87,184,0.20)'}}>
                         <ChevronRight size={14}/>Next period
                       </button>
                     </>
@@ -1773,24 +1773,24 @@ export default function ClassBookingsPage() {
                       <div className="mb-4 flex items-center gap-3">
                         <div className="flex items-center gap-2 rounded-2xl px-3.5 py-2"
                           style={{
-                            background:sec.isToday?'rgba(0,87,184,0.08)':'white',
-                            border:`1px solid ${sec.isToday?'rgba(0,87,184,0.22)':'#E2EAF4'}`,
+                            background:sec.isToday?'rgba(0,87,184,0.08)':'var(--color-bg-surface)',
+                            border:`1px solid ${sec.isToday?'rgba(0,87,184,0.22)':'var(--color-border)'}`,
                             boxShadow:sec.isToday?'0 3px 10px rgba(0,87,184,0.10)':'0 1px 3px rgba(15,23,42,0.04)',
                           }}>
                           {sec.isToday&&(
                             <motion.span animate={{opacity:[1,0.4,1]}} transition={{duration:2,repeat:Infinity}}
-                              className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{background:'#0057b8'}}/>
+                              className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{background: 'var(--color-primary)'}}/>
                           )}
                           <span className="syne text-[12px] font-700" style={{color:sec.isToday?'#0057b8':'#475569'}}>
                             {sec.dateLabel}
                           </span>
                           {sec.isToday&&(
                             <span className="dm rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider"
-                              style={{background:'rgba(0,87,184,0.14)',color:'#0057b8'}}>Today</span>
+                              style={{background:'rgba(0,87,184,0.14)',color: 'var(--color-primary)'}}>Today</span>
                           )}
                         </div>
-                        <div className="h-px flex-1" style={{background:'#E2EAF4'}}/>
-                        <span className="dm text-[10px]" style={{color:'#CBD5E1'}}>
+                        <div className="h-px flex-1" style={{background: 'var(--color-border)'}}/>
+                        <span className="dm text-[10px]" style={{color: 'var(--color-text-muted)'}}>
                           {sec.groups.length} class{sec.groups.length!==1?'es':''}
                         </span>
                       </div>

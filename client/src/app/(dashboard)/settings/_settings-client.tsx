@@ -30,10 +30,10 @@ function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
   return (
     <motion.button onClick={onToggle}
       className="relative flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors"
-      style={{ background: on ? '#0057b8' : '#D1D5DB' }}>
+      style={{ background: on ? '#0057b8' : 'var(--color-text-muted)' }}>
       <motion.span animate={{ x: on ? 22 : 2 }}
         transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-        className="absolute h-4 w-4 rounded-full bg-white shadow-sm" />
+        className="absolute h-4 w-4 rounded-full bg-[var(--color-bg-surface)] shadow-sm" />
     </motion.button>
   )
 }
@@ -49,17 +49,17 @@ function LayoutCard({
       onClick={onSelect}
       className="relative flex flex-col overflow-hidden rounded-2xl text-left w-full transition-all"
       style={{
-        border: selected ? '2px solid #0057b8' : '2px solid #E5E7EB',
+        border: selected ? '2px solid #0057b8' : '2px solid var(--color-border)',
         boxShadow: selected ? '0 0 0 3px rgba(0,87,184,0.12)' : '0 2px 6px rgba(0,0,0,0.04)',
       }}>
-      <div className="h-36 w-full" style={{ background: '#F4F5F8' }}>{preview}</div>
+      <div className="h-36 w-full" style={{ background: 'var(--color-bg-page)' }}>{preview}</div>
       <div className="flex items-start justify-between p-4">
         <div>
-          <p className="text-sm font-bold" style={{ color: '#111827' }}>{label}</p>
-          <p className="mt-0.5 text-xs" style={{ color: '#9CA3AF' }}>{desc}</p>
+          <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>{label}</p>
+          <p className="mt-0.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>{desc}</p>
         </div>
         <div className="mt-0.5 ml-2 flex-shrink-0 flex h-5 w-5 items-center justify-center rounded-full border-2 transition-colors"
-          style={{ borderColor: selected ? '#0057b8' : '#D1D5DB', background: selected ? '#0057b8' : 'transparent' }}>
+          style={{ borderColor: selected ? '#0057b8' : 'var(--color-text-muted)', background: selected ? '#0057b8' : 'transparent' }}>
           {selected && <Check size={11} color="white" strokeWidth={3} />}
         </div>
       </div>
@@ -71,23 +71,23 @@ function SidebarPreview() {
   return (
     <div className="flex h-full w-full gap-2 p-3">
       <div className="flex w-14 flex-shrink-0 flex-col gap-1.5 rounded-xl p-2"
-        style={{ background: 'white', border: '1px solid #E5E7EB' }}>
-        <div className="h-4 w-4 rounded-lg" style={{ background: '#0057b8' }} />
+        style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)' }}>
+        <div className="h-4 w-4 rounded-lg" style={{ background: 'var(--color-primary)' }} />
         {[0,1,2].map(i => (
           <div key={i} className="h-2 rounded-full"
-            style={{ background: i === 0 ? 'rgba(0,87,184,0.2)' : '#F3F4F6', width: i === 0 ? '100%' : '80%' }} />
+            style={{ background: i === 0 ? 'rgba(0,87,184,0.2)' : 'var(--color-bg-subtle)', width: i === 0 ? '100%' : '80%' }} />
         ))}
       </div>
       <div className="flex flex-1 flex-col gap-1.5">
         <div className="flex items-center justify-between rounded-xl px-2 py-1.5"
-          style={{ background: 'white', border: '1px solid #E5E7EB' }}>
-          <div className="h-2 w-16 rounded-full" style={{ background: '#F3F4F6' }} />
-          <div className="h-4 w-4 rounded-full" style={{ background: '#0057b8' }} />
+          style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)' }}>
+          <div className="h-2 w-16 rounded-full" style={{ background: 'var(--color-bg-subtle)' }} />
+          <div className="h-4 w-4 rounded-full" style={{ background: 'var(--color-primary)' }} />
         </div>
         <div className="flex flex-1 flex-col gap-1">
-          <div className="h-2 w-3/4 rounded-full" style={{ background: '#E5E7EB' }} />
+          <div className="h-2 w-3/4 rounded-full" style={{ background: 'var(--color-border)' }} />
           <div className="flex flex-1 gap-1 mt-0.5">
-            {[0,1].map(i => <div key={i} className="flex-1 rounded-xl" style={{ background: 'white', border: '1px solid #E5E7EB' }} />)}
+            {[0,1].map(i => <div key={i} className="flex-1 rounded-xl" style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)' }} />)}
           </div>
         </div>
       </div>
@@ -98,31 +98,31 @@ function SidebarPreview() {
 function TopbarPreview() {
   return (
     <div className="flex h-full w-full flex-col gap-2 p-3">
-      <div className="rounded-xl overflow-hidden" style={{ background: 'white', border: '1px solid #E5E7EB' }}>
-        <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: '1px solid #F3F4F6' }}>
+      <div className="rounded-xl overflow-hidden" style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)' }}>
+        <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: '1px solid var(--color-border)' }}>
           <div className="flex items-center gap-1.5">
-            <div className="h-4 w-4 rounded-lg" style={{ background: '#0057b8' }} />
-            <div className="h-2 w-12 rounded-full" style={{ background: '#F3F4F6' }} />
+            <div className="h-4 w-4 rounded-lg" style={{ background: 'var(--color-primary)' }} />
+            <div className="h-2 w-12 rounded-full" style={{ background: 'var(--color-bg-subtle)' }} />
           </div>
           <div className="flex gap-1">
-            <div className="h-4 w-10 rounded-lg" style={{ background: '#0057b8' }} />
-            <div className="h-4 w-4 rounded-full" style={{ background: '#F3F4F6' }} />
+            <div className="h-4 w-10 rounded-lg" style={{ background: 'var(--color-primary)' }} />
+            <div className="h-4 w-4 rounded-full" style={{ background: 'var(--color-bg-subtle)' }} />
           </div>
         </div>
         <div className="flex items-end gap-1 px-3 py-1">
           {['My Learning','Catalog','Favorites'].map((t, i) => (
             <div key={t} className="relative px-2 py-1">
               <div className="h-1.5 rounded-full"
-                style={{ background: i === 0 ? '#111827' : '#D1D5DB', width: i === 0 ? 40 : 28 }} />
-              {i === 0 && <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full" style={{ background: '#0057b8' }} />}
+                style={{ background: i === 0 ? 'var(--color-text-primary)' : 'var(--color-text-muted)', width: i === 0 ? 40 : 28 }} />
+              {i === 0 && <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full" style={{ background: 'var(--color-primary)' }} />}
             </div>
           ))}
         </div>
       </div>
       <div className="flex flex-1 flex-col gap-1">
-        <div className="h-2 w-3/4 rounded-full" style={{ background: '#E5E7EB' }} />
+        <div className="h-2 w-3/4 rounded-full" style={{ background: 'var(--color-border)' }} />
         <div className="flex gap-1.5 flex-1 mt-0.5">
-          {[0,1,2].map(i => <div key={i} className="flex-1 rounded-xl" style={{ background: 'white', border: '1px solid #E5E7EB' }} />)}
+          {[0,1,2].map(i => <div key={i} className="flex-1 rounded-xl" style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)' }} />)}
         </div>
       </div>
     </div>
@@ -235,8 +235,8 @@ export default function SettingsContent() {
 
       {/* â”€â”€ Sidebar menu â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <motion.div variants={fadeUp}
-        className="rounded-2xl bg-white p-3 md:sticky md:top-[116px] md:self-start"
-        style={{ border: '1px solid #E5E7EB' }}>
+        className="rounded-2xl bg-[var(--color-bg-surface)] p-3 md:sticky md:top-[116px] md:self-start"
+        style={{ border: '1px solid var(--color-border)' }}>
         <div className="space-y-0.5">
           {MENU.map(item => {
             const Icon  = item.icon
@@ -244,25 +244,25 @@ export default function SettingsContent() {
             return (
               <button key={item.id} onClick={() => setActive(item.id)}
                 className="relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-left transition-colors"
-                style={{ color: isAct ? '#111827' : '#6B7280' }}>
+                style={{ color: isAct ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>
                 {isAct && (
                   <motion.div layoutId="settings-active"
                     className="absolute inset-0 rounded-xl"
-                    style={{ background: '#FFF7ED', border: '1px solid rgba(0,87,184,0.18)' }}
+                    style={{ background: 'var(--color-primary-light)', border: '1px solid rgba(0,87,184,0.18)' }}
                     transition={{ type: 'spring', stiffness: 500, damping: 35 }} />
                 )}
                 <Icon size={15} className="relative z-10 flex-shrink-0"
-                  style={{ color: isAct ? '#0057b8' : '#9CA3AF' }} />
+                  style={{ color: isAct ? '#0057b8' : 'var(--color-text-muted)' }} />
                 <span className="relative z-10">{item.label}</span>
               </button>
             )
           })}
         </div>
-        <div className="mt-3 pt-3" style={{ borderTop: '1px solid #F3F4F6' }}>
+        <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--color-border)' }}>
           <button
             onClick={handleLogout}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors hover:bg-red-50"
-            style={{ color: '#EF4444' }}>
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors hover:bg-[var(--color-hover-danger)]"
+            style={{ color: 'var(--color-danger)' }}>
             <LogOut size={15} />Logout
           </button>
         </div>
@@ -273,29 +273,29 @@ export default function SettingsContent() {
 
         {active === 'profile' && (
             <div key="profile" className="space-y-4">
-              <div className="rounded-2xl bg-white p-6" style={{ border: '1px solid #E5E7EB' }}>
-              <h2 className="mb-5 text-base font-bold" style={{ color: '#111827' }}>Profile Settings</h2>
+              <div className="rounded-2xl bg-[var(--color-bg-surface)] p-6" style={{ border: '1px solid var(--color-border)' }}>
+              <h2 className="mb-5 text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>Profile Settings</h2>
               <div className="mb-6 flex items-center gap-4">
                 <div className="relative">
                   <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full text-xl font-bold text-white"
-                    style={{ background: '#0057b8' }}>
+                    style={{ background: 'var(--color-primary)' }}>
                     {user?.avatarUrl
                       ? <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
                       : (profile.name?.trim()?.[0]?.toUpperCase() ?? '?')}
                   </div>
-                  <button className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-md"
-                    style={{ border: '1px solid #E5E7EB', color: '#0057b8' }}
+                  <button className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--color-bg-surface)] shadow-md"
+                    style={{ border: '1px solid var(--color-border)', color: 'var(--color-primary)' }}
                     title="Photo upload coming soon">
                     <Camera size={12} />
                   </button>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold" style={{ color: '#111827' }}>Profile Photo</p>
-                  <p className="text-xs" style={{ color: '#9CA3AF' }}>PNG, JPG up to 5MB</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Profile Photo</p>
+                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>PNG, JPG up to 5MB</p>
                 </div>
               </div>
               {mounted && userLoading && (
-                <div className="mb-4 flex items-center gap-2 text-xs" style={{ color: '#9CA3AF' }}>
+                <div className="mb-4 flex items-center gap-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
                   <Spinner size={12} />Loading your profileâ€¦
                 </div>
               )}
@@ -306,8 +306,8 @@ export default function SettingsContent() {
                   { label: 'Job Title', key: 'role',  type: 'text',  readOnly: false, placeholder: 'e.g. Frontend Developer' },
                 ] as const).map(f => (
                   <div key={f.key}>
-                    <label className="mb-1.5 block text-xs font-semibold" style={{ color: '#374151' }}>
-                      {f.label}{f.readOnly && <span className="ml-1 font-normal" style={{ color: '#9CA3AF' }}>(read-only)</span>}
+                    <label className="mb-1.5 block text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+                      {f.label}{f.readOnly && <span className="ml-1 font-normal" style={{ color: 'var(--color-text-muted)' }}>(read-only)</span>}
                     </label>
                     <input type={f.type}
                       value={profile[f.key]}
@@ -316,30 +316,30 @@ export default function SettingsContent() {
                       onChange={e => !f.readOnly && setProfile({ ...profile, [f.key]: e.target.value })}
                       className="w-full rounded-xl px-3.5 py-2.5 text-sm outline-none transition-all"
                       style={{
-                        background: f.readOnly ? '#F3F4F6' : '#F9FAFB',
-                        border: '1px solid #E5E7EB',
-                        color: f.readOnly ? '#6B7280' : '#111827',
+                        background: f.readOnly ? 'var(--color-bg-subtle)' : 'var(--color-bg-subtle)',
+                        border: '1px solid var(--color-border)',
+                        color: f.readOnly ? 'var(--color-text-muted)' : 'var(--color-text-primary)',
                         cursor: f.readOnly ? 'not-allowed' : 'text',
                       }}
                       onFocus={e => { if (!f.readOnly) { e.currentTarget.style.border = '1.5px solid #0057b8'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0,87,184,0.08)' } }}
-                      onBlur={e => { e.currentTarget.style.border = '1px solid #E5E7EB'; e.currentTarget.style.boxShadow = 'none' }} />
+                      onBlur={e => { e.currentTarget.style.border = '1px solid var(--color-border)'; e.currentTarget.style.boxShadow = 'none' }} />
                   </div>
                 ))}
                 <div className="sm:col-span-2">
-                  <label className="mb-1.5 block text-xs font-semibold" style={{ color: '#374151' }}>Bio</label>
+                  <label className="mb-1.5 block text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>Bio</label>
                   <textarea value={profile.bio} onChange={e => setProfile({ ...profile, bio: e.target.value })}
                     rows={3} placeholder="Tell us a bit about yourself..."
                     className="w-full resize-none rounded-xl px-3.5 py-2.5 text-sm outline-none"
-                    style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', color: '#111827' }}
+                    style={{ background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
                     onFocus={e => { e.currentTarget.style.border = '1.5px solid #0057b8'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0,87,184,0.08)' }}
-                    onBlur={e => { e.currentTarget.style.border = '1px solid #E5E7EB'; e.currentTarget.style.boxShadow = 'none' }} />
+                    onBlur={e => { e.currentTarget.style.border = '1px solid var(--color-border)'; e.currentTarget.style.boxShadow = 'none' }} />
                 </div>
               </div>
               <AnimatePresence>
                 {error && (
                   <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                     className="mt-4 flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-xs"
-                    style={{ background: '#FEE2E2', color: '#DC2626' }}>
+                    style={{ background: '#FEE2E2', color: 'var(--color-danger)' }}>
                     <AlertCircle size={13} />{error}
                   </motion.div>
                 )}
@@ -348,8 +348,8 @@ export default function SettingsContent() {
                 <button
                   type="button"
                   onClick={() => user && setProfile({ name: user.name, email: user.email, role: user.headline ?? '', bio: user.bio ?? '' })}
-                  className="rounded-xl px-4 py-2 text-sm font-semibold transition-colors hover:bg-gray-50"
-                  style={{ color: '#6B7280', border: '1px solid #E5E7EB' }}>Cancel</button>
+                  className="rounded-xl px-4 py-2 text-sm font-semibold transition-colors hover:bg-[var(--color-bg-muted)]"
+                  style={{ color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}>Cancel</button>
                 <motion.button whileHover={{ y: -1 }} whileTap={{ scale: 0.97 }}
                   onClick={handleSave}
                   disabled={updateMutation.isPending || (mounted && userLoading)}
@@ -366,14 +366,14 @@ export default function SettingsContent() {
                 </motion.button>
               </div>
             </div>
-            <div className="rounded-2xl bg-white p-6" style={{ border: '1px solid #E5E7EB' }}>
+            <div className="rounded-2xl bg-[var(--color-bg-surface)] p-6" style={{ border: '1px solid var(--color-border)' }}>
               <div className="mb-5 flex items-center gap-2">
-                <Lock size={15} style={{ color: '#0057b8' }} />
-                <h2 className="text-base font-bold" style={{ color: '#111827' }}>Change Password</h2>
+                <Lock size={15} style={{ color: 'var(--color-primary)' }} />
+                <h2 className="text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>Change Password</h2>
               </div>
               <div className="space-y-3.5">
                 <div>
-                  <label className="mb-1.5 block text-xs font-semibold" style={{ color: '#374151' }}>Current password</label>
+                  <label className="mb-1.5 block text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>Current password</label>
                   <div className="relative">
                     <input
                       type={showCur ? 'text' : 'password'}
@@ -381,19 +381,19 @@ export default function SettingsContent() {
                       onChange={e => setPwForm(p => ({ ...p, current: e.target.value }))}
                       placeholder="Your current password"
                       className="w-full rounded-xl px-3.5 py-2.5 text-sm pr-10 outline-none"
-                      style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', color: '#111827' }}
+                      style={{ background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
                       onFocus={e => { e.currentTarget.style.border = '1.5px solid #0057b8'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0,87,184,0.08)' }}
-                      onBlur={e => { e.currentTarget.style.border = '1px solid #E5E7EB'; e.currentTarget.style.boxShadow = 'none' }}
+                      onBlur={e => { e.currentTarget.style.border = '1px solid var(--color-border)'; e.currentTarget.style.boxShadow = 'none' }}
                     />
                     <button type="button" onClick={() => setShowCur(v => !v)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 transition-opacity hover:opacity-70"
-                      style={{ color: '#9CA3AF' }}>
+                      style={{ color: 'var(--color-text-muted)' }}>
                       {showCur ? <EyeOff size={14} /> : <Eye size={14} />}
                     </button>
                   </div>
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs font-semibold" style={{ color: '#374151' }}>New password</label>
+                  <label className="mb-1.5 block text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>New password</label>
                   <div className="relative">
                     <input
                       type={showNew ? 'text' : 'password'}
@@ -401,28 +401,28 @@ export default function SettingsContent() {
                       onChange={e => setPwForm(p => ({ ...p, next: e.target.value }))}
                       placeholder="Min. 8 characters, 1 uppercase, 1 number"
                       className="w-full rounded-xl px-3.5 py-2.5 text-sm pr-10 outline-none"
-                      style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', color: '#111827' }}
+                      style={{ background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
                       onFocus={e => { e.currentTarget.style.border = '1.5px solid #0057b8'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0,87,184,0.08)' }}
-                      onBlur={e => { e.currentTarget.style.border = '1px solid #E5E7EB'; e.currentTarget.style.boxShadow = 'none' }}
+                      onBlur={e => { e.currentTarget.style.border = '1px solid var(--color-border)'; e.currentTarget.style.boxShadow = 'none' }}
                     />
                     <button type="button" onClick={() => setShowNew(v => !v)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 transition-opacity hover:opacity-70"
-                      style={{ color: '#9CA3AF' }}>
+                      style={{ color: 'var(--color-text-muted)' }}>
                       {showNew ? <EyeOff size={14} /> : <Eye size={14} />}
                     </button>
                   </div>
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs font-semibold" style={{ color: '#374151' }}>Confirm new password</label>
+                  <label className="mb-1.5 block text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>Confirm new password</label>
                   <input
                     type="password"
                     value={pwForm.confirm}
                     onChange={e => setPwForm(p => ({ ...p, confirm: e.target.value }))}
                     placeholder="Repeat your new password"
                     className="w-full rounded-xl px-3.5 py-2.5 text-sm outline-none"
-                    style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', color: '#111827' }}
+                    style={{ background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
                     onFocus={e => { e.currentTarget.style.border = '1.5px solid #0057b8'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0,87,184,0.08)' }}
-                    onBlur={e => { e.currentTarget.style.border = '1px solid #E5E7EB'; e.currentTarget.style.boxShadow = 'none' }}
+                    onBlur={e => { e.currentTarget.style.border = '1px solid var(--color-border)'; e.currentTarget.style.boxShadow = 'none' }}
                   />
                 </div>
               </div>
@@ -430,7 +430,7 @@ export default function SettingsContent() {
                 {pwError && (
                   <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                     className="mt-3.5 flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-xs"
-                    style={{ background: '#FEE2E2', color: '#DC2626' }}>
+                    style={{ background: '#FEE2E2', color: 'var(--color-danger)' }}>
                     <AlertCircle size={13} />{pwError}
                   </motion.div>
                 )}
@@ -457,12 +457,12 @@ export default function SettingsContent() {
 
           {active === 'layout' && (
             <div key="layout" className="space-y-4">
-              <div className="rounded-2xl bg-white p-6" style={{ border: '1px solid #E5E7EB' }}>
+              <div className="rounded-2xl bg-[var(--color-bg-surface)] p-6" style={{ border: '1px solid var(--color-border)' }}>
                 <div className="mb-1 flex items-center gap-2">
-                  <Monitor size={16} style={{ color: '#0057b8' }} />
-                  <h2 className="text-base font-bold" style={{ color: '#111827' }}>Navigation Layout</h2>
+                  <Monitor size={16} style={{ color: 'var(--color-primary)' }} />
+                  <h2 className="text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>Navigation Layout</h2>
                 </div>
-                <p className="mb-6 text-xs" style={{ color: '#9CA3AF' }}>
+                <p className="mb-6 text-xs" style={{ color: 'var(--color-text-muted)' }}>
                   Choose how you want to navigate through LearnOS. Your preference is saved automatically.
                 </p>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -482,9 +482,9 @@ export default function SettingsContent() {
                     className="mt-5 flex items-center gap-3 rounded-2xl px-4 py-3"
                     style={{ background: 'rgba(0,87,184,0.06)', border: '1px solid rgba(0,87,184,0.18)' }}>
                     {navLayout === 'sidebar'
-                      ? <PanelLeft size={16} style={{ color: '#0057b8' }} />
-                      : <AlignJustify size={16} style={{ color: '#0057b8' }} />}
-                    <p className="text-sm" style={{ color: '#374151' }}>
+                      ? <PanelLeft size={16} style={{ color: 'var(--color-primary)' }} />
+                      : <AlignJustify size={16} style={{ color: 'var(--color-primary)' }} />}
+                    <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
                       {navLayout === 'sidebar'
                         ? <><span className="font-semibold">Sidebar layout active.</span> The left sidebar shows your main navigation. Use the collapse button to hide labels.</>
                         : <><span className="font-semibold">Top navigation active.</span> The sidebar is hidden. All pages are accessible from the top nav tabs.</>}
@@ -497,21 +497,21 @@ export default function SettingsContent() {
                   <motion.div
                     initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.25 }}
-                    className="overflow-hidden rounded-2xl bg-white"
-                    style={{ border: '1px solid #E5E7EB' }}>
+                    className="overflow-hidden rounded-2xl bg-[var(--color-bg-surface)]"
+                    style={{ border: '1px solid var(--color-border)' }}>
                     <div className="p-6">
-                      <h3 className="mb-4 text-sm font-bold" style={{ color: '#111827' }}>Sidebar Options</h3>
+                      <h3 className="mb-4 text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>Sidebar Options</h3>
                       <div className="space-y-3">
                         {[
                           { label: 'Show labels',   desc: 'Display text labels beside icons',      key: 'labels',  on: true  },
                           { label: 'Compact mode',  desc: 'Reduce padding for a denser sidebar',   key: 'compact', on: false },
                           { label: 'Auto-collapse', desc: 'Collapse sidebar when navigating away', key: 'auto',    on: false },
                         ].map(opt => (
-                          <div key={opt.key} className="flex items-center justify-between rounded-xl p-3 hover:bg-gray-50 transition-colors"
-                            style={{ border: '1px solid #F3F4F6' }}>
+                          <div key={opt.key} className="flex items-center justify-between rounded-xl p-3 hover:bg-[var(--color-bg-muted)] transition-colors"
+                            style={{ border: '1px solid var(--color-border)' }}>
                             <div>
-                              <p className="text-sm font-semibold" style={{ color: '#111827' }}>{opt.label}</p>
-                              <p className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>{opt.desc}</p>
+                              <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>{opt.label}</p>
+                              <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>{opt.desc}</p>
                             </div>
                             <Toggle on={opt.on} onToggle={() => {}} />
                           </div>
@@ -525,9 +525,9 @@ export default function SettingsContent() {
           )}
 
           {active === 'notifications' && (
-            <div key="notifications" style={{ border: '1px solid #E5E7EB' }}
-              className="rounded-2xl bg-white p-6">
-              <h2 className="mb-5 text-base font-bold" style={{ color: '#111827' }}>Notification Preferences</h2>
+            <div key="notifications" style={{ border: '1px solid var(--color-border)' }}
+              className="rounded-2xl bg-[var(--color-bg-surface)] p-6">
+              <h2 className="mb-5 text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>Notification Preferences</h2>
               <div className="space-y-3">
                 {[
                   { key: 'course',  label: 'Course updates',      desc: 'New lessons, announcements from instructors' },
@@ -535,11 +535,11 @@ export default function SettingsContent() {
                   { key: 'push',    label: 'Push notifications',  desc: 'Browser and mobile push alerts' },
                   { key: 'weekly',  label: 'Weekly digest',       desc: 'A summary of your learning progress each week' },
                 ].map(n => (
-                  <div key={n.key} className="flex items-center justify-between gap-4 rounded-xl p-4 hover:bg-gray-50 transition-colors"
-                    style={{ border: '1px solid #F3F4F6' }}>
+                  <div key={n.key} className="flex items-center justify-between gap-4 rounded-xl p-4 hover:bg-[var(--color-bg-muted)] transition-colors"
+                    style={{ border: '1px solid var(--color-border)' }}>
                     <div>
-                      <p className="text-sm font-semibold" style={{ color: '#111827' }}>{n.label}</p>
-                      <p className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>{n.desc}</p>
+                      <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>{n.label}</p>
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>{n.desc}</p>
                     </div>
                     <Toggle on={notifs[n.key as keyof typeof notifs]}
                       onToggle={() => setNotifs(p => ({ ...p, [n.key]: !p[n.key as keyof typeof notifs] }))} />
@@ -562,14 +562,14 @@ export default function SettingsContent() {
           )}
 
           {(['billing', 'language'] as const).includes(active as never) && (
-            <div key={active} style={{ border: '1px solid #E5E7EB' }}
-              className="rounded-2xl bg-white p-10 flex flex-col items-center gap-4">
+            <div key={active} style={{ border: '1px solid var(--color-border)' }}
+              className="rounded-2xl bg-[var(--color-bg-surface)] p-10 flex flex-col items-center gap-4">
               <div className="flex h-14 w-14 items-center justify-center rounded-3xl text-2xl"
-                style={{ background: '#FFF7ED', border: '1px solid rgba(0,87,184,0.18)' }}>
+                style={{ background: 'var(--color-primary-light)', border: '1px solid rgba(0,87,184,0.18)' }}>
                 {active === 'billing' ? 'ðŸ’³' : 'ðŸŒ'}
               </div>
-              <p className="text-base font-bold" style={{ color: '#111827' }}>Coming soon</p>
-              <p className="text-sm text-center max-w-xs" style={{ color: '#9CA3AF' }}>
+              <p className="text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>Coming soon</p>
+              <p className="text-sm text-center max-w-xs" style={{ color: 'var(--color-text-muted)' }}>
                 This settings section is under construction. Check back soon!
               </p>
             </div>

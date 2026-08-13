@@ -63,10 +63,10 @@ export function LiveClassesPanel({ slug, isEnrolled }: { slug: string; isEnrolle
             <Video size={16} style={{ color: '#6366F1' }} />
           </div>
           <div>
-            <h2 className="text-base font-bold" style={{ color: '#0D0F1A', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
+            <h2 className="text-base font-bold" style={{ color: 'var(--color-text-primary)', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
               Live classes
             </h2>
-            <p className="text-[11px]" style={{ color: '#9CA3AF' }}>
+            <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
               Scheduled real-time sessions with the instructor
             </p>
           </div>
@@ -74,7 +74,7 @@ export function LiveClassesPanel({ slug, isEnrolled }: { slug: string; isEnrolle
         {enrolled && (
           <Link href="/live-classes"
             className="text-xs font-semibold transition-opacity hover:opacity-70"
-            style={{ color: '#0057b8' }}>
+            style={{ color: 'var(--color-primary)' }}>
             View all →
           </Link>
         )}
@@ -82,14 +82,14 @@ export function LiveClassesPanel({ slug, isEnrolled }: { slug: string; isEnrolle
 
       <div className="p-5">
         {isLoading && (
-          <div className="flex items-center gap-2 text-sm" style={{ color: '#9CA3AF' }}>
+          <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-text-muted)' }}>
             <Spinner size={14} />Loading…
           </div>
         )}
 
         {isError && (
           <div className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm"
-            style={{ background: 'rgba(239,68,68,0.08)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.18)' }}>
+            style={{ background: 'rgba(239,68,68,0.08)', color: 'var(--color-danger)', border: '1px solid rgba(239,68,68,0.18)' }}>
             <AlertCircle size={14} />Couldn&apos;t load scheduled sessions.
           </div>
         )}
@@ -100,7 +100,7 @@ export function LiveClassesPanel({ slug, isEnrolled }: { slug: string; isEnrolle
 
         {!enrolled && visible.length > 0 && (
           <div className="mt-4 flex items-center gap-2 rounded-xl px-4 py-3 text-xs"
-            style={{ background: 'rgba(0,87,184,0.06)', border: '1px solid rgba(0,87,184,0.14)', color: '#0057b8' }}>
+            style={{ background: 'rgba(0,87,184,0.06)', border: '1px solid rgba(0,87,184,0.14)', color: 'var(--color-primary)' }}>
             <Lock size={12} />
             Enroll in this course to access live sessions. Join links are sent via email after booking.
           </div>
@@ -118,8 +118,8 @@ function LiveClassRow({ live, now, index, isEnrolled }: { live: LiveClass; now: 
   return (
     <motion.div
       initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 + index * 0.04 }}
-      className="flex items-center gap-4 rounded-xl bg-white p-3.5"
-      style={{ border: `1px solid ${isLiveNow ? 'rgba(239,68,68,0.30)' : '#E4E7ED'}` }}>
+      className="flex items-center gap-4 rounded-xl bg-[var(--color-bg-surface)] p-3.5"
+      style={{ border: `1px solid ${isLiveNow ? 'rgba(239,68,68,0.30)' : 'var(--color-border)'}` }}>
 
       <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl"
         style={{
@@ -127,9 +127,9 @@ function LiveClassRow({ live, now, index, isEnrolled }: { live: LiveClass; now: 
           border: `1px solid ${isLiveNow ? 'rgba(239,68,68,0.25)' : isInternal ? 'rgba(0,87,184,0.18)' : 'rgba(99,102,241,0.18)'}`,
         }}>
         {isLiveNow
-          ? <Radio size={18} style={{ color: '#EF4444' }} />
+          ? <Radio size={18} style={{ color: 'var(--color-danger)' }} />
           : isInternal
-          ? <Tv2 size={18} style={{ color: '#0057b8' }} />
+          ? <Tv2 size={18} style={{ color: 'var(--color-primary)' }} />
           : <Calendar size={18} style={{ color: '#6366F1' }} />}
       </div>
 
@@ -140,19 +140,19 @@ function LiveClassRow({ live, now, index, isEnrolled }: { live: LiveClass; now: 
               animate={{ opacity: [1, 0.4, 1] }}
               transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
               className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-white"
-              style={{ background: '#EF4444' }}>
-              <span className="h-1.5 w-1.5 rounded-full bg-white" />Live now
+              style={{ background: 'var(--color-danger)' }}>
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-bg-surface)]" />Live now
             </motion.span>
           )}
-          <p className="truncate text-sm font-semibold" style={{ color: '#0D0F1A' }}>{live.title}</p>
+          <p className="truncate text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>{live.title}</p>
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]" style={{ color: '#6B7280' }}>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
           <span className="flex items-center gap-1"><Calendar size={10} />{fmtDateTime(live.scheduledStart)}</span>
-          <span style={{ color: '#E4E7ED' }}>·</span>
+          <span style={{ color: 'var(--color-border)' }}>·</span>
           <span className="flex items-center gap-1"><Clock size={10} />{fmtDuration(live.durationMins)}</span>
           {!isLiveNow && <>
-            <span style={{ color: '#E4E7ED' }}>·</span>
-            <span style={{ color: '#0057b8' }}>{countdown}</span>
+            <span style={{ color: 'var(--color-border)' }}>·</span>
+            <span style={{ color: 'var(--color-primary)' }}>{countdown}</span>
           </>}
         </div>
       </div>
@@ -164,8 +164,8 @@ function LiveClassRow({ live, now, index, isEnrolled }: { live: LiveClass; now: 
           <Link href={`/live-classes/${live.id}/watch`}
             className="shrink-0 rounded-xl px-3.5 py-2 text-xs font-bold text-white transition-all"
             style={isLiveNow
-              ? { background: '#EF4444', boxShadow: '0 4px 16px rgba(239,68,68,0.32)' }
-              : { background: '#0057b8' }}>
+              ? { background: 'var(--color-danger)', boxShadow: '0 4px 16px rgba(239,68,68,0.32)' }
+              : { background: 'var(--color-primary)' }}>
             {isLiveNow ? 'Watch now' : 'View'}
           </Link>
         ) : (
@@ -179,7 +179,7 @@ function LiveClassRow({ live, now, index, isEnrolled }: { live: LiveClass; now: 
       ) : (
         /* Not enrolled — show lock; no URL exposed */
         <div className="shrink-0 flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-semibold"
-          style={{ background: '#F3F4F6', color: '#9CA3AF' }}>
+          style={{ background: 'var(--color-bg-subtle)', color: 'var(--color-text-muted)' }}>
           <Lock size={11} />Enroll
         </div>
       )}

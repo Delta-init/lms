@@ -56,7 +56,7 @@ const STEP_ICONS  = ['👤','📄','🎓','💳']
 
 /* ── Style helpers ──────────────────────────────────── */
 const inputBase: React.CSSProperties = {
-  background: '#F9FAFB', border: '1px solid #E5E7EB', color: '#111827',
+  background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)',
   borderRadius: 12, padding: '10px 14px', fontSize: 14, width: '100%',
   outline: 'none', transition: 'border 0.15s, box-shadow 0.15s',
 }
@@ -65,7 +65,7 @@ const inputFocus = (el: HTMLElement) => {
   el.style.boxShadow = '0 0 0 3px rgba(0,87,184,0.08)'
 }
 const inputBlur = (el: HTMLElement) => {
-  el.style.border = '1px solid #E5E7EB'
+  el.style.border = '1px solid var(--color-border)'
   el.style.boxShadow = 'none'
 }
 
@@ -80,11 +80,11 @@ function DocLink({ userId, field, stored, label }: {
   return (
     <a href={url ?? undefined} target="_blank" rel="noreferrer"
       aria-disabled={!url}
-      className="flex flex-col items-center gap-1.5 rounded-xl p-3 text-center transition-colors hover:bg-blue-50"
-      style={{ border: '1px solid #E5E7EB', opacity: url ? 1 : 0.5, pointerEvents: url ? 'auto' : 'none' }}>
-      <FileText size={20} style={{ color: '#0057b8' }} />
-      <span className="text-xs font-medium" style={{ color: '#374151' }}>{label}</span>
-      <Eye size={11} style={{ color: '#9CA3AF' }} />
+      className="flex flex-col items-center gap-1.5 rounded-xl p-3 text-center transition-colors hover:bg-[var(--color-hover)]"
+      style={{ border: '1px solid var(--color-border)', opacity: url ? 1 : 0.5, pointerEvents: url ? 'auto' : 'none' }}>
+      <FileText size={20} style={{ color: 'var(--color-primary)' }} />
+      <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>{label}</span>
+      <Eye size={11} style={{ color: 'var(--color-text-muted)' }} />
     </a>
   )
 }
@@ -94,14 +94,14 @@ function Field({ label, required, error, children }: {
 }) {
   return (
     <div {...(error ? { 'data-field-error': '1' } : {})}>
-      <label className="mb-1.5 block text-xs font-semibold" style={{ color: error ? '#DC2626' : '#374151' }}>
-        {label}{required && <span style={{ color: '#EF4444' }}> *</span>}
+      <label className="mb-1.5 block text-xs font-semibold" style={{ color: error ? '#DC2626' : 'var(--color-text-secondary)' }}>
+        {label}{required && <span style={{ color: 'var(--color-danger)' }}> *</span>}
       </label>
       {children}
       <AnimatePresence>
         {error && (
           <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="mt-1 flex items-center gap-1 text-xs" style={{ color: '#DC2626' }}>
+            className="mt-1 flex items-center gap-1 text-xs" style={{ color: 'var(--color-danger)' }}>
             <AlertCircle size={11} />{error}
           </motion.p>
         )}
@@ -118,7 +118,7 @@ function StyledInput({ value, onChange, placeholder, type = 'text', readOnly = f
   return (
     <div className="relative">
       {icon && (
-        <div className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#9CA3AF' }}>
+        <div className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--color-text-muted)' }}>
           {icon}
         </div>
       )}
@@ -128,14 +128,14 @@ function StyledInput({ value, onChange, placeholder, type = 'text', readOnly = f
         style={{
           ...inputBase,
           paddingLeft: icon ? 36 : 14,
-          background: readOnly ? '#F3F4F6' : '#F9FAFB',
-          color: readOnly ? '#6B7280' : '#111827',
+          background: readOnly ? 'var(--color-bg-subtle)' : 'var(--color-bg-subtle)',
+          color: readOnly ? 'var(--color-text-muted)' : 'var(--color-text-primary)',
           cursor: readOnly ? 'not-allowed' : 'text',
         }}
         onFocus={e => { if (!readOnly) inputFocus(e.currentTarget) }}
         onBlur={e => { inputBlur(e.currentTarget); onBlur?.() }}
       />
-      {hint && <p className="mt-1 text-xs" style={{ color: '#9CA3AF' }}>{hint}</p>}
+      {hint && <p className="mt-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>{hint}</p>}
     </div>
   )
 }
@@ -162,33 +162,33 @@ function CountrySelect({ value, onChange, placeholder = 'Select country' }: {
         style={{ ...inputBase, textAlign: 'left' }}
         onFocus={e => inputFocus(e.currentTarget)}
         onBlur={e => inputBlur(e.currentTarget)}>
-        <span style={{ color: value ? '#111827' : '#9CA3AF' }}>{value || placeholder}</span>
-        <ChevronDown size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
+        <span style={{ color: value ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>{value || placeholder}</span>
+        <ChevronDown size={14} style={{ color: 'var(--color-text-muted)', flexShrink: 0 }} />
       </button>
       <AnimatePresence>
         {open && (
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.15 }}
-            className="absolute z-50 mt-1 w-full overflow-hidden rounded-xl bg-white shadow-xl"
-            style={{ border: '1px solid #E5E7EB', maxHeight: 260 }}>
-            <div className="flex items-center gap-2 border-b px-3 py-2" style={{ borderColor: '#F3F4F6' }}>
-              <Search size={13} style={{ color: '#9CA3AF' }} />
+            className="absolute z-50 mt-1 w-full overflow-hidden rounded-xl bg-[var(--color-bg-surface)] shadow-xl"
+            style={{ border: '1px solid var(--color-border)', maxHeight: 260 }}>
+            <div className="flex items-center gap-2 border-b px-3 py-2" style={{ borderColor: 'var(--color-border)' }}>
+              <Search size={13} style={{ color: 'var(--color-text-muted)' }} />
               <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
                 placeholder="Search country…" className="flex-1 text-sm outline-none"
-                style={{ background: 'transparent', color: '#111827' }} />
+                style={{ background: 'transparent', color: 'var(--color-text-primary)' }} />
             </div>
             <div className="overflow-y-auto" style={{ maxHeight: 200 }}>
               {filtered.map(c => (
                 <button key={c} type="button"
                   onClick={() => { onChange(c); setOpen(false); setSearch('') }}
-                  className="flex w-full items-center px-3.5 py-2 text-sm text-left transition-colors hover:bg-blue-50"
-                  style={{ color: c === value ? '#0057b8' : '#374151', fontWeight: c === value ? 600 : 400 }}>
+                  className="flex w-full items-center px-3.5 py-2 text-sm text-left transition-colors hover:bg-[var(--color-hover)]"
+                  style={{ color: c === value ? '#0057b8' : 'var(--color-text-secondary)', fontWeight: c === value ? 600 : 400 }}>
                   {c}
-                  {c === value && <Check size={13} className="ml-auto" style={{ color: '#0057b8' }} />}
+                  {c === value && <Check size={13} className="ml-auto" style={{ color: 'var(--color-primary)' }} />}
                 </button>
               ))}
               {filtered.length === 0 && (
-                <p className="px-4 py-3 text-sm" style={{ color: '#9CA3AF' }}>No results</p>
+                <p className="px-4 py-3 text-sm" style={{ color: 'var(--color-text-muted)' }}>No results</p>
               )}
             </div>
           </motion.div>
@@ -217,22 +217,22 @@ function OptionSelect({ value, onChange, options, placeholder = 'Select…' }: {
         style={{ ...inputBase, textAlign: 'left' }}
         onFocus={e => inputFocus(e.currentTarget)}
         onBlur={e => inputBlur(e.currentTarget)}>
-        <span style={{ color: value ? '#111827' : '#9CA3AF' }}>{value || placeholder}</span>
-        <ChevronDown size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
+        <span style={{ color: value ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>{value || placeholder}</span>
+        <ChevronDown size={14} style={{ color: 'var(--color-text-muted)', flexShrink: 0 }} />
       </button>
       <AnimatePresence>
         {open && (
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.15 }}
-            className="absolute z-50 mt-1 w-full overflow-hidden rounded-xl bg-white shadow-xl"
-            style={{ border: '1px solid #E5E7EB' }}>
+            className="absolute z-50 mt-1 w-full overflow-hidden rounded-xl bg-[var(--color-bg-surface)] shadow-xl"
+            style={{ border: '1px solid var(--color-border)' }}>
             {options.map(opt => (
               <button key={opt} type="button"
                 onClick={() => { onChange(opt); setOpen(false) }}
-                className="flex w-full items-center px-3.5 py-2.5 text-sm text-left transition-colors hover:bg-blue-50"
-                style={{ color: opt === value ? '#0057b8' : '#374151', fontWeight: opt === value ? 600 : 400 }}>
+                className="flex w-full items-center px-3.5 py-2.5 text-sm text-left transition-colors hover:bg-[var(--color-hover)]"
+                style={{ color: opt === value ? '#0057b8' : 'var(--color-text-secondary)', fontWeight: opt === value ? 600 : 400 }}>
                 {opt}
-                {opt === value && <Check size={13} className="ml-auto" style={{ color: '#0057b8' }} />}
+                {opt === value && <Check size={13} className="ml-auto" style={{ color: 'var(--color-primary)' }} />}
               </button>
             ))}
           </motion.div>
@@ -252,9 +252,9 @@ function CardOptions({ value, onChange, options }: {
         <button key={opt.value} type="button" onClick={() => onChange(opt.value)}
           className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium transition-all"
           style={{
-            background: value === opt.value ? 'rgba(0,87,184,0.08)' : '#F9FAFB',
-            border: `1.5px solid ${value === opt.value ? '#0057b8' : '#E5E7EB'}`,
-            color: value === opt.value ? '#0057b8' : '#374151',
+            background: value === opt.value ? 'rgba(0,87,184,0.08)' : 'var(--color-bg-subtle)',
+            border: `1.5px solid ${value === opt.value ? '#0057b8' : 'var(--color-border)'}`,
+            color: value === opt.value ? '#0057b8' : 'var(--color-text-secondary)',
           }}>
           {opt.icon && <span>{opt.icon}</span>}
           {opt.label}
@@ -311,28 +311,28 @@ function FileUpload({ label, file, onFile, accept = 'image/*,.pdf', uploading, u
         onClick={() => inputRef.current?.click()}
         className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl p-5 transition-all"
         style={{
-          border: `2px dashed ${hasErr ? '#EF4444' : drag ? '#0057b8' : uploadedUrl ? '#22C55E' : '#D1D5DB'}`,
-          background: hasErr ? 'rgba(239,68,68,0.04)' : drag ? 'rgba(0,87,184,0.04)' : uploadedUrl ? 'rgba(34,197,94,0.04)' : '#FAFAFA',
+          border: `2px dashed ${hasErr ? '#EF4444' : drag ? '#0057b8' : uploadedUrl ? '#22C55E' : 'var(--color-text-muted)'}`,
+          background: hasErr ? 'rgba(239,68,68,0.04)' : drag ? 'rgba(0,87,184,0.04)' : uploadedUrl ? 'rgba(34,197,94,0.04)' : 'var(--color-bg-inset)',
           minHeight: 100,
         }}>
         <input ref={inputRef} type="file" accept={accept} className="hidden"
           onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }} />
         {uploading ? (
-          <><Spinner size={20} /><p className="text-xs" style={{ color: '#6B7280' }}>Uploading…</p></>
+          <><Spinner size={20} /><p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Uploading…</p></>
         ) : uploadedUrl ? (
           <>
             <div className="flex h-9 w-9 items-center justify-center rounded-full"
               style={{ background: 'rgba(34,197,94,0.1)' }}>
-              <Check size={18} style={{ color: '#22C55E' }} />
+              <Check size={18} style={{ color: 'var(--color-success)' }} />
             </div>
-            <p className="text-xs font-medium" style={{ color: '#22C55E' }}>Uploaded ✓</p>
-            <p className="text-xs" style={{ color: '#9CA3AF' }}>Click to replace</p>
+            <p className="text-xs font-medium" style={{ color: 'var(--color-success)' }}>Uploaded ✓</p>
+            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Click to replace</p>
           </>
         ) : file ? (
           <>
-            <FileText size={22} style={{ color: '#0057b8' }} />
-            <p className="text-xs font-medium text-center" style={{ color: '#374151' }}>{file.name}</p>
-            <p className="text-xs" style={{ color: '#9CA3AF' }}>{fmtSize(file.size)} · Click to change</p>
+            <FileText size={22} style={{ color: 'var(--color-primary)' }} />
+            <p className="text-xs font-medium text-center" style={{ color: 'var(--color-text-secondary)' }}>{file.name}</p>
+            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{fmtSize(file.size)} · Click to change</p>
           </>
         ) : (
           <>
@@ -340,13 +340,13 @@ function FileUpload({ label, file, onFile, accept = 'image/*,.pdf', uploading, u
               style={{ background: hasErr ? 'rgba(239,68,68,0.08)' : 'rgba(0,87,184,0.08)' }}>
               <Upload size={18} style={{ color: hasErr ? '#EF4444' : '#0057b8' }} />
             </div>
-            <p className="text-xs font-medium" style={{ color: '#374151' }}>{label}</p>
-            <p className="text-xs" style={{ color: '#9CA3AF' }}>PDF, JPG, PNG · max 5 MB</p>
+            <p className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>{label}</p>
+            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>PDF, JPG, PNG · max 5 MB</p>
           </>
         )}
       </div>
       {localErr && (
-        <p className="mt-1 flex items-center gap-1 text-xs" style={{ color: '#DC2626' }}>
+        <p className="mt-1 flex items-center gap-1 text-xs" style={{ color: 'var(--color-danger)' }}>
           <AlertCircle size={11} />{localErr}
         </p>
       )}
@@ -363,7 +363,7 @@ function StepBar({ step, total }: { step: number; total: number }) {
           <div className="relative flex flex-col items-center">
             <motion.div
               animate={{
-                background: i < step ? '#22C55E' : i === step ? '#0057b8' : '#E5E7EB',
+                background: i < step ? '#22C55E' : i === step ? '#0057b8' : 'var(--color-border)',
                 scale: i === step ? 1.1 : 1,
               }}
               transition={{ duration: 0.3 }}
@@ -371,13 +371,13 @@ function StepBar({ step, total }: { step: number; total: number }) {
               {i < step ? <Check size={13} /> : <span>{STEP_ICONS[i]}</span>}
             </motion.div>
             <p className="absolute top-9 w-20 text-center text-[10px] font-medium"
-              style={{ color: i === step ? '#0057b8' : i < step ? '#22C55E' : '#9CA3AF' }}>
+              style={{ color: i === step ? '#0057b8' : i < step ? '#22C55E' : 'var(--color-text-muted)' }}>
               {STEP_LABELS[i]}
             </p>
           </div>
           {i < total - 1 && (
             <div className="mx-1 h-0.5 flex-1 rounded-full transition-all duration-500"
-              style={{ background: i < step ? '#22C55E' : '#E5E7EB' }} />
+              style={{ background: i < step ? '#22C55E' : 'var(--color-border)' }} />
           )}
         </div>
       ))}
@@ -389,8 +389,8 @@ function StepBar({ step, total }: { step: number; total: number }) {
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { bg: string; color: string; icon: React.ReactNode; label: string }> = {
     pending:  { bg: 'rgba(251,191,36,0.1)',  color: '#D97706', icon: <Clock size={13} />,         label: 'Under Review'  },
-    approved: { bg: 'rgba(34,197,94,0.1)',   color: '#16A34A', icon: <CheckCircle2 size={13} />,  label: 'Approved'      },
-    rejected: { bg: 'rgba(239,68,68,0.1)',   color: '#DC2626', icon: <XCircle size={13} />,       label: 'Rejected'      },
+    approved: { bg: 'rgba(34,197,94,0.1)',   color: 'var(--color-success)', icon: <CheckCircle2 size={13} />,  label: 'Approved'      },
+    rejected: { bg: 'rgba(239,68,68,0.1)',   color: 'var(--color-danger)', icon: <XCircle size={13} />,       label: 'Rejected'      },
   }
   const s = map[status] ?? map['pending']
   return (
@@ -406,9 +406,9 @@ function InfoRow({ label, value }: { label: string; value?: string | string[] })
   if (!value || (Array.isArray(value) && value.length === 0)) return null
   return (
     <div className="flex items-start justify-between gap-4 py-2.5"
-      style={{ borderBottom: '1px solid #F3F4F6' }}>
-      <span className="text-xs font-medium flex-shrink-0" style={{ color: '#6B7280', minWidth: 140 }}>{label}</span>
-      <span className="text-xs text-right" style={{ color: '#111827' }}>
+      style={{ borderBottom: '1px solid var(--color-border)' }}>
+      <span className="text-xs font-medium flex-shrink-0" style={{ color: 'var(--color-text-muted)', minWidth: 140 }}>{label}</span>
+      <span className="text-xs text-right" style={{ color: 'var(--color-text-primary)' }}>
         {Array.isArray(value) ? value.join(', ') : value}
       </span>
     </div>
@@ -737,13 +737,13 @@ export function RequestSection() {
   if (viewState === 'approved') {
     return (
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-        className="rounded-2xl bg-white p-8 text-center" style={{ border: '1px solid #E5E7EB' }}>
+        className="rounded-2xl bg-[var(--color-bg-surface)] p-8 text-center" style={{ border: '1px solid var(--color-border)' }}>
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full"
           style={{ background: 'rgba(34,197,94,0.1)' }}>
-          <CheckCircle2 size={32} style={{ color: '#22C55E' }} />
+          <CheckCircle2 size={32} style={{ color: 'var(--color-success)' }} />
         </div>
-        <h2 className="mb-2 text-lg font-bold" style={{ color: '#111827' }}>Registration Approved!</h2>
-        <p className="text-sm" style={{ color: '#6B7280' }}>
+        <h2 className="mb-2 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>Registration Approved!</h2>
+        <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
           Your full registration has been approved. You now have complete access to all courses, live classes, and bookings.
         </p>
       </motion.div>
@@ -756,11 +756,11 @@ export function RequestSection() {
     return (
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
         {/* Status header */}
-        <div className="rounded-2xl bg-white p-6" style={{ border: '1px solid #E5E7EB' }}>
+        <div className="rounded-2xl bg-[var(--color-bg-surface)] p-6" style={{ border: '1px solid var(--color-border)' }}>
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div>
-              <h2 className="text-base font-bold" style={{ color: '#111827' }}>Registration Request</h2>
-              <p className="mt-0.5 text-xs" style={{ color: '#6B7280' }}>
+              <h2 className="text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>Registration Request</h2>
+              <p className="mt-0.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>
                 Submitted on {user?.fullRegistrationSubmittedAt
                   ? new Date(user.fullRegistrationSubmittedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
                   : '—'}
@@ -776,13 +776,13 @@ export function RequestSection() {
         </div>
 
         {/* Express Account (original) */}
-        <div className="rounded-2xl bg-white p-6" style={{ border: '1px solid #E5E7EB' }}>
+        <div className="rounded-2xl bg-[var(--color-bg-surface)] p-6" style={{ border: '1px solid var(--color-border)' }}>
           <div className="mb-4 flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-full"
               style={{ background: 'rgba(124,58,237,0.1)' }}>
               <Zap size={13} style={{ color: '#7C3AED' }} />
             </div>
-            <h3 className="text-sm font-bold" style={{ color: '#111827' }}>Express Account</h3>
+            <h3 className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>Express Account</h3>
           </div>
           <InfoRow label="Name"         value={user?.name} />
           <InfoRow label="Email"        value={user?.email} />
@@ -791,15 +791,15 @@ export function RequestSection() {
         </div>
 
         {/* Full registration data */}
-        <div className="rounded-2xl bg-white p-6" style={{ border: '1px solid #E5E7EB' }}>
+        <div className="rounded-2xl bg-[var(--color-bg-surface)] p-6" style={{ border: '1px solid var(--color-border)' }}>
           <div className="mb-4 flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-full"
               style={{ background: 'rgba(0,87,184,0.1)' }}>
-              <FileText size={13} style={{ color: '#0057b8' }} />
+              <FileText size={13} style={{ color: 'var(--color-primary)' }} />
             </div>
-            <h3 className="text-sm font-bold" style={{ color: '#111827' }}>Full Registration</h3>
+            <h3 className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>Full Registration</h3>
           </div>
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide" style={{ color: '#9CA3AF' }}>Personal</p>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>Personal</p>
           <InfoRow label="Phone"              value={a?.phone} />
           <InfoRow label="Emergency Contact"  value={a?.emergencyContact} />
           <InfoRow label="Gender"             value={a?.gender} />
@@ -809,19 +809,19 @@ export function RequestSection() {
           <InfoRow label="ID Type"            value={a?.idType} />
           <InfoRow label="ID Number"          value={a?.idNumber} />
 
-          <p className="mb-3 mt-4 text-xs font-semibold uppercase tracking-wide" style={{ color: '#9CA3AF' }}>Address</p>
+          <p className="mb-3 mt-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>Address</p>
           <InfoRow label="Country of Attendance" value={a?.countryAttendance} />
           <InfoRow label="Villa / Apartment"     value={a?.villa} />
           <InfoRow label="City"                  value={a?.city} />
           <InfoRow label="Country"               value={a?.addressCountry} />
 
-          <p className="mb-3 mt-4 text-xs font-semibold uppercase tracking-wide" style={{ color: '#9CA3AF' }}>Documents</p>
+          <p className="mb-3 mt-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>Documents</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <DocLink userId={user?.id} field="passport" stored={a?.passportUrl} label="Passport" />
             <DocLink userId={user?.id} field="idDoc" stored={a?.idDocUrl} label="ID Document" />
           </div>
 
-          <p className="mb-3 mt-4 text-xs font-semibold uppercase tracking-wide" style={{ color: '#9CA3AF' }}>Program</p>
+          <p className="mb-3 mt-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>Program</p>
           <InfoRow label="Experience Level"    value={a?.experienceLevel} />
           <InfoRow label="Preferred Start"     value={a?.preferredStartDate} />
           <InfoRow label="Heard About Us"      value={a?.hearAboutUs} />
@@ -839,33 +839,33 @@ export function RequestSection() {
     return (
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
         {/* Rejection card */}
-        <div className="rounded-2xl bg-white p-6" style={{ border: '1px solid rgba(239,68,68,0.25)' }}>
+        <div className="rounded-2xl bg-[var(--color-bg-surface)] p-6" style={{ border: '1px solid rgba(239,68,68,0.25)' }}>
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div>
-              <h2 className="text-base font-bold" style={{ color: '#111827' }}>Registration Request</h2>
-              <p className="mt-0.5 text-xs" style={{ color: '#6B7280' }}>Previous submission was not approved</p>
+              <h2 className="text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>Registration Request</h2>
+              <p className="mt-0.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>Previous submission was not approved</p>
             </div>
             <StatusBadge status="rejected" />
           </div>
           {user?.rejectionReason && (
             <div className="mt-4 rounded-xl px-4 py-3"
               style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}>
-              <p className="mb-1 text-xs font-semibold" style={{ color: '#DC2626' }}>Reason for rejection:</p>
-              <p className="text-sm" style={{ color: '#374151' }}>{user.rejectionReason}</p>
+              <p className="mb-1 text-xs font-semibold" style={{ color: 'var(--color-danger)' }}>Reason for rejection:</p>
+              <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>{user.rejectionReason}</p>
             </div>
           )}
           <motion.button whileHover={{ y: -1 }} whileTap={{ scale: 0.97 }}
             onClick={() => { setStep(0); setShowForm(true); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
             className="mt-4 flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white"
-            style={{ background: '#0057b8', boxShadow: '0 4px 14px rgba(0,87,184,0.28)' }}>
+            style={{ background: 'var(--color-primary)', boxShadow: '0 4px 14px rgba(0,87,184,0.28)' }}>
             <RefreshCw size={14} />Submit New Registration
           </motion.button>
         </div>
 
         {/* Previous submission (read-only) */}
         {a && (
-          <div className="rounded-2xl bg-white p-6" style={{ border: '1px solid #E5E7EB' }}>
-            <h3 className="mb-4 text-sm font-bold" style={{ color: '#6B7280' }}>Previous Submission (read-only)</h3>
+          <div className="rounded-2xl bg-[var(--color-bg-surface)] p-6" style={{ border: '1px solid var(--color-border)' }}>
+            <h3 className="mb-4 text-sm font-bold" style={{ color: 'var(--color-text-muted)' }}>Previous Submission (read-only)</h3>
             <InfoRow label="Phone"              value={a.phone} />
             <InfoRow label="Gender"             value={a.gender} />
             <InfoRow label="Date of Birth"      value={a.dateOfBirth} />
@@ -887,15 +887,15 @@ export function RequestSection() {
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
       {/* Header */}
-      <div className="rounded-2xl bg-white p-6" style={{ border: '1px solid #E5E7EB' }}>
+      <div className="rounded-2xl bg-[var(--color-bg-surface)] p-6" style={{ border: '1px solid var(--color-border)' }}>
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full"
             style={{ background: 'rgba(0,87,184,0.08)' }}>
-            <Shield size={18} style={{ color: '#0057b8' }} />
+            <Shield size={18} style={{ color: 'var(--color-primary)' }} />
           </div>
           <div>
-            <h2 className="text-base font-bold" style={{ color: '#111827' }}>Complete Your Registration</h2>
-            <p className="mt-0.5 text-sm" style={{ color: '#6B7280' }}>
+            <h2 className="text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>Complete Your Registration</h2>
+            <p className="mt-0.5 text-sm" style={{ color: 'var(--color-text-muted)' }}>
               Fill in your full enrollment details to get approved for courses, live classes, and bookings.
             </p>
           </div>
@@ -903,7 +903,7 @@ export function RequestSection() {
       </div>
 
       {/* Form card */}
-      <div className="rounded-2xl bg-white p-6" style={{ border: '1px solid #E5E7EB' }}>
+      <div className="rounded-2xl bg-[var(--color-bg-surface)] p-6" style={{ border: '1px solid var(--color-border)' }}>
         {/* Step bar — needs a bit of top padding for the labels */}
         <div className="pb-8 pt-2">
           <StepBar step={step} total={4} />
@@ -913,7 +913,7 @@ export function RequestSection() {
           {/* ── Step 0: Personal ──────────────── */}
           {step === 0 && (
             <div key="step0" className="space-y-4">
-              <p className="text-sm font-bold" style={{ color: '#111827' }}>Personal Information</p>
+              <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>Personal Information</p>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="Full Name" required error={errors['name']}>
@@ -1016,7 +1016,7 @@ export function RequestSection() {
           {/* ── Step 1: Address & Docs ────────── */}
           {step === 1 && (
             <div key="step1" className="space-y-4">
-              <p className="text-sm font-bold" style={{ color: '#111827' }}>Address & Documents</p>
+              <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>Address & Documents</p>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="Country of Attendance" required error={errors['countryAttendance']}>
@@ -1040,7 +1040,7 @@ export function RequestSection() {
 
               {errors['upload'] && (
                 <div className="flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-xs"
-                  style={{ background: '#FEE2E2', color: '#DC2626' }}>
+                  style={{ background: '#FEE2E2', color: 'var(--color-danger)' }}>
                   <AlertCircle size={13} />{errors['upload']}
                 </div>
               )}
@@ -1066,7 +1066,7 @@ export function RequestSection() {
           {/* ── Step 2: Program ───────────────── */}
           {step === 2 && (
             <div key="step2" className="space-y-4">
-              <p className="text-sm font-bold" style={{ color: '#111827' }}>Program Selection</p>
+              <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>Program Selection</p>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="Experience Level" required error={errors['experienceLevel']}>
@@ -1112,7 +1112,7 @@ export function RequestSection() {
               <Field label="Select Program(s)" required error={errors['programs']}>
                 {['Forex Academy','Digital Marketing','AI Academy'].map(group => (
                   <div key={group} className="mb-3">
-                    <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: '#9CA3AF' }}>{group}</p>
+                    <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>{group}</p>
                     <div className="flex flex-wrap gap-2">
                       {PROGRAMS.filter(p => p.group === group).map(p => {
                         const selected = form.programs.includes(p.id)
@@ -1127,9 +1127,9 @@ export function RequestSection() {
                             }}
                             className="rounded-xl px-3 py-2 text-sm font-medium transition-all"
                             style={{
-                              background: selected ? 'rgba(0,87,184,0.08)' : '#F9FAFB',
-                              border: `1.5px solid ${selected ? '#0057b8' : '#E5E7EB'}`,
-                              color: selected ? '#0057b8' : '#374151',
+                              background: selected ? 'rgba(0,87,184,0.08)' : 'var(--color-bg-subtle)',
+                              border: `1.5px solid ${selected ? '#0057b8' : 'var(--color-border)'}`,
+                              color: selected ? '#0057b8' : 'var(--color-text-secondary)',
                             }}>
                             {selected && <Check size={11} className="mr-1 inline-block" />}
                             {p.label}
@@ -1146,7 +1146,7 @@ export function RequestSection() {
           {/* ── Step 3: Payment ───────────────── */}
           {step === 3 && (
             <div key="step3" className="space-y-4">
-              <p className="text-sm font-bold" style={{ color: '#111827' }}>Payment Method</p>
+              <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>Payment Method</p>
 
               <Field label="Preferred Payment Method" required error={errors['paymentMethod']}>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -1160,12 +1160,12 @@ export function RequestSection() {
                       <button key={opt} type="button" onClick={() => { set('paymentMethod', opt); clearError('paymentMethod') }}
                         className="flex flex-col items-center gap-1.5 rounded-xl p-3 text-center transition-all"
                         style={{
-                          background: selected ? 'rgba(0,87,184,0.08)' : '#F9FAFB',
-                          border: `1.5px solid ${selected ? '#0057b8' : '#E5E7EB'}`,
+                          background: selected ? 'rgba(0,87,184,0.08)' : 'var(--color-bg-subtle)',
+                          border: `1.5px solid ${selected ? '#0057b8' : 'var(--color-border)'}`,
                         }}>
                         <span className="text-lg">{icons[opt] ?? '💳'}</span>
                         <span className="text-xs font-medium"
-                          style={{ color: selected ? '#0057b8' : '#374151' }}>{opt}</span>
+                          style={{ color: selected ? '#0057b8' : 'var(--color-text-secondary)' }}>{opt}</span>
                       </button>
                     )
                   })}
@@ -1173,13 +1173,13 @@ export function RequestSection() {
               </Field>
 
               {/* Summary */}
-              <div className="rounded-xl p-4" style={{ background: '#F9FAFB', border: '1px solid #E5E7EB' }}>
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wide" style={{ color: '#9CA3AF' }}>Application Summary</p>
-                <div className="space-y-1.5 text-xs" style={{ color: '#374151' }}>
-                  <div className="flex gap-2"><span style={{ color: '#9CA3AF', minWidth: 120 }}>Name</span><span>{form.name}</span></div>
-                  <div className="flex gap-2"><span style={{ color: '#9CA3AF', minWidth: 120 }}>Country</span><span>{form.homeCountry}</span></div>
-                  <div className="flex gap-2"><span style={{ color: '#9CA3AF', minWidth: 120 }}>Experience</span><span>{form.experienceLevel}</span></div>
-                  <div className="flex gap-2"><span style={{ color: '#9CA3AF', minWidth: 120 }}>Programs</span><span>{form.programs.map(id => PROGRAMS.find(p => p.id === id)?.label ?? id).join(', ')}</span></div>
+              <div className="rounded-xl p-4" style={{ background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)' }}>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>Application Summary</p>
+                <div className="space-y-1.5 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                  <div className="flex gap-2"><span style={{ color: 'var(--color-text-muted)', minWidth: 120 }}>Name</span><span>{form.name}</span></div>
+                  <div className="flex gap-2"><span style={{ color: 'var(--color-text-muted)', minWidth: 120 }}>Country</span><span>{form.homeCountry}</span></div>
+                  <div className="flex gap-2"><span style={{ color: 'var(--color-text-muted)', minWidth: 120 }}>Experience</span><span>{form.experienceLevel}</span></div>
+                  <div className="flex gap-2"><span style={{ color: 'var(--color-text-muted)', minWidth: 120 }}>Programs</span><span>{form.programs.map(id => PROGRAMS.find(p => p.id === id)?.label ?? id).join(', ')}</span></div>
                 </div>
               </div>
 
@@ -1189,19 +1189,19 @@ export function RequestSection() {
                 <input type="checkbox" id="terms" checked={form.termsAccepted}
                   onChange={e => set('termsAccepted', e.target.checked)}
                   className="mt-0.5 h-4 w-4 flex-shrink-0 cursor-pointer accent-blue-600" />
-                <label htmlFor="terms" className="text-xs cursor-pointer" style={{ color: '#374151' }}>
-                  I agree to the <a href="/terms" className="font-semibold underline" style={{ color: '#0057b8' }}>Terms & Conditions</a> and confirm that all information provided is accurate and complete.
+                <label htmlFor="terms" className="text-xs cursor-pointer" style={{ color: 'var(--color-text-secondary)' }}>
+                  I agree to the <a href="/terms" className="font-semibold underline" style={{ color: 'var(--color-primary)' }}>Terms & Conditions</a> and confirm that all information provided is accurate and complete.
                 </label>
               </div>
               {errors['termsAccepted'] && (
-                <p className="flex items-center gap-1 text-xs" style={{ color: '#DC2626' }}>
+                <p className="flex items-center gap-1 text-xs" style={{ color: 'var(--color-danger)' }}>
                   <AlertCircle size={11} />{errors['termsAccepted']}
                 </p>
               )}
 
               {errors['submit'] && (
                 <div className="flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-xs"
-                  style={{ background: '#FEE2E2', color: '#DC2626' }}>
+                  style={{ background: '#FEE2E2', color: 'var(--color-danger)' }}>
                   <AlertCircle size={13} />{errors['submit']}
                 </div>
               )}
@@ -1210,11 +1210,11 @@ export function RequestSection() {
         </>
 
         {/* Navigation buttons */}
-        <div className="mt-6 flex items-center justify-between border-t pt-5" style={{ borderColor: '#F3F4F6' }}>
+        <div className="mt-6 flex items-center justify-between border-t pt-5" style={{ borderColor: 'var(--color-border)' }}>
           <button type="button" onClick={() => { setStep(s => s - 1); setErrors({}) }}
             disabled={step === 0}
             className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-30"
-            style={{ color: '#6B7280', border: '1px solid #E5E7EB' }}>
+            style={{ color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}>
             <ChevronLeft size={14} />Back
           </button>
 
@@ -1222,7 +1222,7 @@ export function RequestSection() {
             <motion.button whileHover={{ y: -1 }} whileTap={{ scale: 0.97 }}
               type="button" onClick={handleNext}
               className="flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-bold text-white"
-              style={{ background: '#0057b8', boxShadow: '0 4px 14px rgba(0,87,184,0.28)' }}>
+              style={{ background: 'var(--color-primary)', boxShadow: '0 4px 14px rgba(0,87,184,0.28)' }}>
               Next<ChevronRight size={14} />
             </motion.button>
           ) : (
@@ -1230,7 +1230,7 @@ export function RequestSection() {
               type="button" onClick={handleSubmit}
               disabled={completeRegistration.isPending}
               className="flex items-center gap-2 rounded-xl px-6 py-2 text-sm font-bold text-white disabled:opacity-70"
-              style={{ background: '#0057b8', boxShadow: '0 4px 14px rgba(0,87,184,0.28)' }}>
+              style={{ background: 'var(--color-primary)', boxShadow: '0 4px 14px rgba(0,87,184,0.28)' }}>
               {completeRegistration.isPending ? (
                 <><Spinner size={14} />Submitting…</>
               ) : (

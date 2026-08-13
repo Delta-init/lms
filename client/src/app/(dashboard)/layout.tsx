@@ -14,7 +14,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { rightPanelOpen } = useUIStore()
 
   return (
-    <div className="min-h-screen" style={{ background: '#F4F5F8' }}>
+    <div className="min-h-screen" style={{ background: 'var(--color-bg-page)' }}>
       {/* Mobile drawer only — desktop sidebar removed */}
       <ClientSidebar />
 

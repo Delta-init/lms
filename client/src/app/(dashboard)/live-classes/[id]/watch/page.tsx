@@ -22,8 +22,8 @@ function StatusBadge({ status }: { status: string }) {
         animate={{ opacity: [1, 0.4, 1] }}
         transition={{ duration: 1.4, repeat: Infinity }}
         className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1 text-xs font-bold text-white"
-        style={{ background: '#EF4444' }}>
-        <span className="h-2 w-2 rounded-full bg-white" />
+        style={{ background: 'var(--color-danger)' }}>
+        <span className="h-2 w-2 rounded-full bg-[var(--color-bg-surface)]" />
         LIVE NOW
       </motion.span>
     )
@@ -31,14 +31,14 @@ function StatusBadge({ status }: { status: string }) {
   if (status === 'ended') {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1 text-xs font-bold"
-        style={{ background: 'rgba(34,197,94,0.12)', color: '#16A34A', border: '1px solid rgba(34,197,94,0.25)' }}>
+        style={{ background: 'rgba(34,197,94,0.12)', color: 'var(--color-success)', border: '1px solid rgba(34,197,94,0.25)' }}>
         <BookOpen size={11} />Recording
       </span>
     )
   }
   return (
     <span className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1 text-xs font-semibold"
-      style={{ background: '#F3F4F6', color: '#6B7280' }}>
+      style={{ background: 'var(--color-bg-subtle)', color: 'var(--color-text-muted)' }}>
       <Clock size={11} />Scheduled
     </span>
   )
@@ -48,14 +48,14 @@ function StatusBadge({ status }: { status: string }) {
 function ScheduledPlaceholder({ thumbnailUrl }: { thumbnailUrl?: string }) {
   return (
     <div className="flex aspect-video w-full flex-col items-center justify-center gap-4 rounded-2xl"
-      style={{ background: thumbnailUrl ? undefined : '#0D0F1A', position: 'relative', overflow: 'hidden' }}>
+      style={{ background: thumbnailUrl ? undefined : 'var(--color-text-primary)', position: 'relative', overflow: 'hidden' }}>
       {thumbnailUrl && (
         <img src={thumbnailUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-20" />
       )}
       <div className="relative z-10 flex flex-col items-center gap-3 text-center px-6">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl"
           style={{ background: 'rgba(0,87,184,0.15)', border: '1px solid rgba(0,87,184,0.25)' }}>
-          <Tv2 size={28} style={{ color: '#0057b8' }} />
+          <Tv2 size={28} style={{ color: 'var(--color-primary)' }} />
         </div>
         <p className="text-lg font-bold text-white">Stream hasn&apos;t started yet</p>
         <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
@@ -91,21 +91,21 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
       <div className="mx-auto max-w-xl py-20 text-center">
         <div className="flex h-16 w-16 mx-auto mb-4 items-center justify-center rounded-3xl"
           style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.18)' }}>
-          <AlertCircle size={24} style={{ color: '#EF4444' }} />
+          <AlertCircle size={24} style={{ color: 'var(--color-danger)' }} />
         </div>
-        <p className="text-lg font-bold" style={{ color: '#0D0F1A' }}>
+        <p className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
           {isNotEnrolled ? 'Enrollment required'
            : isCancelled ? 'Session cancelled'
            : 'Something went wrong'}
         </p>
-        <p className="mt-2 text-sm" style={{ color: '#6B7280' }}>
+        <p className="mt-2 text-sm" style={{ color: 'var(--color-text-muted)' }}>
           {isNotEnrolled ? 'You must be enrolled in this course to watch the live class.'
            : isCancelled  ? 'This session was cancelled by the instructor.'
            : 'We couldn\'t load the stream. Please try again.'}
         </p>
         <Link href="/live-classes"
           className="mt-6 inline-flex items-center gap-2 text-sm font-semibold transition-opacity hover:opacity-70"
-          style={{ color: '#0057b8' }}>
+          style={{ color: 'var(--color-primary)' }}>
           <ChevronLeft size={14} />Back to Live Classes
         </Link>
       </div>
@@ -120,7 +120,7 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
       <div className="mx-auto max-w-5xl">
         <Link href="/live-classes"
           className="mb-5 inline-flex items-center gap-1.5 text-sm font-semibold transition-opacity hover:opacity-70"
-          style={{ color: '#9CA3AF' }}>
+          style={{ color: 'var(--color-text-muted)' }}>
           <ChevronLeft size={14} />Live Classes
         </Link>
 
@@ -132,8 +132,8 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
               style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.18)' }}>
               <ExternalLink size={24} style={{ color: '#6366F1' }} />
             </div>
-            <p className="mt-4 text-lg font-bold" style={{ color: '#0D0F1A' }}>External live class</p>
-            <p className="mt-2 max-w-xs text-sm" style={{ color: '#6B7280' }}>
+            <p className="mt-4 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>External live class</p>
+            <p className="mt-2 max-w-xs text-sm" style={{ color: 'var(--color-text-muted)' }}>
               This session is hosted on an external platform. Click below to join.
             </p>
             <a href={data.meetingUrl} target="_blank" rel="noreferrer noopener"
@@ -147,9 +147,9 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
           {/* ── Right: homework + info ── */}
           <div className="flex flex-col gap-4">
             <div className="rounded-2xl p-4"
-              style={{ background: 'white', border: '1px solid #E5E7EB' }}>
-              <h2 className="text-sm font-bold" style={{ color: '#0D0F1A' }}>About this session</h2>
-              <div className="mt-2 flex items-center gap-2 text-xs" style={{ color: '#6B7280' }}>
+              style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)' }}>
+              <h2 className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>About this session</h2>
+              <div className="mt-2 flex items-center gap-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
                 <BookOpen size={12} />
                 <span>External · {data.status}</span>
               </div>
@@ -163,7 +163,7 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
 
             <Link href="/live-classes"
               className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold transition-colors hover:opacity-70"
-              style={{ background: '#F3F4F6', color: '#374151' }}>
+              style={{ background: 'var(--color-bg-subtle)', color: 'var(--color-text-secondary)' }}>
               <ChevronLeft size={13} />All live classes
             </Link>
           </div>
@@ -189,7 +189,7 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
       {/* Back nav */}
       <Link href="/live-classes"
         className="mb-5 inline-flex items-center gap-1.5 text-sm font-semibold transition-opacity hover:opacity-70"
-        style={{ color: '#9CA3AF' }}>
+        style={{ color: 'var(--color-text-muted)' }}>
         <ChevronLeft size={14} />Live Classes
       </Link>
 
@@ -220,19 +220,19 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
             <StatusBadge status={data.status} />
 
             {isLiveNow && data.viewerCount > 0 && (
-              <span className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: '#EF4444' }}>
+              <span className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: 'var(--color-danger)' }}>
                 <Users size={13} />{data.viewerCount.toLocaleString()} watching
               </span>
             )}
 
             {isScheduled && (
-              <span className="text-sm" style={{ color: '#6B7280' }}>
+              <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
                 This page refreshes automatically when the stream starts.
               </span>
             )}
 
             {isEnded && !data.recordingUrl && (
-              <span className="text-sm" style={{ color: '#6B7280' }}>
+              <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
                 Stream ended. Recording is being processed. Check back in a few minutes.
               </span>
             )}
@@ -242,9 +242,9 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
         {/* ── Right: info panel (chat placeholder — Phase 2) ── */}
         <div className="flex flex-col gap-4">
           <div className="rounded-2xl p-4"
-            style={{ background: 'white', border: '1px solid #E5E7EB' }}>
-            <h2 className="text-sm font-bold" style={{ color: '#0D0F1A' }}>About this session</h2>
-            <p className="mt-2 text-xs" style={{ color: '#6B7280' }}>
+            style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)' }}>
+            <h2 className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>About this session</h2>
+            <p className="mt-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
               {isLiveNow
                 ? 'You\'re watching live. The instructor can see the viewer count.'
                 : isEnded
@@ -257,10 +257,10 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
             {/* Live chat coming soon notice */}
             {isLiveNow && (
               <div className="mt-4 rounded-xl p-3 text-center"
-                style={{ background: '#F9FAFB', border: '1px dashed #E5E7EB' }}>
-                <Radio size={16} className="mx-auto mb-1.5" style={{ color: '#D1D5DB' }} />
-                <p className="text-xs font-semibold" style={{ color: '#9CA3AF' }}>Live chat</p>
-                <p className="mt-0.5 text-[11px]" style={{ color: '#D1D5DB' }}>Coming soon</p>
+                style={{ background: 'var(--color-bg-subtle)', border: '1px dashed var(--color-border)' }}>
+                <Radio size={16} className="mx-auto mb-1.5" style={{ color: 'var(--color-text-muted)' }} />
+                <p className="text-xs font-semibold" style={{ color: 'var(--color-text-muted)' }}>Live chat</p>
+                <p className="mt-0.5 text-[11px]" style={{ color: 'var(--color-text-muted)' }}>Coming soon</p>
               </div>
             )}
           </div>
@@ -274,7 +274,7 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
 
           <Link href="/live-classes"
             className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold transition-colors hover:opacity-70"
-            style={{ background: '#F3F4F6', color: '#374151' }}>
+            style={{ background: 'var(--color-bg-subtle)', color: 'var(--color-text-secondary)' }}>
             <ChevronLeft size={13} />All live classes
           </Link>
         </div>

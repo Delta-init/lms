@@ -22,10 +22,10 @@ export function ViewerBanner() {
         <Clock size={14} style={{ color: '#6366F1' }} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold" style={{ color: '#0D0F1A' }}>
+        <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
           Your account is pending approval
         </p>
-        <p className="text-xs" style={{ color: '#6B7280' }}>
+        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
           You can browse the platform, but course access and class bookings will be unlocked once an admin approves your account.
         </p>
       </div>

@@ -57,15 +57,15 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
     <>
       {/* ── Logo ─────────────────────────────── */}
       <div className="flex h-[60px] flex-shrink-0 items-center gap-3 px-4"
-        style={{ borderBottom: '1px solid #E4E7ED' }}>
+        style={{ borderBottom: '1px solid var(--color-border)' }}>
         <img
           src="/logo-dark.png"
           alt="Delta International"
           className="h-8 w-auto object-contain"
         />
         <button onClick={onClose}
-          className="ml-auto flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-blue-50"
-          style={{ color: '#0057b8' }}>
+          className="ml-auto flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-[var(--color-hover)]"
+          style={{ color: 'var(--color-primary)' }}>
           <X size={15} />
         </button>
       </div>
@@ -73,7 +73,7 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
       {/* ── Nav ──────────────────────────────── */}
       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2 py-4">
         <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-[0.15em]"
-          style={{ color: '#9CA3AF' }}>Menu</p>
+          style={{ color: 'var(--color-text-muted)' }}>Menu</p>
 
         {navItems.map((item, i) => {
           const active = isActive(item.href)
@@ -83,7 +83,7 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
               <Link href={item.href} onClick={onClose}>
                 <motion.div whileTap={{ scale: 0.97 }}
                   className="relative flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors"
-                  style={{ background: active ? 'rgba(0,87,184,0.08)' : 'transparent', color: active ? '#0057b8' : '#4B5563' }}>
+                  style={{ background: active ? 'rgba(0,87,184,0.08)' : 'transparent', color: active ? '#0057b8' : 'var(--color-text-secondary)' }}>
                   {active && (
                     <motion.div layoutId="mobile-sidebar-active" className="absolute inset-0 rounded-xl"
                       style={{ background: 'rgba(0,87,184,0.08)', border: '1px solid rgba(0,87,184,0.18)' }}
@@ -99,13 +99,13 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
       </nav>
 
       {/* ── Bottom ────────────────────────────── */}
-      <div className="flex-shrink-0 px-2 pb-4" style={{ borderTop: '1px solid #E4E7ED', paddingTop: 12 }}>
+      <div className="flex-shrink-0 px-2 pb-4" style={{ borderTop: '1px solid var(--color-border)', paddingTop: 12 }}>
         {bottomItems.map((item) => {
           const Icon = item.icon
           return (
             <Link key={item.href} href={item.href} onClick={onClose}>
-              <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-blue-50"
-                style={{ color: '#9CA3AF' }}>
+              <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-[var(--color-hover)]"
+                style={{ color: 'var(--color-text-muted)' }}>
                 <Icon size={17} strokeWidth={1.8} className="flex-shrink-0" />
                 <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
               </div>
@@ -115,20 +115,20 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
 
         {/* User row */}
         <div className="mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5"
-          style={{ background: '#F4F5F8', border: '1px solid #E4E7ED' }}>
+          style={{ background: 'var(--color-bg-page)', border: '1px solid var(--color-border)' }}>
           <div className="relative h-8 w-8 flex-shrink-0 overflow-hidden rounded-full">
             {hasAvatarImage
               ? <img src={user!.avatarUrl} alt="" className="h-full w-full object-cover" />
               : <div className="flex h-full w-full items-center justify-center text-xs font-bold text-white"
-                  style={{ background: '#0057b8' }}>{avatarInitial}</div>}
+                  style={{ background: 'var(--color-primary)' }}>{avatarInitial}</div>}
             <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white"
-              style={{ background: '#0ECC8E' }} />
+              style={{ background: 'var(--color-success)' }} />
           </div>
           {/* Tapping your own name should take you to your account, not sit
               inert next to a bare sign-out icon. */}
           <Link href="/settings" onClick={onClose} className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold" style={{ color: '#0D0F1A' }}>{displayName}</p>
-            <p className="truncate text-[10px]" style={{ color: '#9CA3AF' }}>{displayEmail}</p>
+            <p className="truncate text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>{displayName}</p>
+            <p className="truncate text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{displayEmail}</p>
           </Link>
           {/* An unlabelled icon beside your own name reads as "profile", which
               is why signing out felt like a bug rather than a button. */}
@@ -136,7 +136,7 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
             onClick={handleLogout}
             title="Sign out"
             aria-label="Sign out"
-            className="flex-shrink-0 transition-all hover:text-red-500" style={{ color: '#9CA3AF' }}>
+            className="flex-shrink-0 transition-all hover:text-red-500" style={{ color: 'var(--color-text-muted)' }}>
             <LogOut size={14} />
           </button>
         </div>
@@ -169,8 +169,8 @@ export function ClientSidebar() {
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="fixed left-0 top-0 z-50 flex h-screen w-[min(280px,85vw)] flex-col overflow-hidden bg-white"
-            style={{ borderRight: '1px solid #E4E7ED' }}>
+            className="fixed left-0 top-0 z-50 flex h-screen w-[min(280px,85vw)] flex-col overflow-hidden bg-[var(--color-bg-surface)]"
+            style={{ borderRight: '1px solid var(--color-border)' }}>
             <SidebarContent onClose={() => setMobileNav(false)} />
           </motion.aside>
         </>

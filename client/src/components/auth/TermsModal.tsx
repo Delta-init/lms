@@ -161,7 +161,7 @@ export function TermsModal({ open, onClose }: TermsModalProps) {
           >
             <div
               className="relative flex flex-col w-full max-w-2xl max-h-[88vh] rounded-2xl overflow-hidden"
-              style={{ background: '#fff', boxShadow: '0 24px 80px rgba(0,0,0,0.22)' }}
+              style={{ background: 'var(--color-bg-surface)', boxShadow: '0 24px 80px rgba(0,0,0,0.22)' }}
               onClick={e => e.stopPropagation()}
             >
               {/* Header */}
@@ -170,21 +170,21 @@ export function TermsModal({ open, onClose }: TermsModalProps) {
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl"
                       style={{ background: 'rgba(0,87,184,0.08)' }}>
-                      <ScrollText size={18} style={{ color: '#0057b8' }} />
+                      <ScrollText size={18} style={{ color: 'var(--color-primary)' }} />
                     </div>
                     <div>
-                      <h2 className="text-base font-bold" style={{ color: '#0D0F1A' }}>
+                      <h2 className="text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>
                         Terms &amp; Conditions
                       </h2>
-                      <p className="text-[11px]" style={{ color: '#9CA3AF' }}>
+                      <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
                         Delta International Management Development Training · Amended 10th May 2026
                       </p>
                     </div>
                   </div>
                   <button
                     onClick={onClose}
-                    className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
-                    style={{ color: '#6B7280' }}
+                    className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--color-bg-muted)]"
+                    style={{ color: 'var(--color-text-muted)' }}
                     aria-label="Close"
                   >
                     <X size={16} />
@@ -192,7 +192,7 @@ export function TermsModal({ open, onClose }: TermsModalProps) {
                 </div>
 
                 {/* Intro paragraph */}
-                <p className="mt-4 text-[12px] leading-relaxed" style={{ color: '#6B7280' }}>
+                <p className="mt-4 text-[12px] leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
                   The Terms and Conditions agreed herein govern the participation of the undersigned
                   student in any forex trading course or related course offered by Delta International
                   Management Development Training, an educational initiative providing instructional
@@ -210,9 +210,9 @@ export function TermsModal({ open, onClose }: TermsModalProps) {
                       <div className="flex items-center gap-2.5 mb-3">
                         <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg"
                           style={{ background: 'rgba(0,87,184,0.07)' }}>
-                          <Icon size={13} style={{ color: '#0057b8' }} />
+                          <Icon size={13} style={{ color: 'var(--color-primary)' }} />
                         </div>
-                        <h3 className="text-[13px] font-semibold" style={{ color: '#0D0F1A' }}>
+                        <h3 className="text-[13px] font-semibold" style={{ color: 'var(--color-text-primary)' }}>
                           {idx + 1}. {section.title}
                         </h3>
                       </div>
@@ -220,7 +220,7 @@ export function TermsModal({ open, onClose }: TermsModalProps) {
                       {/* Section paragraphs */}
                       <div className="space-y-2 pl-9">
                         {section.content.map((para, pIdx) => (
-                          <p key={pIdx} className="text-[12px] leading-relaxed" style={{ color: '#4B5563' }}>
+                          <p key={pIdx} className="text-[12px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
                             {para}
                           </p>
                         ))}
@@ -231,10 +231,10 @@ export function TermsModal({ open, onClose }: TermsModalProps) {
 
                 {/* Acknowledgement */}
                 <div className="rounded-xl p-4" style={{ background: 'rgba(0,87,184,0.05)', border: '1px solid rgba(0,87,184,0.14)' }}>
-                  <p className="text-[12px] font-semibold mb-1" style={{ color: '#0057b8' }}>
+                  <p className="text-[12px] font-semibold mb-1" style={{ color: 'var(--color-primary)' }}>
                     Acknowledgement and Acceptance
                   </p>
-                  <p className="text-[12px] leading-relaxed" style={{ color: '#4B5563' }}>
+                  <p className="text-[12px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
                     By submitting your registration form electronically, you confirm that you have read,
                     understood, and agreed to be legally bound by these Terms in full.
                   </p>
@@ -246,13 +246,13 @@ export function TermsModal({ open, onClose }: TermsModalProps) {
               {/* Footer */}
               <div className="flex-shrink-0 flex items-center justify-between gap-3 px-6 py-4"
                 style={{ borderTop: '1px solid #F0F2F5' }}>
-                <p className="text-[11px]" style={{ color: '#9CA3AF' }}>
+                <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
                   Last updated: 10 May 2026
                 </p>
                 <button
                   onClick={onClose}
                   className="rounded-xl px-5 py-2 text-xs font-semibold text-white transition-all hover:opacity-90 active:scale-95"
-                  style={{ background: '#0057b8' }}
+                  style={{ background: 'var(--color-primary)' }}
                 >
                   I Understand
                 </button>

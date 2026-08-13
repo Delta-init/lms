@@ -53,13 +53,13 @@ export function NotesPanel({ lessonId }: { lessonId: string }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: '#9CA3AF' }}>
+        <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--color-text-muted)' }}>
           Personal Note
         </p>
         <div className="flex items-center gap-1">
           {note && (
-            <button onClick={clear} className="rounded-lg p-1.5 transition-colors hover:bg-red-50">
-              <Trash2 size={12} style={{ color: '#EF4444' }} />
+            <button onClick={clear} className="rounded-lg p-1.5 transition-colors hover:bg-[var(--color-hover-danger)]">
+              <Trash2 size={12} style={{ color: 'var(--color-danger)' }} />
             </button>
           )}
           <button
@@ -81,22 +81,22 @@ export function NotesPanel({ lessonId }: { lessonId: string }) {
         placeholder="Type your notes for this lesson here… Only you can see these."
         className="h-64 w-full resize-none rounded-xl px-3 py-2.5 text-xs leading-relaxed outline-none"
         style={{
-          background: '#FAFAFA',
-          border:     `1px solid ${dirty ? '#0057b8' : '#E5E7EB'}`,
-          color:      '#0D0F1A',
+          background: 'var(--color-bg-inset)',
+          border:     `1px solid ${dirty ? '#0057b8' : 'var(--color-border)'}`,
+          color: 'var(--color-text-primary)',
         }}
       />
 
       {note?.updatedAt && (
-        <p className="text-[10px]" style={{ color: '#9CA3AF' }}>
+        <p className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
           Last saved {new Date(note.updatedAt).toLocaleString()}
         </p>
       )}
 
       {!body.trim() && !isLoading && (
         <div className="py-2 text-center">
-          <FileText size={20} className="mx-auto mb-1.5" style={{ color: '#E5E7EB' }} />
-          <p className="text-[11px]" style={{ color: '#9CA3AF' }}>
+          <FileText size={20} className="mx-auto mb-1.5" style={{ color: 'var(--color-border)' }} />
+          <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
             Start typing to create a note for this lesson.
           </p>
         </div>

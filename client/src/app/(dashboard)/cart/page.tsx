@@ -41,13 +41,13 @@ function CouponRow({
   return (
     <div className="flex items-center gap-2 mt-2">
       <div className="relative flex-1">
-        <Tag size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: '#9CA3AF' }} />
+        <Tag size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--color-text-muted)' }} />
         <input
           value={code}
           onChange={e => { setCode(e.target.value.toUpperCase()); setApplied(false) }}
           placeholder="Coupon code"
           className="w-full rounded-xl py-1.5 pl-8 pr-3 text-xs"
-          style={{ background: '#F4F5F8', border: '1px solid #E5E7EB', color: '#111827' }}
+          style={{ background: 'var(--color-bg-page)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
         />
       </div>
       <button
@@ -62,10 +62,10 @@ function CouponRow({
             : 'Apply'}
       </button>
       {isError && code.length >= 2 && (
-        <span className="text-[10px]" style={{ color: '#EF4444' }}>Invalid</span>
+        <span className="text-[10px]" style={{ color: 'var(--color-danger)' }}>Invalid</span>
       )}
       {data && !applied && (
-        <span className="text-[10px] font-semibold" style={{ color: '#16A34A' }}>
+        <span className="text-[10px] font-semibold" style={{ color: 'var(--color-success)' }}>
           {data.discountType === 'percent' ? `${data.discountValue}% off` : `$${data.discountValue / 100} off`}
         </span>
       )}
@@ -122,18 +122,18 @@ function CartItemCard({ item, onRemove }: { item: CartItem; onRemove: () => void
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -20, scale: 0.97 }}
       transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-      className="rounded-2xl bg-white p-4"
-      style={{ border: '1px solid #E5E7EB', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+      className="rounded-2xl bg-[var(--color-bg-surface)] p-4"
+      style={{ border: '1px solid var(--color-border)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
 
       <div className="flex gap-3">
         {/* Thumbnail */}
         <Link href={`/courses/${item.slug}`} className="flex-shrink-0">
           <div className="h-16 w-24 overflow-hidden rounded-xl"
-            style={{ background: '#F3F4F6' }}>
+            style={{ background: 'var(--color-bg-subtle)' }}>
             {item.thumbnailUrl
               ? <img src={item.thumbnailUrl} alt={item.title} className="h-full w-full object-cover" />
               : <div className="flex h-full w-full items-center justify-center">
-                  <BookOpen size={20} style={{ color: '#D1D5DB' }} />
+                  <BookOpen size={20} style={{ color: 'var(--color-text-muted)' }} />
                 </div>}
           </div>
         </Link>
@@ -144,17 +144,17 @@ function CartItemCard({ item, onRemove }: { item: CartItem; onRemove: () => void
             <div className="min-w-0">
               <Link href={`/courses/${item.slug}`}>
                 <h3 className="line-clamp-2 text-sm font-bold leading-snug hover:text-[#0057b8] transition-colors"
-                  style={{ color: '#111827' }}>
+                  style={{ color: 'var(--color-text-primary)' }}>
                   {item.title}
                 </h3>
               </Link>
               {item.instructorName && (
-                <p className="mt-0.5 text-xs" style={{ color: '#9CA3AF' }}>{item.instructorName}</p>
+                <p className="mt-0.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>{item.instructorName}</p>
               )}
             </div>
             <button onClick={onRemove} aria-label="Remove from cart"
-              className="flex-shrink-0 flex h-7 w-7 items-center justify-center rounded-xl transition-colors hover:bg-red-50"
-              style={{ color: '#D1D5DB' }}>
+              className="flex-shrink-0 flex h-7 w-7 items-center justify-center rounded-xl transition-colors hover:bg-[var(--color-hover-danger)]"
+              style={{ color: 'var(--color-text-muted)' }}>
               <X size={13} />
             </button>
           </div>
@@ -163,9 +163,9 @@ function CartItemCard({ item, onRemove }: { item: CartItem; onRemove: () => void
           <div className="mt-2.5 flex items-center justify-between gap-2 flex-wrap">
             <div>
               {isFree ? (
-                <span className="text-base font-bold" style={{ color: '#16A34A' }}>Free</span>
+                <span className="text-base font-bold" style={{ color: 'var(--color-success)' }}>Free</span>
               ) : (
-                <span className="text-base font-bold" style={{ color: '#111827' }}>
+                <span className="text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>
                   ${item.price}
                 </span>
               )}
@@ -176,7 +176,7 @@ function CartItemCard({ item, onRemove }: { item: CartItem; onRemove: () => void
                 <motion.button
                   whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                   className="flex items-center gap-1.5 rounded-xl px-4 py-1.5 text-xs font-bold text-white"
-                  style={{ background: '#22C55E' }}>
+                  style={{ background: 'var(--color-success)' }}>
                   <GraduationCap size={11} />Enroll Free
                 </motion.button>
               </Link>
@@ -187,7 +187,7 @@ function CartItemCard({ item, onRemove }: { item: CartItem; onRemove: () => void
                   onClick={handleBuy}
                   disabled={buying || checkout.isPending || abzerCheckout.isPending}
                   className="flex items-center gap-1.5 rounded-xl px-4 py-1.5 text-xs font-bold text-white disabled:opacity-60 transition-all"
-                  style={{ background: '#0057b8', boxShadow: '0 2px 8px rgba(0,87,184,0.25)' }}>
+                  style={{ background: 'var(--color-primary)', boxShadow: '0 2px 8px rgba(0,87,184,0.25)' }}>
                   {buying || checkout.isPending || abzerCheckout.isPending
                     ? <><Spinner size={11} />Processing…</>
                     : isUAE
@@ -231,7 +231,7 @@ function CartItemCard({ item, onRemove }: { item: CartItem; onRemove: () => void
       )}
 
       {checkout.isError && (
-        <p className="mt-2 flex items-center gap-1 text-xs" style={{ color: '#EF4444' }}>
+        <p className="mt-2 flex items-center gap-1 text-xs" style={{ color: 'var(--color-danger)' }}>
           <AlertCircle size={10} />
           {(checkout.error as any)?.message ?? 'Checkout failed. Please try again.'}
         </p>
@@ -257,16 +257,16 @@ export default function CartPage() {
         className="mb-6 flex items-center justify-between gap-4 flex-wrap">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <ShoppingCart size={14} style={{ color: '#0057b8' }} />
-            <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: '#0057b8' }}>
+            <ShoppingCart size={14} style={{ color: 'var(--color-primary)' }} />
+            <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--color-primary)' }}>
               Cart
             </span>
           </div>
-          <h1 className="text-2xl font-bold" style={{ color: '#111827', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
             Your Cart
             {items.length > 0 && (
               <span className="ml-2 inline-flex items-center justify-center rounded-lg px-2 py-0.5 text-sm font-bold"
-                style={{ background: '#F3F4F6', color: '#374151' }}>
+                style={{ background: 'var(--color-bg-subtle)', color: 'var(--color-text-secondary)' }}>
                 {items.length}
               </span>
             )}
@@ -275,8 +275,8 @@ export default function CartPage() {
 
         {items.length > 0 && (
           <button onClick={clearCart}
-            className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-red-50"
-            style={{ color: '#EF4444', border: '1px solid rgba(239,68,68,0.18)' }}>
+            className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-[var(--color-hover-danger)]"
+            style={{ color: 'var(--color-danger)', border: '1px solid rgba(239,68,68,0.18)' }}>
             <Trash2 size={11} />Clear all
           </button>
         )}
@@ -287,17 +287,17 @@ export default function CartPage() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
           className="flex flex-col items-center gap-4 py-20">
           <div className="flex h-20 w-20 items-center justify-center rounded-3xl"
-            style={{ background: '#F3F4F6', border: '1px solid #E5E7EB' }}>
-            <ShoppingCart size={32} style={{ color: '#D1D5DB' }} />
+            style={{ background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)' }}>
+            <ShoppingCart size={32} style={{ color: 'var(--color-text-muted)' }} />
           </div>
           <div className="text-center">
-            <p className="text-base font-bold" style={{ color: '#111827' }}>Your cart is empty</p>
-            <p className="mt-1 text-sm" style={{ color: '#9CA3AF' }}>Browse the catalog to find courses you love</p>
+            <p className="text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>Your cart is empty</p>
+            <p className="mt-1 text-sm" style={{ color: 'var(--color-text-muted)' }}>Browse the catalog to find courses you love</p>
           </div>
           <Link href="/courses">
             <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
               className="flex items-center gap-2 rounded-2xl px-6 py-2.5 text-sm font-bold text-white"
-              style={{ background: '#0057b8', boxShadow: '0 4px 14px rgba(0,87,184,0.30)' }}>
+              style={{ background: 'var(--color-primary)', boxShadow: '0 4px 14px rgba(0,87,184,0.30)' }}>
               <Sparkles size={14} />Browse Catalog
             </motion.button>
           </Link>
@@ -321,39 +321,39 @@ export default function CartPage() {
           <motion.div
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
             className="mt-4 rounded-2xl p-5"
-            style={{ background: 'white', border: '1px solid #E5E7EB', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-            <h2 className="mb-3 text-sm font-bold" style={{ color: '#111827' }}>Order Summary</h2>
+            style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+            <h2 className="mb-3 text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>Order Summary</h2>
 
             <div className="space-y-2 text-sm">
               {paidItems.length > 0 && (
-                <div className="flex justify-between" style={{ color: '#6B7280' }}>
+                <div className="flex justify-between" style={{ color: 'var(--color-text-muted)' }}>
                   <span>{paidItems.length} paid course{paidItems.length !== 1 ? 's' : ''}</span>
-                  <span className="font-semibold" style={{ color: '#111827' }}>${total.toFixed(2)}</span>
+                  <span className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>${total.toFixed(2)}</span>
                 </div>
               )}
               {freeItems.length > 0 && (
-                <div className="flex justify-between" style={{ color: '#6B7280' }}>
+                <div className="flex justify-between" style={{ color: 'var(--color-text-muted)' }}>
                   <span>{freeItems.length} free course{freeItems.length !== 1 ? 's' : ''}</span>
-                  <span className="font-semibold" style={{ color: '#16A34A' }}>Free</span>
+                  <span className="font-semibold" style={{ color: 'var(--color-success)' }}>Free</span>
                 </div>
               )}
             </div>
 
             {paidItems.length > 0 && (
               <div className="mt-3 flex items-center justify-between pt-3"
-                style={{ borderTop: '1px solid #F3F4F6' }}>
-                <span className="text-sm font-bold" style={{ color: '#111827' }}>Total</span>
-                <span className="text-xl font-bold" style={{ color: '#111827' }}>${total.toFixed(2)}</span>
+                style={{ borderTop: '1px solid var(--color-border)' }}>
+                <span className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>Total</span>
+                <span className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>${total.toFixed(2)}</span>
               </div>
             )}
 
-            <p className="mt-3 text-[11px] text-center" style={{ color: '#9CA3AF' }}>
+            <p className="mt-3 text-[11px] text-center" style={{ color: 'var(--color-text-muted)' }}>
               Each course has its own checkout. Click <strong>Checkout</strong> on individual paid courses above.
             </p>
 
-            <div className="mt-3 pt-3" style={{ borderTop: '1px solid #F3F4F6' }}>
+            <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--color-border)' }}>
               <Link href="/courses" className="flex items-center justify-center gap-1.5 text-xs font-semibold transition-colors hover:opacity-70"
-                style={{ color: '#0057b8' }}>
+                style={{ color: 'var(--color-primary)' }}>
                 <Sparkles size={11} />Continue shopping
               </Link>
             </div>

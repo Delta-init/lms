@@ -16,9 +16,9 @@ function AccountCard() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 rounded-2xl bg-white p-5" style={{ border: '1px solid #E5E7EB' }}>
+      <div className="flex items-center gap-2 rounded-2xl bg-[var(--color-bg-surface)] p-5" style={{ border: '1px solid var(--color-border)' }}>
         <Spinner size={16} />
-        <span className="text-sm" style={{ color: '#9CA3AF' }}>Loading account…</span>
+        <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Loading account…</span>
       </div>
     )
   }
@@ -32,8 +32,8 @@ function AccountCard() {
         {icon}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: '#9CA3AF' }}>{label}</p>
-        <div className="text-sm font-medium truncate" style={{ color: '#111827' }}>{value}</div>
+        <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>{label}</p>
+        <div className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>{value}</div>
       </div>
     </div>
   )
@@ -41,7 +41,7 @@ function AccountCard() {
   return (
     <motion.div
       initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-      className="rounded-2xl bg-white p-5"
+      className="rounded-2xl bg-[var(--color-bg-surface)] p-5"
       style={{ border: '1px solid rgba(0,87,184,0.18)', boxShadow: '0 1px 6px rgba(0,87,184,0.06)' }}
     >
       {/* Header */}
@@ -56,7 +56,7 @@ function AccountCard() {
         <Link
           href="/settings"
           className="text-xs font-medium transition-colors hover:underline"
-          style={{ color: '#0057b8' }}
+          style={{ color: 'var(--color-primary)' }}
         >
           Account settings
         </Link>
@@ -65,34 +65,34 @@ function AccountCard() {
       {/* Fields */}
       <div className="space-y-3">
         {field(
-          <User size={14} style={{ color: '#0057b8' }} />,
+          <User size={14} style={{ color: 'var(--color-primary)' }} />,
           'Full Name',
           user.name,
         )}
         {field(
-          <Mail size={14} style={{ color: '#0057b8' }} />,
+          <Mail size={14} style={{ color: 'var(--color-primary)' }} />,
           'Email Address',
           user.email,
         )}
         {field(
-          <Lock size={14} style={{ color: '#0057b8' }} />,
+          <Lock size={14} style={{ color: 'var(--color-primary)' }} />,
           'Password',
           <div className="flex items-center gap-2">
-            <span className="tracking-widest text-base leading-none" style={{ color: '#374151' }}>
+            <span className="tracking-widest text-base leading-none" style={{ color: 'var(--color-text-secondary)' }}>
               {showPw ? 'your-password' : '••••••••••'}
             </span>
             <button
               type="button"
               onClick={() => setShowPw(v => !v)}
               className="transition-colors hover:opacity-70"
-              style={{ color: '#9CA3AF' }}
+              style={{ color: 'var(--color-text-muted)' }}
             >
               {showPw ? <EyeOff size={13} /> : <Eye size={13} />}
             </button>
             <Link
               href="/settings?tab=profile"
               className="ml-1 text-xs font-medium transition-colors hover:underline"
-              style={{ color: '#0057b8' }}
+              style={{ color: 'var(--color-primary)' }}
             >
               Change
             </Link>
@@ -104,7 +104,7 @@ function AccountCard() {
       <div className="mt-4 rounded-xl px-3 py-2.5 text-xs" style={{
         background: 'rgba(0,87,184,0.04)',
         border: '1px solid rgba(0,87,184,0.10)',
-        color: '#374151',
+        color: 'var(--color-text-secondary)',
       }}>
         Complete the form below to upgrade your Express Account to full membership.
         Your name and email are locked — contact support to change them.
@@ -121,7 +121,7 @@ function PaymentBanner() {
     <motion.div
       initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
       className="rounded-2xl p-4 flex items-start gap-3"
-      style={{ background: 'linear-gradient(135deg,#EFF6FF,#DBEAFE)', border: '1.5px solid #93C5FD' }}
+      style={{ background: 'linear-gradient(135deg,var(--color-primary-light),#DBEAFE)', border: '1.5px solid #93C5FD' }}
     >
       <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl"
         style={{ background: '#DBEAFE', border: '1px solid #93C5FD' }}>
@@ -145,13 +145,13 @@ export default function CompleteRegistrationPage() {
 
       {/* Page header */}
       <div>
-        <div className="flex items-center gap-1.5 text-xs" style={{ color: '#9CA3AF' }}>
+        <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>
           <Link href="/my-learning" className="hover:underline">Home</Link>
           <ChevronRight size={12} />
-          <span style={{ color: '#374151' }}>Complete Registration</span>
+          <span style={{ color: 'var(--color-text-secondary)' }}>Complete Registration</span>
         </div>
-        <h1 className="mt-2 text-xl font-bold" style={{ color: '#111827' }}>Complete Your Registration</h1>
-        <p className="mt-0.5 text-sm" style={{ color: '#6B7280' }}>
+        <h1 className="mt-2 text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>Complete Your Registration</h1>
+        <p className="mt-0.5 text-sm" style={{ color: 'var(--color-text-muted)' }}>
           Fill in your details to unlock full access to courses, live classes, and bookings.
         </p>
       </div>

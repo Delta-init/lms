@@ -50,31 +50,31 @@ const PRICES: { key: PriceKey; label: string; min?: number; max?: number; free?:
 ]
 
 const CONTENT_TYPES = [
-  { value: 'all',    label: 'All',           color: '#6B7280', bg: '#F9FAFB' },
-  { value: 'course', label: 'Course',        color: '#2563EB', bg: '#EFF6FF' },
-  { value: 'quiz',   label: 'Quiz',          color: '#D97706', bg: '#FFFBEB' },
-  { value: 'path',   label: 'Learning Path', color: '#059669', bg: '#ECFDF5' },
+  { value: 'all',    label: 'All',           color: 'var(--color-text-muted)', bg: 'var(--color-bg-subtle)' },
+  { value: 'course', label: 'Course',        color: '#2563EB', bg: 'var(--color-primary-light)' },
+  { value: 'quiz',   label: 'Quiz',          color: '#D97706', bg: 'var(--color-primary-light)' },
+  { value: 'path',   label: 'Learning Path', color: 'var(--color-success)', bg: '#ECFDF5' },
   { value: 'page',   label: 'Page',          color: '#7C3AED', bg: '#F5F3FF' },
 ]
 
 const PROGRAM_FILTERS = [
   {
     id: 'all', label: 'All', icon: LayoutGrid,
-    color: '#374151',
-    activeGrad: '#374151',
+    color: 'var(--color-text-secondary)',
+    activeGrad: 'var(--color-text-secondary)',
     shadow: 'rgba(17,24,39,0.25)',
     ring: 'rgba(55,65,81,0.15)',
   },
   {
     id: '4x-trading', label: 'FOREX', icon: TrendingUp,
-    color: '#10B981',
+    color: 'var(--color-success)',
     activeGrad: '#10B981',
     shadow: 'rgba(16,185,129,0.35)',
     ring: 'rgba(16,185,129,0.15)',
   },
   {
     id: 'digital-marketing', label: 'Digital Marketing', icon: Megaphone,
-    color: '#0057b8',
+    color: 'var(--color-primary)',
     activeGrad: '#0057b8',
     shadow: 'rgba(0,87,184,0.35)',
     ring: 'rgba(0,87,184,0.15)',
@@ -98,8 +98,8 @@ const cardAnim = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, tran
 
 function TypeBadge({ type }: { type: string }) {
   const map: Record<string, { bg: string; color: string; dot: string }> = {
-    'Course':        { bg: '#EFF6FF', color: '#2563EB', dot: '#3B82F6' },
-    'Quiz':          { bg: '#FFFBEB', color: '#92400E', dot: '#F59E0B' },
+    'Course':        { bg: 'var(--color-primary-light)', color: '#2563EB', dot: '#3B82F6' },
+    'Quiz':          { bg: 'var(--color-primary-light)', color: '#92400E', dot: '#F59E0B' },
     'Learning Path': { bg: '#F0FDF4', color: '#166534', dot: '#22C55E' },
     'Page':          { bg: '#FDF4FF', color: '#7E22CE', dot: '#A855F7' },
   }
@@ -171,15 +171,15 @@ export default function CoursesPage() {
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 280, damping: 26 }} className="mb-5">
         <div className="flex items-center gap-2 mb-1">
-          <Sparkles size={13} style={{ color: '#0057b8' }} />
-          <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: '#0057b8' }}>Catalogue</span>
+          <Sparkles size={13} style={{ color: 'var(--color-primary)' }} />
+          <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--color-primary)' }}>Catalogue</span>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <h1 className="text-2xl font-bold" style={{ color: '#111827', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
             All Materials
           </h1>
           <span className="inline-flex items-center justify-center rounded-lg px-2 py-0.5 text-sm font-bold"
-            style={{ background: '#F3F4F6', color: '#374151' }}>
+            style={{ background: 'var(--color-bg-subtle)', color: 'var(--color-text-secondary)' }}>
             {total}
           </span>
         </div>
@@ -207,9 +207,9 @@ export default function CoursesPage() {
                   boxShadow: `0 6px 20px ${p.shadow}`,
                   border: '1.5px solid transparent',
                 } : {
-                  background: 'white',
-                  color: '#6B7280',
-                  border: '1.5px solid #E5E7EB',
+                  background: 'var(--color-bg-surface)',
+                  color: 'var(--color-text-muted)',
+                  border: '1.5px solid var(--color-border)',
                   boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                 }}
               >
@@ -229,16 +229,16 @@ export default function CoursesPage() {
         <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
           {/* Status tabs */}
           <div className="flex w-full sm:w-auto shrink-0 items-center gap-1 overflow-x-auto rounded-2xl p-1 scrollbar-none self-start"
-            style={{ background: '#F3F4F6' }}>
+            style={{ background: 'var(--color-bg-subtle)' }}>
             {STATUS_TABS.map(tab => (
               <MotionButton key={tab} onClick={() => setActiveTab(tab)}
                 variant="ghost"
                 size="sm"
                 className="relative rounded-xl px-3 py-1.5 text-sm font-semibold transition-colors whitespace-nowrap h-auto"
-                style={{ color: activeTab === tab ? '#111827' : '#9CA3AF' }}>
+                style={{ color: activeTab === tab ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>
                 {activeTab === tab && (
                   <motion.div layoutId="status-pill"
-                    className="absolute inset-0 rounded-xl bg-white"
+                    className="absolute inset-0 rounded-xl bg-[var(--color-bg-surface)]"
                     style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.10)' }}
                     transition={{ type: 'spring', stiffness: 500, damping: 35 }} />
                 )}
@@ -252,11 +252,11 @@ export default function CoursesPage() {
             {/* Search */}
             <div className="relative">
               <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                style={{ color: '#9CA3AF' }} />
+                style={{ color: 'var(--color-text-muted)' }} />
               <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
                 placeholder="Search…"
                 className="w-full sm:w-36 rounded-xl py-2 pl-9 pr-3 text-sm sm:transition-all sm:focus:w-48"
-                style={{ background: 'white', border: '1px solid #E5E7EB', color: '#111827' }} />
+                style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }} />
             </div>
 
             {/* Filter */}
@@ -264,12 +264,12 @@ export default function CoursesPage() {
               variant="outline"
               size="sm"
               className="relative flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold h-auto"
-              style={{ borderColor: showFilters ? '#0057b8' : '#E5E7EB', color: showFilters ? '#0057b8' : '#374151' }}>
+              style={{ borderColor: showFilters ? '#0057b8' : 'var(--color-border)', color: showFilters ? '#0057b8' : 'var(--color-text-secondary)' }}>
               <SlidersHorizontal size={13} />
               <span className="hidden sm:inline">Filters</span>
               {activeFilterCount > 0 && (
                 <span className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold"
-                  style={{ background: '#0057b8', color: 'white' }}>
+                  style={{ background: 'var(--color-primary)', color: 'white' }}>
                   {activeFilterCount}
                 </span>
               )}
@@ -281,7 +281,7 @@ export default function CoursesPage() {
                 variant="outline"
                 size="sm"
                 className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold h-auto"
-                style={{ borderColor: '#E5E7EB', color: '#374151' }}>
+                style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
                 <ChevronDown size={13} className={`transition-transform ${showSort ? 'rotate-180' : ''}`} />
                 <span className="hidden sm:inline">Sort</span>
               </MotionButton>
@@ -291,16 +291,16 @@ export default function CoursesPage() {
                     <div className="fixed inset-0 z-40" onClick={() => setShowSort(false)} />
                     <motion.div initial={{ opacity: 0, y: -8, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -8, scale: 0.96 }} transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-                      className="absolute right-0 top-full mt-1 w-52 rounded-2xl p-1.5 z-50 bg-white"
-                      style={{ border: '1px solid #E5E7EB', boxShadow: '0 16px 40px rgba(0,0,0,0.10)' }}>
+                      className="absolute right-0 top-full mt-1 w-52 rounded-2xl p-1.5 z-50 bg-[var(--color-bg-surface)]"
+                      style={{ border: '1px solid var(--color-border)', boxShadow: '0 16px 40px rgba(0,0,0,0.10)' }}>
                       {SORTS.map(s => (
                         <Button key={s.value} onClick={() => { setSort(s.value); setShowSort(false); setPage(1) }}
                           variant="ghost"
                           size="sm"
                           className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm h-auto"
-                          style={{ color: sort === s.value ? '#0057b8' : '#374151', fontWeight: sort === s.value ? 600 : 400 }}>
+                          style={{ color: sort === s.value ? '#0057b8' : 'var(--color-text-secondary)', fontWeight: sort === s.value ? 600 : 400 }}>
                           {s.label}
-                          {sort === s.value && <span className="h-1.5 w-1.5 rounded-full" style={{ background: '#0057b8' }} />}
+                          {sort === s.value && <span className="h-1.5 w-1.5 rounded-full" style={{ background: 'var(--color-primary)' }} />}
                         </Button>
                       ))}
                     </motion.div>
@@ -316,10 +316,10 @@ export default function CoursesPage() {
           {showFilters && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-              <div className="rounded-2xl bg-white p-4 space-y-3" style={{ border: '1px solid #E5E7EB' }}>
+              <div className="rounded-2xl bg-[var(--color-bg-surface)] p-4 space-y-3" style={{ border: '1px solid var(--color-border)' }}>
                 {/* Type */}
                 <div>
-                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>Type</p>
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>Type</p>
                   <div className="flex flex-wrap gap-2">
                     {CONTENT_TYPES.map(t => (
                       <Button key={t.value} onClick={() => setContentType(t.value)}
@@ -328,7 +328,7 @@ export default function CoursesPage() {
                         className="rounded-xl px-3 py-1.5 text-xs font-semibold h-auto transition-all"
                         style={contentType === t.value
                           ? { background: t.bg, color: t.color, border: `1px solid ${t.color}40` }
-                          : { background: '#F9FAFB', color: '#6B7280', border: '1px solid #E5E7EB' }}>
+                          : { background: 'var(--color-bg-subtle)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}>
                         {t.label}
                       </Button>
                     ))}
@@ -336,7 +336,7 @@ export default function CoursesPage() {
                 </div>
                 {/* Level */}
                 <div>
-                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>Level</p>
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>Level</p>
                   <div className="flex flex-wrap gap-2">
                     {LEVELS.map(l => (
                       <Button key={l} onClick={() => { setLevel(l); setPage(1) }}
@@ -344,8 +344,8 @@ export default function CoursesPage() {
                         size="sm"
                         className="rounded-xl px-3 py-1.5 text-xs font-semibold capitalize h-auto transition-all"
                         style={level === l
-                          ? { background: 'rgba(0,87,184,0.10)', color: '#0057b8', border: '1px solid rgba(0,87,184,0.28)' }
-                          : { background: '#F9FAFB', color: '#6B7280', border: '1px solid #E5E7EB' }}>
+                          ? { background: 'rgba(0,87,184,0.10)', color: 'var(--color-primary)', border: '1px solid rgba(0,87,184,0.28)' }
+                          : { background: 'var(--color-bg-subtle)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}>
                         {l === 'all' ? 'All levels' : l}
                       </Button>
                     ))}
@@ -353,7 +353,7 @@ export default function CoursesPage() {
                 </div>
                 {/* Category */}
                 <div>
-                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>Category</p>
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>Category</p>
                   <div className="flex flex-wrap gap-2">
                     {categories.map(c => (
                       <Button key={c} onClick={() => { setCategory(c); setPage(1) }}
@@ -362,7 +362,7 @@ export default function CoursesPage() {
                         className="rounded-xl px-3 py-1.5 text-xs font-semibold h-auto transition-all"
                         style={category === c
                           ? { background: 'rgba(99,102,241,0.10)', color: '#4F46E5', border: '1px solid rgba(99,102,241,0.28)' }
-                          : { background: '#F9FAFB', color: '#6B7280', border: '1px solid #E5E7EB' }}>
+                          : { background: 'var(--color-bg-subtle)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}>
                         {categoryLabel(c)}
                       </Button>
                     ))}
@@ -370,7 +370,7 @@ export default function CoursesPage() {
                 </div>
                 {/* Duration */}
                 <div>
-                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>Duration</p>
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>Duration</p>
                   <div className="flex flex-wrap gap-2">
                     {DURATIONS.map(d => (
                       <Button key={d.key} onClick={() => { setDuration(d.key); setPage(1) }}
@@ -379,7 +379,7 @@ export default function CoursesPage() {
                         className="rounded-xl px-3 py-1.5 text-xs font-semibold h-auto transition-all"
                         style={duration === d.key
                           ? { background: 'rgba(59,130,246,0.10)', color: '#2563EB', border: '1px solid rgba(59,130,246,0.28)' }
-                          : { background: '#F9FAFB', color: '#6B7280', border: '1px solid #E5E7EB' }}>
+                          : { background: 'var(--color-bg-subtle)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}>
                         {d.label}
                       </Button>
                     ))}
@@ -387,7 +387,7 @@ export default function CoursesPage() {
                 </div>
                 {/* Price */}
                 <div>
-                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>Price</p>
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>Price</p>
                   <div className="flex flex-wrap gap-2">
                     {PRICES.map(p => (
                       <Button key={p.key} onClick={() => { setPriceRange(p.key); setPage(1) }}
@@ -395,8 +395,8 @@ export default function CoursesPage() {
                         size="sm"
                         className="rounded-xl px-3 py-1.5 text-xs font-semibold h-auto transition-all"
                         style={priceRange === p.key
-                          ? { background: 'rgba(34,197,94,0.10)', color: '#16A34A', border: '1px solid rgba(34,197,94,0.28)' }
-                          : { background: '#F9FAFB', color: '#6B7280', border: '1px solid #E5E7EB' }}>
+                          ? { background: 'rgba(34,197,94,0.10)', color: 'var(--color-success)', border: '1px solid rgba(34,197,94,0.28)' }
+                          : { background: 'var(--color-bg-subtle)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}>
                         {p.label}
                       </Button>
                     ))}
@@ -405,15 +405,15 @@ export default function CoursesPage() {
                 {/* Instructor */}
                 {instructors.length > 0 && (
                   <div>
-                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>Instructor</p>
+                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>Instructor</p>
                     <div className="flex flex-wrap gap-2">
                       <Button
                         onClick={() => { setInstructor(''); setPage(1) }}
                         variant="ghost" size="sm"
                         className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold h-auto transition-all"
                         style={!instructor
-                          ? { background: 'rgba(0,87,184,0.10)', color: '#0057b8', border: '1px solid rgba(0,87,184,0.28)' }
-                          : { background: '#F9FAFB', color: '#6B7280', border: '1px solid #E5E7EB' }}>
+                          ? { background: 'rgba(0,87,184,0.10)', color: 'var(--color-primary)', border: '1px solid rgba(0,87,184,0.28)' }
+                          : { background: 'var(--color-bg-subtle)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}>
                         All instructors
                       </Button>
                       {instructors.map(ins => (
@@ -423,12 +423,12 @@ export default function CoursesPage() {
                           variant="ghost" size="sm"
                           className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold h-auto transition-all"
                           style={instructor === ins.id
-                            ? { background: 'rgba(0,87,184,0.10)', color: '#0057b8', border: '1px solid rgba(0,87,184,0.28)' }
-                            : { background: '#F9FAFB', color: '#6B7280', border: '1px solid #E5E7EB' }}>
+                            ? { background: 'rgba(0,87,184,0.10)', color: 'var(--color-primary)', border: '1px solid rgba(0,87,184,0.28)' }
+                            : { background: 'var(--color-bg-subtle)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}>
                           {ins.avatarUrl
                             ? <img src={ins.avatarUrl} alt="" className="h-4 w-4 rounded-full object-cover flex-shrink-0" />
                             : <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white"
-                                style={{ background: '#0057b8' }}>
+                                style={{ background: 'var(--color-primary)' }}>
                                 {ins.name[0]?.toUpperCase()}
                               </span>
                           }
@@ -439,14 +439,14 @@ export default function CoursesPage() {
                   </div>
                 )}
                 {/* Free toggle + clear */}
-                <div className="flex items-center gap-3 pt-1" style={{ borderTop: '1px solid #F3F4F6' }}>
+                <div className="flex items-center gap-3 pt-1" style={{ borderTop: '1px solid var(--color-border)' }}>
                   <Button onClick={() => { setFree(v => !v); setPage(1) }}
                     variant="ghost"
                     size="sm"
                     className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold h-auto transition-all"
                     style={free
-                      ? { background: 'rgba(34,197,94,0.10)', color: '#16A34A', border: '1px solid rgba(34,197,94,0.25)' }
-                      : { background: '#F9FAFB', color: '#6B7280', border: '1px solid #E5E7EB' }}>
+                      ? { background: 'rgba(34,197,94,0.10)', color: 'var(--color-success)', border: '1px solid rgba(34,197,94,0.25)' }
+                      : { background: 'var(--color-bg-subtle)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}>
                     {free ? '✓ ' : ''}Free only
                   </Button>
                   <Button onClick={() => {
@@ -457,7 +457,7 @@ export default function CoursesPage() {
                     variant="ghost"
                     size="sm"
                     className="flex items-center gap-1 text-xs font-semibold h-auto transition-colors hover:text-red-500"
-                    style={{ color: '#9CA3AF' }}>
+                    style={{ color: 'var(--color-text-muted)' }}>
                     <X size={11} />Clear all
                   </Button>
                 </div>
@@ -471,15 +471,15 @@ export default function CoursesPage() {
       {isLoading ? (
         <div className={`grid gap-4 ${gridCols}`}>
           {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="overflow-hidden rounded-2xl bg-white" style={{ border: '1px solid #E5E7EB' }}>
-              <div className="aspect-video animate-pulse" style={{ background: '#F3F4F6' }} />
+            <div key={i} className="overflow-hidden rounded-2xl bg-[var(--color-bg-surface)]" style={{ border: '1px solid var(--color-border)' }}>
+              <div className="aspect-video animate-pulse" style={{ background: 'var(--color-bg-subtle)' }} />
               <div className="space-y-2.5 p-4">
-                <div className="h-3.5 w-16 rounded animate-pulse" style={{ background: '#EFF6FF' }} />
-                <div className="h-4 w-4/5 rounded animate-pulse" style={{ background: '#F3F4F6' }} />
-                <div className="h-3 w-2/5 rounded animate-pulse" style={{ background: '#F9FAFB' }} />
+                <div className="h-3.5 w-16 rounded animate-pulse" style={{ background: 'var(--color-primary-light)' }} />
+                <div className="h-4 w-4/5 rounded animate-pulse" style={{ background: 'var(--color-bg-subtle)' }} />
+                <div className="h-3 w-2/5 rounded animate-pulse" style={{ background: 'var(--color-bg-subtle)' }} />
                 <div className="flex gap-2">
-                  <div className="h-5 w-16 rounded-lg animate-pulse" style={{ background: '#F3F4F6' }} />
-                  <div className="h-5 w-12 rounded-lg animate-pulse" style={{ background: '#F3F4F6' }} />
+                  <div className="h-5 w-16 rounded-lg animate-pulse" style={{ background: 'var(--color-bg-subtle)' }} />
+                  <div className="h-5 w-12 rounded-lg animate-pulse" style={{ background: 'var(--color-bg-subtle)' }} />
                 </div>
               </div>
             </div>
@@ -488,11 +488,11 @@ export default function CoursesPage() {
       ) : data?.docs.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4">
           <div className="flex h-16 w-16 items-center justify-center rounded-3xl"
-            style={{ background: '#F3F4F6', border: '1px solid #E5E7EB' }}>
-            <BookOpen size={24} style={{ color: '#D1D5DB' }} />
+            style={{ background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)' }}>
+            <BookOpen size={24} style={{ color: 'var(--color-text-muted)' }} />
           </div>
-          <p className="text-base font-bold" style={{ color: '#111827' }}>No courses found</p>
-          <p className="text-sm text-center" style={{ color: '#9CA3AF' }}>Try adjusting your filters or search query</p>
+          <p className="text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>No courses found</p>
+          <p className="text-sm text-center" style={{ color: 'var(--color-text-muted)' }}>Try adjusting your filters or search query</p>
           <Button onClick={() => {
             setSearch(''); setLevel('all'); setCategory('all'); setFree(false)
             setDuration('any'); setPriceRange('any')
@@ -500,7 +500,7 @@ export default function CoursesPage() {
             variant="ghost"
             size="sm"
             className="mt-1 rounded-xl px-5 py-2 text-sm font-semibold h-auto transition-colors hover:opacity-90"
-            style={{ background: 'rgba(0,87,184,0.10)', color: '#0057b8' }}>
+            style={{ background: 'rgba(0,87,184,0.10)', color: 'var(--color-primary)' }}>
             Clear filters
           </Button>
         </div>
@@ -523,7 +523,7 @@ export default function CoursesPage() {
             variant="outline"
             size="sm"
             className="rounded-xl px-4 py-2 text-sm font-semibold h-auto disabled:opacity-40"
-            style={{ borderColor: '#E5E7EB', color: '#374151' }}>
+            style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
             Previous
           </Button>
           {Array.from({ length: Math.min(data.meta.total_pages, 7) }, (_, i) => i + 1).map(p => (
@@ -532,8 +532,8 @@ export default function CoursesPage() {
               size="icon"
               className="h-9 w-9 rounded-xl text-sm font-semibold"
               style={p === page
-                ? { background: '#111827', color: 'white' }
-                : { color: '#6B7280', background: 'white', border: '1px solid #E5E7EB' }}>
+                ? { background: 'var(--color-text-primary)', color: 'var(--color-text-inverse)' }
+                : { color: 'var(--color-text-muted)', background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)' }}>
               {p}
             </Button>
           ))}
@@ -541,7 +541,7 @@ export default function CoursesPage() {
             variant="outline"
             size="sm"
             className="rounded-xl px-4 py-2 text-sm font-semibold h-auto disabled:opacity-40"
-            style={{ borderColor: '#E5E7EB', color: '#374151' }}>
+            style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
             Next
           </Button>
         </motion.div>
@@ -602,8 +602,8 @@ function MaterialCard({ course }: { course: Course }) {
         whileHover={{ y: -3, boxShadow: '0 16px 40px rgba(0,0,0,0.09)' }}
         whileTap={{ scale: 0.99 }}
         transition={{ type: 'spring', stiffness: 350, damping: 28 }}
-        className="group overflow-hidden rounded-2xl bg-white cursor-pointer h-full flex flex-col"
-        style={{ border: '1px solid #E5E7EB', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+        className="group overflow-hidden rounded-2xl bg-[var(--color-bg-surface)] cursor-pointer h-full flex flex-col"
+        style={{ border: '1px solid var(--color-border)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
 
         {/* ── Thumbnail ── */}
         <div className="relative aspect-video overflow-hidden flex-shrink-0">
@@ -611,8 +611,8 @@ function MaterialCard({ course }: { course: Course }) {
             ? <img src={course.thumbnailUrl} alt={course.title}
                 className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
             : <div className="flex h-full w-full items-center justify-center"
-                style={{ background: '#F3F4F6' }}>
-                <BookOpen size={28} style={{ color: '#D1D5DB' }} />
+                style={{ background: 'var(--color-bg-subtle)' }}>
+                <BookOpen size={28} style={{ color: 'var(--color-text-muted)' }} />
               </div>
           }
 
@@ -657,18 +657,18 @@ function MaterialCard({ course }: { course: Course }) {
           <div className="flex items-center justify-between gap-1 flex-wrap">
             <TypeBadge type="Course" />
             {course.ratingAvg >= 4.5 && (
-              <span className="text-[10px] font-semibold" style={{ color: '#F59E0B' }}>✦ Top Rated</span>
+              <span className="text-[10px] font-semibold" style={{ color: 'var(--color-warning)' }}>✦ Top Rated</span>
             )}
           </div>
 
           {/* Title */}
-          <h3 className="line-clamp-2 text-sm font-bold leading-snug" style={{ color: '#111827' }}>
+          <h3 className="line-clamp-2 text-sm font-bold leading-snug" style={{ color: 'var(--color-text-primary)' }}>
             {course.title}
           </h3>
 
           {/* Instructor */}
           {course.instructor && (
-            <p className="text-xs truncate" style={{ color: '#9CA3AF' }}>
+            <p className="text-xs truncate" style={{ color: 'var(--color-text-muted)' }}>
               {course.instructor.name}
             </p>
           )}
@@ -676,34 +676,34 @@ function MaterialCard({ course }: { course: Course }) {
           {/* Rating + enrolled */}
           <div className="flex items-center gap-2.5 text-xs flex-wrap">
             {course.ratingAvg > 0 && (
-              <span className="flex items-center gap-1 font-semibold" style={{ color: '#F59E0B' }}>
+              <span className="flex items-center gap-1 font-semibold" style={{ color: 'var(--color-warning)' }}>
                 <Star size={10} fill="#F59E0B" />{course.ratingAvg.toFixed(1)}
               </span>
             )}
-            <span className="flex items-center gap-1" style={{ color: '#9CA3AF' }}>
+            <span className="flex items-center gap-1" style={{ color: 'var(--color-text-muted)' }}>
               <Users size={10} />{course.enrolledCount.toLocaleString()}
             </span>
             {course.category && (
               <span className="rounded-md px-1.5 py-0.5 text-[10px] font-medium"
-                style={{ background: '#F3F4F6', color: '#6B7280' }}>{course.category.name}</span>
+                style={{ background: 'var(--color-bg-subtle)', color: 'var(--color-text-muted)' }}>{course.category.name}</span>
             )}
           </div>
 
           {/* ── Footer: price + action ── */}
           <div className="mt-auto flex items-center justify-between gap-2 pt-3"
-            style={{ borderTop: '1px solid #F3F4F6' }}>
+            style={{ borderTop: '1px solid var(--color-border)' }}>
 
             {/* Price */}
             <div>
               {isFree ? (
-                <span className="text-sm font-bold" style={{ color: '#16A34A' }}>Free</span>
+                <span className="text-sm font-bold" style={{ color: 'var(--color-success)' }}>Free</span>
               ) : (
-                <span className="text-sm font-bold" style={{ color: '#111827' }}>
+                <span className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>
                   ${course.price ?? 0}
                 </span>
               )}
               {course.level && (
-                <p className="text-[10px] capitalize" style={{ color: '#9CA3AF' }}>{course.level}</p>
+                <p className="text-[10px] capitalize" style={{ color: 'var(--color-text-muted)' }}>{course.level}</p>
               )}
             </div>
 
@@ -717,10 +717,10 @@ function MaterialCard({ course }: { course: Course }) {
               size="sm"
               className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[11px] font-bold whitespace-nowrap h-auto disabled:opacity-70"
               style={(isEnrolled || (!isFree && inCart))
-                ? { background: '#F0FDF4', color: '#16A34A', border: '1px solid rgba(34,197,94,0.28)' }
+                ? { background: '#F0FDF4', color: 'var(--color-success)', border: '1px solid rgba(34,197,94,0.28)' }
                 : isFree
-                  ? { background: '#22C55E', color: 'white', boxShadow: '0 2px 8px rgba(34,197,94,0.25)' }
-                  : { background: '#0057b8', color: 'white', boxShadow: '0 2px 8px rgba(0,87,184,0.25)' }
+                  ? { background: 'var(--color-success)', color: 'white', boxShadow: '0 2px 8px rgba(34,197,94,0.25)' }
+                  : { background: 'var(--color-primary)', color: 'white', boxShadow: '0 2px 8px rgba(0,87,184,0.25)' }
               }>
               {isEnrolled
                 ? <><Check size={10} />Enrolled</>

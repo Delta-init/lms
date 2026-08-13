@@ -257,11 +257,11 @@ function getStrength(pw: string) {
   if (/[0-9]/.test(pw))        s++
   if (/[^A-Za-z0-9]/.test(pw)) s++
   const map = [
-    { label: '',       color: '#E4E7ED' },
-    { label: 'Weak',   color: '#EF4444' },
-    { label: 'Fair',   color: '#F59E0B' },
-    { label: 'Good',   color: '#0057b8' },
-    { label: 'Strong', color: '#10B981' },
+    { label: '',       color: 'var(--color-border)' },
+    { label: 'Weak',   color: 'var(--color-danger)' },
+    { label: 'Fair',   color: 'var(--color-warning)' },
+    { label: 'Good',   color: 'var(--color-primary)' },
+    { label: 'Strong', color: 'var(--color-success)' },
   ]
   return { score: s, ...map[s] }
 }
@@ -316,13 +316,13 @@ function extractLocalPhone(full: string): string {
 
 /* ── Design tokens ─────────────────────────────────── */
 const inputBase = cn(
-  'w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 outline-none transition-all',
-  'placeholder:text-gray-400',
-  'hover:border-gray-300',
+  'w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-3.5 py-2.5 text-sm text-[var(--color-text-primary)] outline-none transition-all',
+  'placeholder:text-[var(--color-text-muted)]',
+  'hover:border-[var(--color-border-strong)]',
   'focus:border-blue-500 focus:ring-2 focus:ring-blue-100',
 )
 const inputErr = cn(
-  'w-full rounded-xl border border-red-300 bg-red-50 px-3.5 py-2.5 text-sm text-gray-900 outline-none transition-all',
+  'w-full rounded-xl border border-red-300 bg-red-50 px-3.5 py-2.5 text-sm text-[var(--color-text-primary)] outline-none transition-all',
   'placeholder:text-red-300',
   'focus:border-red-400 focus:ring-2 focus:ring-red-100',
 )
@@ -331,7 +331,7 @@ const inputErr = cn(
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[12.5px] font-semibold text-gray-600 tracking-wide">{label}</label>
+      <label className="text-[12.5px] font-semibold text-[var(--color-text-secondary)] tracking-wide">{label}</label>
       {children}
       <AnimatePresence>
         {error && (
@@ -367,11 +367,11 @@ function Select({ error, children, ...props }: { error?: string } & React.Select
         className={cn(
           error ? inputErr : inputBase,
           'appearance-none cursor-pointer pr-9',
-          !props.value && 'text-gray-400',
+          !props.value && 'text-[var(--color-text-muted)]',
         )}>
         {children}
       </select>
-      <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
+      <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
     </div>
   )
 }
@@ -398,29 +398,29 @@ function CustomSelect({ options, value, onChange, error, placeholder, icon: Fiel
   }, [])
 
   const triggerCls = cn(
-    'flex w-full items-center gap-2.5 rounded-xl border bg-white px-3.5 py-2.5 text-left text-sm transition-all duration-150',
+    'flex w-full items-center gap-2.5 rounded-xl border bg-[var(--color-bg-surface)] px-3.5 py-2.5 text-left text-sm transition-all duration-150',
     error
       ? open ? 'border-red-400 ring-2 ring-red-100' : 'border-red-300 bg-red-50'
-      : open ? 'border-blue-500 ring-2 ring-blue-100' : 'border-gray-200 hover:border-gray-300'
+      : open ? 'border-blue-500 ring-2 ring-blue-100' : 'border-[var(--color-border)] hover:border-[var(--color-border-strong)]'
   )
 
   return (
     <div ref={wrapRef} className="relative">
       <button type="button" onClick={() => setOpen(o => !o)} className={triggerCls}>
         {FieldIcon && !selected?.icon && (
-          <FieldIcon size={14} className="flex-shrink-0 text-gray-400" />
+          <FieldIcon size={14} className="flex-shrink-0 text-[var(--color-text-muted)]" />
         )}
         {selected ? (
           <>
             {selected.icon && (
               <span style={{ fontSize: 16, lineHeight: 1, flexShrink: 0 }}>{selected.icon}</span>
             )}
-            <span className="flex-1 truncate font-medium text-gray-900">{selected.label}</span>
+            <span className="flex-1 truncate font-medium text-[var(--color-text-primary)]">{selected.label}</span>
           </>
         ) : (
-          <span className="flex-1 truncate text-gray-400">{placeholder ?? 'Select…'}</span>
+          <span className="flex-1 truncate text-[var(--color-text-muted)]">{placeholder ?? 'Select…'}</span>
         )}
-        <ChevronDown size={13} className={cn('flex-shrink-0 text-gray-400 transition-transform duration-150', open && 'rotate-180')} />
+        <ChevronDown size={13} className={cn('flex-shrink-0 text-[var(--color-text-muted)] transition-transform duration-150', open && 'rotate-180')} />
       </button>
 
       <AnimatePresence>
@@ -430,18 +430,18 @@ function CustomSelect({ options, value, onChange, error, placeholder, icon: Fiel
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.98 }}
             transition={{ duration: 0.12 }}
-            className="absolute left-0 right-0 top-full z-[999] mt-1.5 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
+            className="absolute left-0 right-0 top-full z-[999] mt-1.5 overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-surface)] shadow-xl">
             {options.map(opt => (
               <button key={opt.value} type="button"
                 onClick={() => { onChange(opt.value); setOpen(false) }}
                 className={cn(
                   'flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm transition-colors',
-                  opt.value === value ? 'bg-blue-50' : 'hover:bg-gray-50'
+                  opt.value === value ? 'bg-blue-50' : 'hover:bg-[var(--color-bg-muted)]'
                 )}>
                 {opt.icon && (
                   <span style={{ fontSize: 16, lineHeight: 1, flexShrink: 0 }}>{opt.icon}</span>
                 )}
-                <span className={cn('flex-1', opt.value === value ? 'font-semibold text-blue-700' : 'text-gray-700')}>
+                <span className={cn('flex-1', opt.value === value ? 'font-semibold text-blue-700' : 'text-[var(--color-text-secondary)]')}>
                   {opt.label}
                 </span>
                 {opt.value === value && <Check size={13} className="flex-shrink-0 text-blue-600" />}
@@ -526,21 +526,21 @@ function DatePicker({ value, onChange, error, min, max, placeholder = 'Select da
     : ''
 
   const triggerCls = cn(
-    'flex w-full items-center gap-2.5 rounded-xl border bg-white px-3.5 py-2.5 text-left text-sm transition-all duration-150',
+    'flex w-full items-center gap-2.5 rounded-xl border bg-[var(--color-bg-surface)] px-3.5 py-2.5 text-left text-sm transition-all duration-150',
     error
       ? open ? 'border-red-400 ring-2 ring-red-100' : 'border-red-300 bg-red-50'
-      : open ? 'border-blue-500 ring-2 ring-blue-100' : 'border-gray-200 hover:border-gray-300'
+      : open ? 'border-blue-500 ring-2 ring-blue-100' : 'border-[var(--color-border)] hover:border-[var(--color-border-strong)]'
   )
 
   return (
     <div ref={wrapRef} className="relative">
       <button type="button" onClick={handleOpen} className={triggerCls}>
-        <Calendar size={14} className="flex-shrink-0 text-gray-400" />
+        <Calendar size={14} className="flex-shrink-0 text-[var(--color-text-muted)]" />
         {displayValue
-          ? <span className="flex-1 font-medium text-gray-900">{displayValue}</span>
-          : <span className="flex-1 text-gray-400">{placeholder}</span>
+          ? <span className="flex-1 font-medium text-[var(--color-text-primary)]">{displayValue}</span>
+          : <span className="flex-1 text-[var(--color-text-muted)]">{placeholder}</span>
         }
-        <ChevronDown size={13} className={cn('flex-shrink-0 text-gray-400 transition-transform duration-150', open && 'rotate-180')} />
+        <ChevronDown size={13} className={cn('flex-shrink-0 text-[var(--color-text-muted)] transition-transform duration-150', open && 'rotate-180')} />
       </button>
 
       <AnimatePresence>
@@ -550,28 +550,28 @@ function DatePicker({ value, onChange, error, min, max, placeholder = 'Select da
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.98 }}
             transition={{ duration: 0.12 }}
-            className="absolute left-0 top-full z-[999] mt-1.5 w-72 select-none overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
+            className="absolute left-0 top-full z-[999] mt-1.5 w-72 select-none overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-surface)] shadow-2xl">
 
             {mode === 'day' && (<>
               <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid #F1F3F8' }}>
                 <button type="button" onClick={prevMonth}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700">
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text-secondary)]">
                   <ChevronLeft size={14} />
                 </button>
                 <button type="button"
                   onClick={() => { setYearPage(Math.floor(viewYear/12)*12); setMode('year') }}
-                  className="flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-bold text-gray-800 transition-colors hover:bg-gray-100">
+                  className="flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-bold text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-muted)]">
                   {MONTHS_LONG[viewMonth]} {viewYear}
-                  <ChevronDown size={11} className="text-gray-400" />
+                  <ChevronDown size={11} className="text-[var(--color-text-muted)]" />
                 </button>
                 <button type="button" onClick={nextMonth}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700">
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text-secondary)]">
                   <ChevronRight size={14} />
                 </button>
               </div>
               <div className="grid grid-cols-7 px-3 pt-3 pb-1">
                 {WEEK_DAYS.map(d => (
-                  <div key={d} className="flex items-center justify-center text-[10px] font-bold uppercase tracking-wide text-gray-400">{d}</div>
+                  <div key={d} className="flex items-center justify-center text-[10px] font-bold uppercase tracking-wide text-[var(--color-text-muted)]">{d}</div>
                 ))}
               </div>
               <div className="grid grid-cols-7 gap-y-0.5 px-3 pb-3">
@@ -583,9 +583,9 @@ function DatePicker({ value, onChange, error, min, max, placeholder = 'Select da
                       className={cn(
                         'mx-auto flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium transition-all',
                         sel  ? 'bg-blue-600 text-white shadow-sm shadow-blue-200'
-                        : tod ? 'border-2 border-blue-500 text-blue-600 hover:bg-blue-50'
+                        : tod ? 'border-2 border-blue-500 text-blue-600 hover:bg-[var(--color-hover)]'
                         : dis ? 'cursor-not-allowed text-gray-200'
-                        :       'text-gray-700 hover:bg-gray-100'
+                        :       'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-muted)]'
                       )}>
                       {d.getDate()}
                     </button>
@@ -594,11 +594,11 @@ function DatePicker({ value, onChange, error, min, max, placeholder = 'Select da
               </div>
               <div className="flex items-center justify-between px-4 py-2.5" style={{ borderTop: '1px solid #F1F3F8' }}>
                 <button type="button" onClick={() => onChange('')}
-                  className="text-xs text-gray-400 transition-colors hover:text-red-400">Clear</button>
+                  className="text-xs text-[var(--color-text-muted)] transition-colors hover:text-red-400">Clear</button>
                 <button type="button"
                   onClick={() => !isDisabled(todayObj) && handleSelect(todayObj)}
                   className={cn('text-xs font-semibold transition-colors',
-                    isDisabled(todayObj) ? 'cursor-not-allowed text-gray-300' : 'text-blue-600 hover:text-blue-700')}>
+                    isDisabled(todayObj) ? 'cursor-not-allowed text-[var(--color-text-muted)]' : 'text-blue-600 hover:text-blue-700')}>
                   Today
                 </button>
               </div>
@@ -607,12 +607,12 @@ function DatePicker({ value, onChange, error, min, max, placeholder = 'Select da
             {mode === 'year' && (<>
               <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid #F1F3F8' }}>
                 <button type="button" onClick={() => setYearPage(p => p - 12)}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100">
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-muted)]">
                   <ChevronLeft size={14} />
                 </button>
-                <span className="text-sm font-bold text-gray-800">{yearPage} – {yearPage + 11}</span>
+                <span className="text-sm font-bold text-[var(--color-text-primary)]">{yearPage} – {yearPage + 11}</span>
                 <button type="button" onClick={() => setYearPage(p => p + 12)}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100">
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-muted)]">
                   <ChevronRight size={14} />
                 </button>
               </div>
@@ -622,14 +622,14 @@ function DatePicker({ value, onChange, error, min, max, placeholder = 'Select da
                     onClick={() => { setViewYear(yr); setMode('month') }}
                     className={cn(
                       'rounded-xl py-2.5 text-sm font-semibold transition-all',
-                      yr === viewYear ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'
+                      yr === viewYear ? 'bg-blue-600 text-white shadow-sm' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-muted)]'
                     )}>
                     {yr}
                   </button>
                 ))}
               </div>
               <button type="button" onClick={() => setMode('day')}
-                className="w-full py-2 text-xs text-gray-400 transition-colors hover:text-gray-600"
+                className="w-full py-2 text-xs text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-secondary)]"
                 style={{ borderTop: '1px solid #F1F3F8' }}>
                 ← Back to calendar
               </button>
@@ -638,12 +638,12 @@ function DatePicker({ value, onChange, error, min, max, placeholder = 'Select da
             {mode === 'month' && (<>
               <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid #F1F3F8' }}>
                 <button type="button" onClick={() => setViewYear(y => y - 1)}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100">
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-muted)]">
                   <ChevronLeft size={14} />
                 </button>
-                <span className="text-sm font-bold text-gray-800">{viewYear}</span>
+                <span className="text-sm font-bold text-[var(--color-text-primary)]">{viewYear}</span>
                 <button type="button" onClick={() => setViewYear(y => y + 1)}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100">
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-muted)]">
                   <ChevronRight size={14} />
                 </button>
               </div>
@@ -657,14 +657,14 @@ function DatePicker({ value, onChange, error, min, max, placeholder = 'Select da
                         ? 'bg-blue-600 text-white shadow-sm'
                         : i === viewMonth
                         ? 'border border-blue-300 text-blue-600'
-                        : 'text-gray-600 hover:bg-gray-100'
+                        : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-muted)]'
                     )}>
                     {m}
                   </button>
                 ))}
               </div>
               <button type="button" onClick={() => setMode('year')}
-                className="w-full py-2 text-xs text-gray-400 transition-colors hover:text-gray-600"
+                className="w-full py-2 text-xs text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-secondary)]"
                 style={{ borderTop: '1px solid #F1F3F8' }}>
                 ← Back to years
               </button>
@@ -727,10 +727,10 @@ function PhoneInput({ value, onChange, error, placeholder = '50 000 0000' }: {
 
   const isActive = open || focused
   const wrapCls = cn(
-    'flex rounded-xl border bg-white transition-all duration-150',
+    'flex rounded-xl border bg-[var(--color-bg-surface)] transition-all duration-150',
     hasErr
       ? isActive ? 'border-red-400 ring-2 ring-red-100' : 'border-red-300'
-      : isActive ? 'border-blue-500 ring-2 ring-blue-100' : 'border-gray-200 hover:border-gray-300'
+      : isActive ? 'border-blue-500 ring-2 ring-blue-100' : 'border-[var(--color-border)] hover:border-[var(--color-border-strong)]'
   )
 
   return (
@@ -738,11 +738,11 @@ function PhoneInput({ value, onChange, error, placeholder = '50 000 0000' }: {
       <div className={wrapCls}>
         {/* Flag + dial code button */}
         <button type="button" onClick={() => setOpen(o => !o)}
-          className="flex flex-shrink-0 items-center gap-1.5 rounded-l-xl bg-gray-50 px-3 py-2.5 transition-colors hover:bg-gray-100"
-          style={{ borderRight: '1px solid #E5E7EB' }}>
+          className="flex flex-shrink-0 items-center gap-1.5 rounded-l-xl bg-[var(--color-bg-muted)] px-3 py-2.5 transition-colors hover:bg-[var(--color-bg-muted)]"
+          style={{ borderRight: '1px solid var(--color-border)' }}>
           <span style={{ fontSize: 16, lineHeight: 1 }}>{selectedCountry.flag}</span>
-          <span className="text-sm font-semibold text-gray-700 tabular-nums">{parsed.dial}</span>
-          <ChevronDown size={11} className={cn('text-gray-400 transition-transform duration-150', open && 'rotate-180')} />
+          <span className="text-sm font-semibold text-[var(--color-text-secondary)] tabular-nums">{parsed.dial}</span>
+          <ChevronDown size={11} className={cn('text-[var(--color-text-muted)] transition-transform duration-150', open && 'rotate-180')} />
         </button>
 
         {/* Number input */}
@@ -753,7 +753,7 @@ function PhoneInput({ value, onChange, error, placeholder = '50 000 0000' }: {
           onChange={e => handleLocal(e.target.value)}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          className="min-w-0 flex-1 rounded-r-xl bg-white px-3 py-2.5 text-sm text-gray-900 outline-none placeholder:text-gray-400"
+          className="min-w-0 flex-1 rounded-r-xl bg-[var(--color-bg-surface)] px-3 py-2.5 text-sm text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-muted)]"
         />
       </div>
 
@@ -764,17 +764,17 @@ function PhoneInput({ value, onChange, error, placeholder = '50 000 0000' }: {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.98 }}
             transition={{ duration: 0.12 }}
-            className="absolute left-0 top-full z-[999] mt-1.5 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl"
+            className="absolute left-0 top-full z-[999] mt-1.5 overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-surface)] shadow-xl"
             style={{ width: 300 }}>
             {/* Search */}
-            <div className="border-b border-gray-100 p-2.5">
-              <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5">
-                <Search size={12} className="text-gray-400 flex-shrink-0" />
+            <div className="border-b border-[var(--color-border)] p-2.5">
+              <div className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-muted)] px-2.5 py-1.5">
+                <Search size={12} className="text-[var(--color-text-muted)] flex-shrink-0" />
                 <input ref={searchRef} value={search} onChange={e => setSearch(e.target.value)}
                   placeholder="Search country or code…"
-                  className="flex-1 bg-transparent text-xs text-gray-700 outline-none placeholder:text-gray-400" />
+                  className="flex-1 bg-transparent text-xs text-[var(--color-text-secondary)] outline-none placeholder:text-[var(--color-text-muted)]" />
                 {search && (
-                  <button type="button" onClick={() => setSearch('')} className="text-gray-400 hover:text-gray-600">
+                  <button type="button" onClick={() => setSearch('')} className="text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]">
                     <X size={11} />
                   </button>
                 )}
@@ -783,16 +783,16 @@ function PhoneInput({ value, onChange, error, placeholder = '50 000 0000' }: {
             {/* List */}
             <div className="overflow-y-auto" style={{ maxHeight: 220 }}>
               {filtered.length === 0
-                ? <p className="py-5 text-center text-xs text-gray-400">No results</p>
+                ? <p className="py-5 text-center text-xs text-[var(--color-text-muted)]">No results</p>
                 : filtered.map(c => (
                   <button key={c.name} type="button" onClick={() => handleDial(c.dial)}
                     className={cn(
                       'flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors',
-                      c.dial === parsed.dial ? 'bg-blue-50' : 'hover:bg-gray-50'
+                      c.dial === parsed.dial ? 'bg-blue-50' : 'hover:bg-[var(--color-bg-muted)]'
                     )}>
                     <span style={{ fontSize: 16, lineHeight: 1, flexShrink: 0 }}>{c.flag}</span>
-                    <span className="flex-1 truncate text-xs text-gray-700">{c.name}</span>
-                    <span className="font-mono text-[10px] text-gray-400">{c.dial}</span>
+                    <span className="flex-1 truncate text-xs text-[var(--color-text-secondary)]">{c.name}</span>
+                    <span className="font-mono text-[10px] text-[var(--color-text-muted)]">{c.dial}</span>
                     {c.dial === parsed.dial && <Check size={11} className="flex-shrink-0 text-blue-600" />}
                   </button>
                 ))}
@@ -832,10 +832,10 @@ function CountryPicker({ value, onChange, error, placeholder = 'Search and selec
   }, [open])
 
   const triggerCls = cn(
-    'flex w-full items-center gap-2 rounded-xl border bg-white px-3.5 py-2.5 text-left text-sm transition-all duration-150',
+    'flex w-full items-center gap-2 rounded-xl border bg-[var(--color-bg-surface)] px-3.5 py-2.5 text-left text-sm transition-all duration-150',
     hasErr
       ? open ? 'border-red-400 ring-2 ring-red-100' : 'border-red-300 bg-red-50'
-      : open ? 'border-blue-500 ring-2 ring-blue-100' : 'border-gray-200 hover:border-gray-300'
+      : open ? 'border-blue-500 ring-2 ring-blue-100' : 'border-[var(--color-border)] hover:border-[var(--color-border-strong)]'
   )
 
   return (
@@ -844,12 +844,12 @@ function CountryPicker({ value, onChange, error, placeholder = 'Search and selec
         {selected ? (
           <>
             <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>{selected.flag}</span>
-            <span className="flex-1 truncate text-gray-900 text-sm">{selected.name}</span>
+            <span className="flex-1 truncate text-[var(--color-text-primary)] text-sm">{selected.name}</span>
           </>
         ) : (
-          <span className="flex-1 truncate text-gray-400 text-sm">{placeholder}</span>
+          <span className="flex-1 truncate text-[var(--color-text-muted)] text-sm">{placeholder}</span>
         )}
-        <ChevronDown size={14} className={cn('flex-shrink-0 text-gray-400 transition-transform duration-150', open && 'rotate-180')} />
+        <ChevronDown size={14} className={cn('flex-shrink-0 text-[var(--color-text-muted)] transition-transform duration-150', open && 'rotate-180')} />
       </button>
 
       <AnimatePresence>
@@ -859,16 +859,16 @@ function CountryPicker({ value, onChange, error, placeholder = 'Search and selec
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.98 }}
             transition={{ duration: 0.12 }}
-            className="absolute left-0 right-0 top-full z-[999] mt-1.5 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
+            className="absolute left-0 right-0 top-full z-[999] mt-1.5 overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-surface)] shadow-xl">
             {/* Search */}
-            <div className="border-b border-gray-100 p-2.5">
-              <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5">
-                <Search size={12} className="text-gray-400 flex-shrink-0" />
+            <div className="border-b border-[var(--color-border)] p-2.5">
+              <div className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-muted)] px-2.5 py-1.5">
+                <Search size={12} className="text-[var(--color-text-muted)] flex-shrink-0" />
                 <input ref={searchRef} value={search} onChange={e => setSearch(e.target.value)}
                   placeholder="Search country…"
-                  className="flex-1 bg-transparent text-xs text-gray-700 outline-none placeholder:text-gray-400" />
+                  className="flex-1 bg-transparent text-xs text-[var(--color-text-secondary)] outline-none placeholder:text-[var(--color-text-muted)]" />
                 {search && (
-                  <button type="button" onClick={() => setSearch('')} className="text-gray-400 hover:text-gray-600">
+                  <button type="button" onClick={() => setSearch('')} className="text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]">
                     <X size={11} />
                   </button>
                 )}
@@ -877,16 +877,16 @@ function CountryPicker({ value, onChange, error, placeholder = 'Search and selec
             {/* List */}
             <div className="overflow-y-auto" style={{ maxHeight: 220 }}>
               {filtered.length === 0
-                ? <p className="py-5 text-center text-xs text-gray-400">No countries found</p>
+                ? <p className="py-5 text-center text-xs text-[var(--color-text-muted)]">No countries found</p>
                 : filtered.map(c => (
                   <button key={c.name} type="button"
                     onClick={() => { onChange(c.name); setOpen(false); setSearch('') }}
                     className={cn(
                       'flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors',
-                      c.name === value ? 'bg-blue-50' : 'hover:bg-gray-50'
+                      c.name === value ? 'bg-blue-50' : 'hover:bg-[var(--color-bg-muted)]'
                     )}>
                     <span style={{ fontSize: 17, lineHeight: 1, flexShrink: 0 }}>{c.flag}</span>
-                    <span className="flex-1 text-sm text-gray-700">{c.name}</span>
+                    <span className="flex-1 text-sm text-[var(--color-text-secondary)]">{c.name}</span>
                     {c.name === value && <Check size={13} className="flex-shrink-0 text-blue-600" />}
                   </button>
                 ))}
@@ -907,18 +907,18 @@ function FileDropzone({ label, accept, file, onFile, onClear, hint }: {
   const [dragging, setDragging] = useState(false)
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[12.5px] font-semibold text-gray-600 tracking-wide">{label}</label>
+      <label className="text-[12.5px] font-semibold text-[var(--color-text-secondary)] tracking-wide">{label}</label>
       {file ? (
         <div className="flex items-center gap-2.5 rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2.5">
           <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-blue-100">
             <FileText size={14} className="text-blue-600" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold text-gray-800">{file.name}</p>
-            <p className="text-[10px] text-gray-400">{(file.size / 1024).toFixed(0)} KB</p>
+            <p className="truncate text-xs font-semibold text-[var(--color-text-primary)]">{file.name}</p>
+            <p className="text-[10px] text-[var(--color-text-muted)]">{(file.size / 1024).toFixed(0)} KB</p>
           </div>
           <button type="button" onClick={onClear}
-            className="flex-shrink-0 rounded-full p-1 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-500">
+            className="flex-shrink-0 rounded-full p-1 text-[var(--color-text-muted)] transition-colors hover:bg-red-100 hover:text-red-500">
             <X size={12} />
           </button>
         </div>
@@ -931,19 +931,19 @@ function FileDropzone({ label, accept, file, onFile, onClear, hint }: {
             'flex flex-col items-center gap-2 rounded-xl border-2 border-dashed px-4 py-5 text-center transition-all',
             dragging
               ? 'border-blue-400 bg-blue-50'
-              : 'border-gray-200 bg-gray-50 hover:border-blue-300 hover:bg-blue-50/50'
+              : 'border-[var(--color-border)] bg-[var(--color-bg-muted)] hover:border-blue-300 hover:bg-[var(--color-hover)]/50'
           )}>
           <div className={cn(
             'flex h-9 w-9 items-center justify-center rounded-full transition-colors',
-            dragging ? 'bg-blue-100' : 'bg-gray-100'
+            dragging ? 'bg-blue-100' : 'bg-[var(--color-bg-muted)]'
           )}>
-            <Upload size={16} className={dragging ? 'text-blue-600' : 'text-gray-400'} />
+            <Upload size={16} className={dragging ? 'text-blue-600' : 'text-[var(--color-text-muted)]'} />
           </div>
           <div>
-            <p className="text-xs font-semibold text-gray-600">
+            <p className="text-xs font-semibold text-[var(--color-text-secondary)]">
               {dragging ? 'Drop to upload' : 'Click to upload or drag & drop'}
             </p>
-            {hint && <p className="mt-0.5 text-[10px] text-gray-400">{hint}</p>}
+            {hint && <p className="mt-0.5 text-[10px] text-[var(--color-text-muted)]">{hint}</p>}
           </div>
         </button>
       )}
@@ -1308,11 +1308,11 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
         {/* ── Profile photo ───────────────────────────── */}
         <div className="sm:col-span-2 flex flex-col items-center gap-1.5 pb-2">
           <label htmlFor="avatar-upload" className="group cursor-pointer">
-            <div className="relative h-20 w-20 overflow-hidden rounded-full border-2 border-dashed border-gray-300 bg-gray-50 transition-colors group-hover:border-blue-400">
+            <div className="relative h-20 w-20 overflow-hidden rounded-full border-2 border-dashed border-[var(--color-border-strong)] bg-[var(--color-bg-muted)] transition-colors group-hover:border-blue-400">
               {avatarPreview
                 ? <img src={avatarPreview} alt="Profile" className="h-full w-full object-cover" />
                 : <div className="flex h-full w-full items-center justify-center">
-                    <Camera size={22} className="text-gray-300 transition-colors group-hover:text-blue-400" />
+                    <Camera size={22} className="text-[var(--color-text-muted)] transition-colors group-hover:text-blue-400" />
                   </div>
               }
               <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/30 opacity-0 transition-opacity group-hover:opacity-100">
@@ -1334,7 +1334,7 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
               setAvatarError(null)
             }}
           />
-          <p className="text-[11px] text-gray-400">Profile photo <span className="text-red-400">*</span> <span className="text-gray-400">(max 3 MB)</span></p>
+          <p className="text-[11px] text-[var(--color-text-muted)]">Profile photo <span className="text-red-400">*</span> <span className="text-[var(--color-text-muted)]">(max 3 MB)</span></p>
           {avatarError && (
             <p className="flex items-center gap-1 text-[11px] font-medium text-red-500">
               <AlertCircle size={10} strokeWidth={2.5} />{avatarError}
@@ -1344,7 +1344,7 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
 
         <Field label="Full Name *" error={errors.name}>
           <div className="relative">
-            <User size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <User size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
             <Input error={errors.name} value={data.name} placeholder="e.g. Ahmed Al Mansouri"
               className="pl-9" onChange={e => set('name', e.target.value)} />
           </div>
@@ -1352,7 +1352,7 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
 
         <Field label="Email Address *" error={errors.email}>
           <div className="relative">
-            <Mail size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Mail size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
             <Input error={errors.email} value={data.email} type="email" placeholder="you@example.com"
               className="pl-9" onChange={e => set('email', e.target.value)} />
           </div>
@@ -1389,7 +1389,7 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
 
         <Field label="Nationality *" error={errors.nationality}>
           <div className="relative">
-            <Globe size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Globe size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
             <Input error={errors.nationality} value={data.nationality} placeholder="e.g. Emirati"
               className="pl-9"
               onChange={e => set('nationality', e.target.value.replace(/[^a-zA-Z\s\-]/g, ''))} />
@@ -1403,7 +1403,7 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
 
         <Field label="Occupation *" error={errors.occupation}>
           <div className="relative">
-            <Briefcase size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Briefcase size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
             <Input error={errors.occupation} value={data.occupation} placeholder="e.g. Business Owner"
               className="pl-9" onChange={e => set('occupation', e.target.value)} />
           </div>
@@ -1431,7 +1431,7 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
                   placeholder={cfg.placeholder}
                   onChange={e => set('idNumber', formatIdNumber(e.target.value, data.idType))}
                 />
-                <p className="pl-0.5 text-[11px] text-gray-400">{cfg.hint}</p>
+                <p className="pl-0.5 text-[11px] text-[var(--color-text-muted)]">{cfg.hint}</p>
               </div>
             </Field>
           )
@@ -1450,7 +1450,7 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
 
         <Field label="Villa / Apartment *" error={errors.villa}>
           <div className="relative">
-            <MapPin size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <MapPin size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
             <Input error={errors.villa} value={data.villa} placeholder="Villa 12, Al Barsha"
               className="pl-9" onChange={e => set('villa', e.target.value)} />
           </div>
@@ -1458,7 +1458,7 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
 
         <Field label="City / Town *" error={errors.city}>
           <div className="relative">
-            <MapPin size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <MapPin size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
             <Input error={errors.city} value={data.city} placeholder="Dubai"
               className="pl-9" onChange={e => set('city', e.target.value)} />
           </div>
@@ -1569,11 +1569,11 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
         </div>
 
         <Field label="Select Programs & Courses *" error={errors.programs}>
-          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-muted)] p-4">
             <div className="flex flex-col gap-4">
               {['Forex Academy','Digital Marketing','AI Academy'].map(group => (
                 <div key={group}>
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">{group}</p>
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">{group}</p>
                   <div className="flex flex-wrap gap-2">
                     {PROGRAMS.filter(p => p.group === group).map(p => {
                       const active = data.programs.includes(p.id)
@@ -1584,7 +1584,7 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
                             'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all',
                             active
                               ? 'bg-blue-600 text-white shadow-sm shadow-blue-200'
-                              : 'border border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:text-blue-600'
+                              : 'border border-[var(--color-border)] bg-[var(--color-bg-surface)] text-[var(--color-text-secondary)] hover:border-blue-300 hover:text-blue-600'
                           )}>
                           {active && <Check size={10} strokeWidth={3} />}
                           {p.label}
@@ -1629,7 +1629,7 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
 
         <Field label="Password *" error={errors.password}>
           <div className="relative">
-            <Lock size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Lock size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
             <input
               type={showPw ? 'text' : 'password'} value={data.password}
               placeholder="Min. 8 chars, uppercase + number"
@@ -1637,7 +1637,7 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
               className={cn(errors.password ? inputErr : inputBase, 'pl-9 pr-10')}
             />
             <button type="button" onClick={() => setShowPw(x => !x)}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors">
               {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
             </button>
           </div>
@@ -1646,7 +1646,7 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
               <div className="flex flex-1 gap-1">
                 {[1,2,3,4].map(i => (
                   <div key={i} className="h-1.5 flex-1 rounded-full transition-all duration-300"
-                    style={{ background: i <= strength.score ? strength.color : '#E5E7EB' }} />
+                    style={{ background: i <= strength.score ? strength.color: 'var(--color-border)' }} />
                 ))}
               </div>
               <span className="text-[10px] font-bold" style={{ color: strength.color }}>{strength.label}</span>
@@ -1656,7 +1656,7 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
 
         <Field label="Confirm Password *" error={errors.confirmPassword}>
           <div className="relative">
-            <Lock size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Lock size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
             <input
               type={showCpw ? 'text' : 'password'} value={data.confirmPassword}
               placeholder="Repeat your password"
@@ -1664,23 +1664,23 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
               className={cn(errors.confirmPassword ? inputErr : inputBase, 'pl-9 pr-10')}
             />
             <button type="button" onClick={() => setShowCpw(x => !x)}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors">
               {showCpw ? <EyeOff size={15} /> : <Eye size={15} />}
             </button>
           </div>
         </Field>
 
-        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3.5 hover:border-blue-200 hover:bg-blue-50/40 transition-all">
+        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-muted)] p-3.5 hover:border-blue-200 hover:bg-[var(--color-hover)]/40 transition-all">
           <input type="checkbox" checked={data.termsAccepted}
             onChange={e => set('termsAccepted', e.target.checked)}
             className="mt-0.5 h-4 w-4 flex-shrink-0 cursor-pointer rounded accent-blue-600" />
-          <span className="text-xs leading-relaxed text-gray-600">
+          <span className="text-xs leading-relaxed text-[var(--color-text-secondary)]">
             I agree to Delta Institutions&apos;{' '}
             <button
               type="button"
               onClick={e => { e.preventDefault(); setShowTerms(true) }}
               className="font-semibold transition-colors hover:opacity-80"
-              style={{ color: '#0057b8' }}
+              style={{ color: 'var(--color-primary)' }}
             >
               Terms &amp; Conditions
             </button>
@@ -1704,21 +1704,21 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
     <div className="flex flex-col gap-5">
 
       {/* ── Mode tab switcher ─────────────────────────── */}
-      <div className="flex gap-1.5 rounded-2xl border border-gray-200 bg-gray-50 p-1">
+      <div className="flex gap-1.5 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-muted)] p-1">
         <button
           type="button"
           onClick={() => setMode('express')}
           className={cn(
             'relative flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition-all duration-200',
             mode === 'express'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-400 hover:text-gray-600'
+              ? 'bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] shadow-sm'
+              : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
           )}>
-          <Zap size={14} className={mode === 'express' ? 'text-blue-600' : 'text-gray-400'} />
+          <Zap size={14} className={mode === 'express' ? 'text-blue-600' : 'text-[var(--color-text-muted)]'} />
           Express Account
           {mode === 'express' && (
             <span className="rounded-full px-1.5 py-0.5 text-[10px] font-bold tracking-wide"
-              style={{ background: '#EFF6FF', color: '#0057b8' }}>
+              style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary)' }}>
               Recommended
             </span>
           )}
@@ -1729,10 +1729,10 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
           className={cn(
             'flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition-all duration-200',
             mode === 'full'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-400 hover:text-gray-600'
+              ? 'bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] shadow-sm'
+              : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
           )}>
-          <FileText size={14} className={mode === 'full' ? 'text-blue-600' : 'text-gray-400'} />
+          <FileText size={14} className={mode === 'full' ? 'text-blue-600' : 'text-[var(--color-text-muted)]'} />
           Full Registration
         </button>
       </div>
@@ -1747,14 +1747,14 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
             className="flex flex-col gap-4">
 
             <div>
-              <h2 className="text-base font-bold text-gray-900">Create your account</h2>
-              <p className="text-sm text-gray-400">Quick setup — just the essentials to get started</p>
+              <h2 className="text-base font-bold text-[var(--color-text-primary)]">Create your account</h2>
+              <p className="text-sm text-[var(--color-text-muted)]">Quick setup — just the essentials to get started</p>
             </div>
 
             {/* Name */}
             <Field label="Full Name *" error={expressErrors.name}>
               <div className="relative">
-                <User size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <User size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
                 <Input error={expressErrors.name} value={expressData.name}
                   placeholder="e.g. Ahmed Al Mansouri" className="pl-9"
                   onChange={e => setEx('name', e.target.value)} />
@@ -1764,7 +1764,7 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
             {/* Email */}
             <Field label="Email Address *" error={expressErrors.email}>
               <div className="relative">
-                <Mail size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Mail size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
                 <Input error={expressErrors.email} value={expressData.email}
                   type="email" placeholder="you@example.com" className="pl-9"
                   onChange={e => setEx('email', e.target.value)} />
@@ -1797,7 +1797,7 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
             {/* Password */}
             <Field label="Password *" error={expressErrors.password}>
               <div className="relative">
-                <Lock size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Lock size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
                 <input
                   type={expressShowPw ? 'text' : 'password'}
                   value={expressData.password}
@@ -1806,7 +1806,7 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
                   className={cn(expressErrors.password ? inputErr : inputBase, 'pl-9 pr-10')}
                 />
                 <button type="button" onClick={() => setExpressShowPw(x => !x)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors">
                   {expressShowPw ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
@@ -1815,7 +1815,7 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
                   <div className="flex flex-1 gap-1">
                     {[1,2,3,4].map(i => (
                       <div key={i} className="h-1.5 flex-1 rounded-full transition-all duration-300"
-                        style={{ background: i <= expressStrength.score ? expressStrength.color : '#E5E7EB' }} />
+                        style={{ background: i <= expressStrength.score ? expressStrength.color: 'var(--color-border)' }} />
                     ))}
                   </div>
                   <span className="text-[10px] font-bold" style={{ color: expressStrength.color }}>
@@ -1826,14 +1826,14 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
             </Field>
 
             {/* Terms */}
-            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3.5 hover:border-blue-200 hover:bg-blue-50/40 transition-all">
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-muted)] p-3.5 hover:border-blue-200 hover:bg-[var(--color-hover)]/40 transition-all">
               <input type="checkbox" checked={expressData.termsAccepted}
                 onChange={e => setEx('termsAccepted', e.target.checked)}
                 className="mt-0.5 h-4 w-4 flex-shrink-0 cursor-pointer rounded accent-blue-600" />
-              <span className="text-xs leading-relaxed text-gray-600">
+              <span className="text-xs leading-relaxed text-[var(--color-text-secondary)]">
                 I agree to Delta Institutions&apos;{' '}
                 <button type="button" onClick={e => { e.preventDefault(); setShowTerms(true) }}
-                  className="font-semibold transition-colors hover:opacity-80" style={{ color: '#0057b8' }}>
+                  className="font-semibold transition-colors hover:opacity-80" style={{ color: 'var(--color-primary)' }}>
                   Terms &amp; Conditions
                 </button>
                 , Privacy Policy, and KHDA training regulations.
@@ -1860,7 +1860,7 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
             {/* Submit */}
             <button type="button" onClick={submitExpress} disabled={expressLoading}
               className="flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
-              style={{ background: '#0057b8', boxShadow: '0 4px 14px rgba(0,87,184,0.3)' }}>
+              style={{ background: 'var(--color-primary)', boxShadow: '0 4px 14px rgba(0,87,184,0.3)' }}>
               {expressLoading ? <><Spinner size={14} /> Creating Account…</> : 'Create Account & Continue'}
             </button>
 
@@ -1886,19 +1886,19 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
                       }}
                       transition={{ duration: 0.2 }}
                       className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold"
-                      style={{ color: i <= step ? '#fff' : '#9CA3AF' }}>
+                      style={{ color: i <= step ? '#fff' : 'var(--color-text-muted)' }}>
                       {i < step
                         ? <Check size={14} strokeWidth={3} />
                         : <span>{i + 1}</span>}
                     </motion.div>
                     <span className={cn(
                       'hidden text-[10px] font-semibold whitespace-nowrap sm:block transition-colors duration-200',
-                      i === step ? 'text-blue-600' : i < step ? 'text-gray-500' : 'text-gray-300'
+                      i === step ? 'text-blue-600' : i < step ? 'text-[var(--color-text-muted)]' : 'text-[var(--color-text-muted)]'
                     )}>{label}</span>
                   </div>
                   {i < STEP_LABELS.length - 1 && (
                     <div className="mx-2 mb-5 flex-1">
-                      <div className="h-[2px] w-full rounded-full overflow-hidden bg-gray-100">
+                      <div className="h-[2px] w-full rounded-full overflow-hidden bg-[var(--color-bg-muted)]">
                         <motion.div
                           animate={{ width: i < step ? '100%' : '0%' }}
                           transition={{ duration: 0.3 }}
@@ -1912,8 +1912,8 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
 
             {/* Step header */}
             <div>
-              <h2 className="text-base font-bold text-gray-900">Step {step + 1}: {STEP_LABELS[step]}</h2>
-              <p className="text-sm text-gray-400">
+              <h2 className="text-base font-bold text-[var(--color-text-primary)]">Step {step + 1}: {STEP_LABELS[step]}</h2>
+              <p className="text-sm text-[var(--color-text-muted)]">
                 {step === 0 && 'Tell us about yourself'}
                 {step === 1 && 'Your address and documents'}
                 {step === 2 && 'Choose your programs'}
@@ -1946,20 +1946,20 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
             <div className="flex items-center gap-2 pt-1">
               {step > 0 && (
                 <button type="button" onClick={back}
-                  className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 transition-all hover:border-gray-300 hover:bg-gray-50">
+                  className="flex items-center gap-1.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-4 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] transition-all hover:border-[var(--color-border-strong)] hover:bg-[var(--color-bg-muted)]">
                   <ChevronLeft size={15} /> Back
                 </button>
               )}
               {step < 3 ? (
                 <button type="button" onClick={next}
                   className="ml-auto flex items-center gap-1.5 rounded-xl px-5 py-2.5 text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.98]"
-                  style={{ background: '#0057b8', boxShadow: '0 4px 14px rgba(0,87,184,0.3)' }}>
+                  style={{ background: 'var(--color-primary)', boxShadow: '0 4px 14px rgba(0,87,184,0.3)' }}>
                   Continue <ChevronRight size={15} />
                 </button>
               ) : (
                 <button type="button" onClick={submit} disabled={loading}
                   className="ml-auto flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
-                  style={{ background: '#0057b8', boxShadow: '0 4px 14px rgba(0,87,184,0.3)' }}>
+                  style={{ background: 'var(--color-primary)', boxShadow: '0 4px 14px rgba(0,87,184,0.3)' }}>
                   {loading ? <><Spinner size={14} /> Submitting…</> : 'Submit Application'}
                 </button>
               )}
@@ -1971,7 +1971,7 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
       </AnimatePresence>
 
       {/* ── Sign in link ─────────────────────────────────── */}
-      <p className="text-center text-xs text-gray-400">
+      <p className="text-center text-xs text-[var(--color-text-muted)]">
         Already have an account?{' '}
         <button onClick={onSwitch} className="font-semibold text-blue-600 hover:underline">Sign in</button>
       </p>

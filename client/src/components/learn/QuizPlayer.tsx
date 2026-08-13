@@ -63,7 +63,7 @@ export function QuizPlayer({ lessonId, onPassed }: Props) {
 
   if (quizLoading || summaryLoading) {
     return (
-      <div className="flex aspect-video items-center justify-center rounded-2xl bg-gray-50">
+      <div className="flex aspect-video items-center justify-center rounded-2xl bg-[var(--color-bg-muted)]">
         <Spinner size={24} />
       </div>
     )
@@ -71,14 +71,14 @@ export function QuizPlayer({ lessonId, onPassed }: Props) {
 
   if (!quiz) {
     return (
-      <div className="flex aspect-video items-center justify-center rounded-2xl bg-gray-50">
-        <p className="text-sm text-gray-500">No quiz found for this lesson.</p>
+      <div className="flex aspect-video items-center justify-center rounded-2xl bg-[var(--color-bg-muted)]">
+        <p className="text-sm text-[var(--color-text-muted)]">No quiz found for this lesson.</p>
       </div>
     )
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border bg-white" style={{ borderColor: '#E4E7ED' }}>
+    <div className="overflow-hidden rounded-2xl border bg-[var(--color-bg-surface)]" style={{ borderColor: 'var(--color-border)' }}>
       <AnimatePresence mode="wait">
         {phase === 'summary' && (
           <SummaryPanel key="summary" quiz={quiz} summary={summary} onStart={startQuiz} />
@@ -113,29 +113,29 @@ function SummaryPanel({ quiz, summary, onStart }: {
         <Trophy size={28} style={{ color: hasPassed ? '#22C55E' : '#0057b8' }} />
       </div>
 
-      <h2 className="mb-1 text-xl font-bold" style={{ color: '#0D0F1A', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
+      <h2 className="mb-1 text-xl font-bold" style={{ color: 'var(--color-text-primary)', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
         {hasPassed ? 'Quiz completed!' : 'Ready for the quiz?'}
       </h2>
-      <p className="mb-6 text-sm" style={{ color: '#9CA3AF' }}>
+      <p className="mb-6 text-sm" style={{ color: 'var(--color-text-muted)' }}>
         {quiz.questions.length} questions · Pass at {quiz.passPercent}%
         {quiz.timeLimit ? ` · ${quiz.timeLimit} min limit` : ''}
       </p>
 
       {summary?.hasAttempted && (
         <div className="mb-6 inline-flex items-center gap-4 rounded-2xl px-6 py-3"
-          style={{ background: '#F9FAFB', border: '1px solid #E5E7EB' }}>
+          style={{ background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)' }}>
           <div>
-            <p className="text-[11px] uppercase tracking-widest" style={{ color: '#9CA3AF' }}>Best score</p>
+            <p className="text-[11px] uppercase tracking-widest" style={{ color: 'var(--color-text-muted)' }}>Best score</p>
             <p className="text-lg font-bold" style={{ color: hasPassed ? '#22C55E' : '#EF4444' }}>
               {summary.bestScore?.toFixed(0) ?? 0}%
             </p>
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-widest" style={{ color: '#9CA3AF' }}>Attempts</p>
-            <p className="text-lg font-bold" style={{ color: '#0D0F1A' }}>{summary.attempts}</p>
+            <p className="text-[11px] uppercase tracking-widest" style={{ color: 'var(--color-text-muted)' }}>Attempts</p>
+            <p className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{summary.attempts}</p>
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-widest" style={{ color: '#9CA3AF' }}>Status</p>
+            <p className="text-[11px] uppercase tracking-widest" style={{ color: 'var(--color-text-muted)' }}>Status</p>
             <p className="text-sm font-bold" style={{ color: hasPassed ? '#22C55E' : '#F59E0B' }}>
               {hasPassed ? '✓ Passed' : 'Not yet'}
             </p>
@@ -145,7 +145,7 @@ function SummaryPanel({ quiz, summary, onStart }: {
 
       <button onClick={onStart}
         className="inline-flex items-center gap-2 rounded-xl px-8 py-3 text-sm font-bold text-white"
-        style={{ background: '#0057b8' }}>
+        style={{ background: 'var(--color-primary)' }}>
         {summary?.hasAttempted ? <><RotateCcw size={14} />Retry quiz</> : <><ChevronRight size={14} />Start quiz</>}
       </button>
     </motion.div>
@@ -169,21 +169,21 @@ function TakingPanel({ quiz, answers, timeLeft, onAnswer, onSubmit, isPending }:
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
       {/* Header */}
-      <div className="flex items-center justify-between border-b px-6 py-4" style={{ borderColor: '#F0F1F5' }}>
-        <p className="text-sm font-semibold" style={{ color: '#0D0F1A' }}>
+      <div className="flex items-center justify-between border-b px-6 py-4" style={{ borderColor: 'var(--color-border)' }}>
+        <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
           {answered}/{quiz.questions.length} answered
         </p>
         {timeLeft !== null && (
           <div className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold"
-            style={{ background: timeWarn ? 'rgba(239,68,68,0.08)' : '#F9FAFB', color: timeWarn ? '#EF4444' : '#374151' }}>
+            style={{ background: timeWarn ? 'rgba(239,68,68,0.08)' : 'var(--color-bg-subtle)', color: timeWarn ? '#EF4444' : 'var(--color-text-secondary)' }}>
             <Clock size={13} />
             {fmtTime(timeLeft)}
           </div>
         )}
         {/* Progress bar */}
-        <div className="h-1.5 w-32 overflow-hidden rounded-full" style={{ background: '#F3F4F6' }}>
+        <div className="h-1.5 w-32 overflow-hidden rounded-full" style={{ background: 'var(--color-bg-subtle)' }}>
           <div className="h-full rounded-full transition-all"
-            style={{ width: `${(answered / quiz.questions.length) * 100}%`, background: '#0057b8' }} />
+            style={{ width: `${(answered / quiz.questions.length) * 100}%`, background: 'var(--color-primary)' }} />
         </div>
       </div>
 
@@ -195,10 +195,10 @@ function TakingPanel({ quiz, answers, timeLeft, onAnswer, onSubmit, isPending }:
       </div>
 
       {/* Submit */}
-      <div className="border-t px-6 py-4" style={{ borderColor: '#F0F1F5' }}>
+      <div className="border-t px-6 py-4" style={{ borderColor: 'var(--color-border)' }}>
         <button onClick={onSubmit} disabled={isPending}
           className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white disabled:opacity-60"
-          style={{ background: '#0057b8' }}>
+          style={{ background: 'var(--color-primary)' }}>
           {isPending ? <Spinner size={14} /> : null}
           Submit quiz ({answered}/{quiz.questions.length} answered)
         </button>
@@ -215,18 +215,18 @@ function QuestionItem({ question: q, index, answer, onAnswer }: {
 }) {
   return (
     <div>
-      <p className="mb-3 text-sm font-semibold" style={{ color: '#0D0F1A' }}>
+      <p className="mb-3 text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
         <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold text-white"
-          style={{ background: '#0057b8' }}>{index + 1}</span>
+          style={{ background: 'var(--color-primary)' }}>{index + 1}</span>
         {q.text}
-        {q.points > 1 && <span className="ml-2 text-[11px] font-normal" style={{ color: '#9CA3AF' }}>({q.points} pts)</span>}
+        {q.points > 1 && <span className="ml-2 text-[11px] font-normal" style={{ color: 'var(--color-text-muted)' }}>({q.points} pts)</span>}
       </p>
 
       {q.type === 'short' ? (
         <input value={answer} onChange={e => onAnswer(q.id, e.target.value)}
           placeholder="Type your answer…"
-          className="w-full rounded-xl border px-4 py-2.5 text-sm text-gray-800 outline-none focus:border-orange-400"
-          style={{ borderColor: '#E5E7EB' }}
+          className="w-full rounded-xl border px-4 py-2.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-orange-400"
+          style={{ borderColor: 'var(--color-border)' }}
         />
       ) : (
         <div className="space-y-2">
@@ -237,13 +237,13 @@ function QuestionItem({ question: q, index, answer, onAnswer }: {
               <button key={ci} onClick={() => onAnswer(q.id, val)}
                 className="flex w-full items-center gap-3 rounded-xl border px-4 py-2.5 text-left text-sm transition-colors"
                 style={{
-                  borderColor: chosen ? '#0057b8' : '#E5E7EB',
-                  background:  chosen ? 'rgba(0,87,184,0.06)' : '#FAFAFA',
-                  color:       '#374151',
+                  borderColor: chosen ? '#0057b8' : 'var(--color-border)',
+                  background:  chosen ? 'rgba(0,87,184,0.06)' : 'var(--color-bg-inset)',
+                  color: 'var(--color-text-secondary)',
                 }}>
                 <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 transition-colors"
-                  style={{ borderColor: chosen ? '#0057b8' : '#D1D5DB', background: chosen ? '#0057b8' : 'transparent' }}>
-                  {chosen && <span className="h-2 w-2 rounded-full bg-white" />}
+                  style={{ borderColor: chosen ? '#0057b8' : 'var(--color-text-muted)', background: chosen ? '#0057b8' : 'transparent' }}>
+                  {chosen && <span className="h-2 w-2 rounded-full bg-[var(--color-bg-surface)]" />}
                 </span>
                 {c}
               </button>
@@ -269,7 +269,7 @@ function ResultPanel({ result, passPercent, onRetry }: {
       <div className="mb-6 flex flex-col items-center">
         <div className="relative mb-3">
           <svg width={100} height={100}>
-            <circle cx={50} cy={50} r={42} fill="none" stroke="#F3F4F6" strokeWidth={8} />
+            <circle cx={50} cy={50} r={42} fill="none" stroke="var(--color-bg-subtle)" strokeWidth={8} />
             <motion.circle cx={50} cy={50} r={42} fill="none"
               stroke={result.passed ? '#22C55E' : '#EF4444'} strokeWidth={8}
               strokeLinecap="round"
@@ -288,34 +288,34 @@ function ResultPanel({ result, passPercent, onRetry }: {
         </div>
         <div className="flex items-center gap-2">
           {result.passed
-            ? <><CheckCircle2 size={18} style={{ color: '#22C55E' }} /><span className="font-bold text-green-600">Passed!</span></>
-            : <><XCircle size={18} style={{ color: '#EF4444' }} /><span className="font-bold text-red-500">Not passed</span></>}
+            ? <><CheckCircle2 size={18} style={{ color: 'var(--color-success)' }} /><span className="font-bold text-green-600">Passed!</span></>
+            : <><XCircle size={18} style={{ color: 'var(--color-danger)' }} /><span className="font-bold text-red-500">Not passed</span></>}
         </div>
-        <p className="mt-1 text-xs" style={{ color: '#9CA3AF' }}>
+        <p className="mt-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
           {result.score}/{result.maxScore} points · Pass threshold: {passPercent}%
         </p>
       </div>
 
       {/* Breakdown */}
       <div className="mb-6 space-y-2">
-        <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: '#9CA3AF' }}>Answer breakdown</p>
+        <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--color-text-muted)' }}>Answer breakdown</p>
         {result.breakdown.map((b, i) => (
           <div key={b.questionId} className="flex items-start gap-3 rounded-xl p-3"
             style={{ background: b.correct ? 'rgba(34,197,94,0.05)' : 'rgba(239,68,68,0.05)', border: `1px solid ${b.correct ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)'}` }}>
             <span className="mt-0.5 flex-shrink-0">
               {b.correct
-                ? <CheckCircle2 size={14} style={{ color: '#22C55E' }} />
-                : <XCircle size={14} style={{ color: '#EF4444' }} />}
+                ? <CheckCircle2 size={14} style={{ color: 'var(--color-success)' }} />
+                : <XCircle size={14} style={{ color: 'var(--color-danger)' }} />}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold" style={{ color: '#0D0F1A' }}>Question {i + 1}</p>
+              <p className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>Question {i + 1}</p>
               {!b.correct && (
-                <p className="text-xs" style={{ color: '#6B7280' }}>
+                <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
                   Correct: <span className="font-semibold">{b.correctAnswer}</span>
                 </p>
               )}
               {b.explanation && (
-                <p className="mt-0.5 text-xs italic" style={{ color: '#9CA3AF' }}>{b.explanation}</p>
+                <p className="mt-0.5 text-xs italic" style={{ color: 'var(--color-text-muted)' }}>{b.explanation}</p>
               )}
             </div>
             <span className="text-xs font-semibold" style={{ color: b.correct ? '#22C55E' : '#EF4444' }}>
@@ -328,7 +328,7 @@ function ResultPanel({ result, passPercent, onRetry }: {
       {!result.passed && (
         <button onClick={onRetry}
           className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white"
-          style={{ background: '#0057b8' }}>
+          style={{ background: 'var(--color-primary)' }}>
           <RotateCcw size={14} />Try again
         </button>
       )}

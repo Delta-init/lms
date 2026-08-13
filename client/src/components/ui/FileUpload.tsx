@@ -125,7 +125,7 @@ export function FileUpload({
   return (
     <div className={`space-y-2 ${className}`}>
       {label && (
-        <p className="text-sm font-medium" style={{ color: '#374151' }}>{label}</p>
+        <p className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>{label}</p>
       )}
 
       <div
@@ -135,8 +135,8 @@ export function FileUpload({
         onClick={() => !disabled && !isUploading && inputRef.current?.click()}
         className="relative flex min-h-[140px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed transition-all"
         style={{
-          borderColor: dragOver ? '#0057b8' : error ? '#EF4444' : '#E4E7ED',
-          background:  dragOver ? 'rgba(0,87,184,0.04)' : '#F9FAFB',
+          borderColor: dragOver ? '#0057b8' : error ? '#EF4444' : 'var(--color-border)',
+          background:  dragOver ? 'rgba(0,87,184,0.04)' : 'var(--color-bg-subtle)',
           cursor:      disabled || isUploading ? 'default' : 'pointer',
           opacity:     disabled ? 0.6 : 1,
         }}
@@ -158,23 +158,23 @@ export function FileUpload({
               className="flex w-full flex-col items-center gap-3 px-6 py-4">
               <div className="h-10 w-10 rounded-full flex items-center justify-center"
                 style={{ background: 'rgba(0,87,184,0.1)' }}>
-                <Upload size={20} style={{ color: '#0057b8' }} className="animate-bounce" />
+                <Upload size={20} style={{ color: 'var(--color-primary)' }} className="animate-bounce" />
               </div>
-              <p className="text-sm font-medium" style={{ color: '#0057b8' }}>Uploading…</p>
+              <p className="text-sm font-medium" style={{ color: 'var(--color-primary)' }}>Uploading…</p>
               {/* Progress bar — shown for presigned video uploads */}
               {presignUpload.isPending && (
                 <div className="w-full max-w-[240px] overflow-hidden rounded-full h-1.5"
-                  style={{ background: '#E4E7ED' }}>
+                  style={{ background: 'var(--color-border)' }}>
                   <motion.div
                     className="h-full rounded-full"
-                    style={{ background: '#0057b8' }}
+                    style={{ background: 'var(--color-primary)' }}
                     animate={{ width: `${progress}%` }}
                     transition={{ duration: 0.3 }}
                   />
                 </div>
               )}
               {presignUpload.isPending && (
-                <p className="text-xs" style={{ color: '#9CA3AF' }}>{progress}%</p>
+                <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{progress}%</p>
               )}
             </motion.div>
           )}
@@ -189,19 +189,19 @@ export function FileUpload({
               ) : (
                 <div className="flex items-center justify-center gap-2 rounded-xl py-4"
                   style={{ background: 'rgba(0,87,184,0.06)' }}>
-                  <Film size={20} style={{ color: '#0057b8' }} />
-                  <span className="text-sm font-medium" style={{ color: '#0057b8' }}>Video uploaded</span>
+                  <Film size={20} style={{ color: 'var(--color-primary)' }} />
+                  <span className="text-sm font-medium" style={{ color: 'var(--color-primary)' }}>Video uploaded</span>
                 </div>
               )}
               <div className="mt-2 flex items-center justify-center gap-1.5">
-                <CheckCircle2 size={14} style={{ color: '#0ECC8E' }} />
-                <span className="text-xs font-medium" style={{ color: '#0ECC8E' }}>Upload complete</span>
+                <CheckCircle2 size={14} style={{ color: 'var(--color-success)' }} />
+                <span className="text-xs font-medium" style={{ color: 'var(--color-success)' }}>Upload complete</span>
               </div>
               {!disabled && (
                 <button
                   onClick={(e) => { e.stopPropagation(); clear() }}
-                  className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full transition-colors hover:bg-red-50"
-                  style={{ color: '#9CA3AF' }}>
+                  className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full transition-colors hover:bg-[var(--color-hover-danger)]"
+                  style={{ color: 'var(--color-text-muted)' }}>
                   <X size={12} />
                 </button>
               )}
@@ -215,13 +215,13 @@ export function FileUpload({
               className="flex flex-col items-center gap-2 px-6 py-6 text-center">
               <div className="flex h-10 w-10 items-center justify-center rounded-full transition-colors"
                 style={{ background: dragOver ? 'rgba(0,87,184,0.12)' : 'rgba(0,87,184,0.08)' }}>
-                <TypeIcon size={20} style={{ color: '#0057b8' }} />
+                <TypeIcon size={20} style={{ color: 'var(--color-primary)' }} />
               </div>
               <div>
-                <p className="text-sm font-semibold" style={{ color: '#111827' }}>
+                <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
                   {dragOver ? 'Drop to upload' : 'Drag & drop or click to browse'}
                 </p>
-                <p className="mt-0.5 text-xs" style={{ color: '#9CA3AF' }}>
+                <p className="mt-0.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>
                   {type === 'image' && 'JPEG, PNG, GIF, WebP, max 5 MB'}
                   {type === 'video' && 'MP4, WebM, MOV, AVI, MKV, max 500 MB'}
                   {type === 'any'   && `Images (5 MB) or Videos (500 MB)`}
@@ -238,7 +238,7 @@ export function FileUpload({
           <motion.div
             initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
             className="flex items-center gap-1.5 text-xs"
-            style={{ color: '#EF4444' }}>
+            style={{ color: 'var(--color-danger)' }}>
             <AlertCircle size={12} />
             {error}
           </motion.div>

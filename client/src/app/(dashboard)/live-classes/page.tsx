@@ -93,7 +93,7 @@ function MiniCalendar({
 
   return (
     <div className="rounded-2xl p-4"
-      style={{ background: '#fff', border: '1px solid #E4E7ED' }}>
+      style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)' }}>
       {/* Month nav */}
       <div className="mb-3 flex items-center justify-between">
         <button
@@ -101,24 +101,24 @@ function MiniCalendar({
             if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1) }
             else setViewMonth(m => m - 1)
           }}
-          className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-gray-100">
-          <ChevronRight size={13} className="rotate-180" style={{ color: '#6B7280' }} />
+          className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-[var(--color-bg-muted)]">
+          <ChevronRight size={13} className="rotate-180" style={{ color: 'var(--color-text-muted)' }} />
         </button>
-        <p className="text-sm font-bold" style={{ color: '#0D0F1A' }}>{monthLabel}</p>
+        <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>{monthLabel}</p>
         <button
           onClick={() => {
             if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1) }
             else setViewMonth(m => m + 1)
           }}
-          className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-gray-100">
-          <ChevronRight size={13} style={{ color: '#6B7280' }} />
+          className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-[var(--color-bg-muted)]">
+          <ChevronRight size={13} style={{ color: 'var(--color-text-muted)' }} />
         </button>
       </div>
 
       {/* Weekday headers */}
       <div className="mb-1 grid grid-cols-7 gap-0.5">
         {['M','T','W','T','F','S','S'].map((d, i) => (
-          <div key={i} className="text-center text-[10px] font-bold" style={{ color: '#9CA3AF' }}>{d}</div>
+          <div key={i} className="text-center text-[10px] font-bold" style={{ color: 'var(--color-text-muted)' }}>{d}</div>
         ))}
       </div>
 
@@ -139,7 +139,7 @@ function MiniCalendar({
               className="relative flex h-7 w-full flex-col items-center justify-center rounded-lg text-xs font-semibold transition-all"
               style={{
                 background: isSel ? '#0057b8' : isToday ? 'rgba(0,87,184,0.10)' : 'transparent',
-                color:      isSel ? '#fff'    : isToday ? '#0057b8' : '#374151',
+                color:      isSel ? '#fff'    : isToday ? '#0057b8' : 'var(--color-text-secondary)',
               }}>
               {day}
               {hasEvent && (
@@ -156,8 +156,8 @@ function MiniCalendar({
       {selectedDate && (
         <button
           onClick={() => onSelect(null)}
-          className="mt-3 w-full rounded-xl py-1.5 text-xs font-semibold transition-colors hover:bg-gray-100"
-          style={{ color: '#6B7280', border: '1px solid #E4E7ED' }}>
+          className="mt-3 w-full rounded-xl py-1.5 text-xs font-semibold transition-colors hover:bg-[var(--color-bg-muted)]"
+          style={{ color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}>
           Clear filter
         </button>
       )}
@@ -196,8 +196,8 @@ function LiveHeroCard({ live, index }: { live: LiveClass; index: number }) {
           animate={{ opacity: [1, 0.5, 1] }}
           transition={{ duration: 1.4, repeat: Infinity }}
           className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold text-white"
-          style={{ background: '#EF4444', boxShadow: '0 2px 12px rgba(239,68,68,0.5)' }}>
-          <span className="h-2 w-2 rounded-full bg-white" />LIVE NOW
+          style={{ background: 'var(--color-danger)', boxShadow: '0 2px 12px rgba(239,68,68,0.5)' }}>
+          <span className="h-2 w-2 rounded-full bg-[var(--color-bg-surface)]" />LIVE NOW
         </motion.div>
       </div>
 
@@ -241,13 +241,13 @@ function LiveHeroCard({ live, index }: { live: LiveClass; index: number }) {
           {isInt ? (
             <Link href={`/live-classes/${live.id}/watch`}
               className="ml-auto flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white transition-all hover:brightness-110"
-              style={{ background: '#EF4444', boxShadow: '0 4px 14px rgba(239,68,68,0.4)' }}>
+              style={{ background: 'var(--color-danger)', boxShadow: '0 4px 14px rgba(239,68,68,0.4)' }}>
               <Radio size={12} />Watch now
             </Link>
           ) : live.meetingUrl ? (
             <a href={live.meetingUrl} target="_blank" rel="noreferrer"
               className="ml-auto flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white transition-all hover:brightness-110"
-              style={{ background: '#EF4444', boxShadow: '0 4px 14px rgba(239,68,68,0.4)' }}>
+              style={{ background: 'var(--color-danger)', boxShadow: '0 4px 14px rgba(239,68,68,0.4)' }}>
               <ExternalLink size={12} />Join now
             </a>
           ) : null}
@@ -265,26 +265,26 @@ function ContactAdminModal({ onClose }: { onClose: () => void }) {
       <motion.div
         initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.92 }}
-        className="relative max-w-sm w-full rounded-3xl bg-white p-6 text-center"
+        className="relative max-w-sm w-full rounded-3xl bg-[var(--color-bg-surface)] p-6 text-center"
         style={{ boxShadow: '0 24px 60px rgba(0,0,0,0.15)' }}>
         <button onClick={onClose}
-          className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-full transition-colors hover:bg-gray-100"
-          style={{ color: '#9CA3AF' }}>
+          className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-full transition-colors hover:bg-[var(--color-bg-muted)]"
+          style={{ color: 'var(--color-text-muted)' }}>
           <XIcon size={14} />
         </button>
         <div className="flex h-16 w-16 mx-auto mb-4 items-center justify-center rounded-3xl"
           style={{ background: 'rgba(0,87,184,0.08)', border: '1px solid rgba(0,87,184,0.20)' }}>
-          <Phone size={26} style={{ color: '#0057b8' }} />
+          <Phone size={26} style={{ color: 'var(--color-primary)' }} />
         </div>
-        <h3 className="text-lg font-bold mb-2" style={{ color: '#0D0F1A', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
+        <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--color-text-primary)', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
           Maximum Sessions Reached
         </h3>
-        <p className="text-sm mb-5" style={{ color: '#6B7280' }}>
+        <p className="text-sm mb-5" style={{ color: 'var(--color-text-muted)' }}>
           You've attended this class twice. To attend additional sessions, please contact the admin team.
         </p>
         <button onClick={onClose}
           className="w-full rounded-2xl px-4 py-2.5 text-sm font-semibold text-white"
-          style={{ background: '#0057b8' }}>
+          style={{ background: 'var(--color-primary)' }}>
           Got it
         </button>
       </motion.div>
@@ -308,8 +308,8 @@ function SessionCard({ live, index, now }: { live: LiveClass; now: number; index
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05, type: 'spring', stiffness: 280, damping: 26 }}
-      className="overflow-hidden rounded-2xl bg-white"
-      style={{ border: '1px solid #E4E7ED', boxShadow: liveNow ? '0 0 0 2px rgba(239,68,68,0.25)' : 'none' }}>
+      className="overflow-hidden rounded-2xl bg-[var(--color-bg-surface)]"
+      style={{ border: '1px solid var(--color-border)', boxShadow: liveNow ? '0 0 0 2px rgba(239,68,68,0.25)' : 'none' }}>
 
       {/* Thumbnail strip */}
       <div className="relative overflow-hidden" style={{ height: 120 }}>
@@ -330,8 +330,8 @@ function SessionCard({ live, index, now }: { live: LiveClass; now: number; index
               animate={{ opacity: [1, 0.5, 1] }}
               transition={{ duration: 1.4, repeat: Infinity }}
               className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-bold text-white"
-              style={{ background: '#EF4444' }}>
-              <span className="h-1.5 w-1.5 rounded-full bg-white" />LIVE
+              style={{ background: 'var(--color-danger)' }}>
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-bg-surface)]" />LIVE
             </motion.span>
           )}
           {upcoming && (
@@ -366,27 +366,27 @@ function SessionCard({ live, index, now }: { live: LiveClass; now: number; index
             {isInt ? 'In-App' : 'External'}
           </span>
           {liveNow && live.viewerCount > 0 && (
-            <span className="flex items-center gap-1 text-[10px] font-bold" style={{ color: '#EF4444' }}>
+            <span className="flex items-center gap-1 text-[10px] font-bold" style={{ color: 'var(--color-danger)' }}>
               <Users size={9} />{live.viewerCount.toLocaleString()}
             </span>
           )}
         </div>
 
-        <h3 className="line-clamp-2 text-sm font-bold leading-snug" style={{ color: '#0D0F1A' }}>
+        <h3 className="line-clamp-2 text-sm font-bold leading-snug" style={{ color: 'var(--color-text-primary)' }}>
           {live.title}
         </h3>
 
         {live.course && (
-          <p className="mt-0.5 flex items-center gap-1 truncate text-[11px]" style={{ color: '#9CA3AF' }}>
+          <p className="mt-0.5 flex items-center gap-1 truncate text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
             <GraduationCap size={9} />{live.course.title}
           </p>
         )}
 
         <div className="mt-2 flex items-center justify-between gap-2">
-          <p className="flex items-center gap-1 text-[11px]" style={{ color: '#9CA3AF' }}>
+          <p className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
             <Clock size={9} />{fmtTime(live.scheduledStart)}
             {upcoming && (
-              <span className="ml-1 font-semibold" style={{ color: '#0057b8' }}>
+              <span className="ml-1 font-semibold" style={{ color: 'var(--color-primary)' }}>
                 {fmtCountdown(live.scheduledStart, now)}
               </span>
             )}
@@ -411,7 +411,7 @@ function SessionCard({ live, index, now }: { live: LiveClass; now: number; index
                 <Link href={`/live-classes/${live.id}/watch`}>
                   <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
                     className="flex items-center gap-1 rounded-xl px-3 py-1.5 text-[10px] font-bold text-white"
-                    style={{ background: '#EF4444' }}>
+                    style={{ background: 'var(--color-danger)' }}>
                     <Radio size={9} />Watch
                   </motion.button>
                 </Link>
@@ -420,7 +420,7 @@ function SessionCard({ live, index, now }: { live: LiveClass; now: number; index
                 <Link href={`/live-classes/${live.id}/watch`}>
                   <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
                     className="rounded-xl px-3 py-1.5 text-[10px] font-bold"
-                    style={{ background: 'rgba(0,87,184,0.09)', color: '#0057b8', border: '1px solid rgba(0,87,184,0.20)' }}>
+                    style={{ background: 'rgba(0,87,184,0.09)', color: 'var(--color-primary)', border: '1px solid rgba(0,87,184,0.20)' }}>
                     Details
                   </motion.button>
                 </Link>
@@ -429,7 +429,7 @@ function SessionCard({ live, index, now }: { live: LiveClass; now: number; index
                 <Link href={`/live-classes/${live.id}/watch`}>
                   <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
                     className="flex items-center gap-1 rounded-xl px-3 py-1.5 text-[10px] font-bold"
-                    style={{ background: 'rgba(34,197,94,0.10)', color: '#16A34A', border: '1px solid rgba(34,197,94,0.22)' }}>
+                    style={{ background: 'rgba(34,197,94,0.10)', color: 'var(--color-success)', border: '1px solid rgba(34,197,94,0.22)' }}>
                     <BookOpen size={9} />Watch
                   </motion.button>
                 </Link>
@@ -449,7 +449,7 @@ function SessionCard({ live, index, now }: { live: LiveClass; now: number; index
                 <a href={live.recordingUrl!} target="_blank" rel="noopener noreferrer">
                   <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
                     className="flex items-center gap-1 rounded-xl px-3 py-1.5 text-[10px] font-bold"
-                    style={{ background: 'rgba(34,197,94,0.10)', color: '#16A34A', border: '1px solid rgba(34,197,94,0.22)' }}>
+                    style={{ background: 'rgba(34,197,94,0.10)', color: 'var(--color-success)', border: '1px solid rgba(34,197,94,0.22)' }}>
                     <BookOpen size={9} />Watch
                   </motion.button>
                 </a>
@@ -523,10 +523,10 @@ export default function LiveClassesPage() {
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
         className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#0D0F1A', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
             Live Classes
           </h1>
-          <p className="mt-0.5 text-sm" style={{ color: '#9CA3AF' }}>
+          <p className="mt-0.5 text-sm" style={{ color: 'var(--color-text-muted)' }}>
             {upcoming.length > 0
               ? `${upcoming.length} upcoming · ${liveNow.length > 0 ? `${liveNow.length} live now` : 'none live'}`
               : 'Your enrolled sessions'}
@@ -539,15 +539,15 @@ export default function LiveClassesPage() {
             transition={{ duration: 1.6, repeat: Infinity }}
             className="flex items-center gap-2 rounded-2xl px-4 py-2"
             style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)' }}>
-            <span className="h-2.5 w-2.5 rounded-full" style={{ background: '#EF4444' }} />
-            <span className="text-sm font-bold" style={{ color: '#EF4444' }}>{liveNow.length} live now</span>
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: 'var(--color-danger)' }} />
+            <span className="text-sm font-bold" style={{ color: 'var(--color-danger)' }}>{liveNow.length} live now</span>
           </motion.div>
         )}
       </motion.div>
 
       {/* Loading */}
       {isLoading && (
-        <div className="flex items-center justify-center gap-2 py-20 text-sm" style={{ color: '#9CA3AF' }}>
+        <div className="flex items-center justify-center gap-2 py-20 text-sm" style={{ color: 'var(--color-text-muted)' }}>
           <Spinner size={16} />Loading your schedule…
         </div>
       )}
@@ -555,8 +555,8 @@ export default function LiveClassesPage() {
       {/* Error */}
       {isError && !isLoading && (
         <div className="flex flex-col items-center gap-3 py-16">
-          <AlertCircle size={28} style={{ color: '#EF4444' }} />
-          <p className="text-sm font-semibold" style={{ color: '#0D0F1A' }}>Couldn't load live classes</p>
+          <AlertCircle size={28} style={{ color: 'var(--color-danger)' }} />
+          <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Couldn't load live classes</p>
         </div>
       )}
 
@@ -582,14 +582,14 @@ export default function LiveClassesPage() {
                   <button key={f.key} onClick={() => setFilter(f.key)}
                     className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all"
                     style={filter === f.key
-                      ? { background: '#0D0F1A', color: '#fff' }
-                      : { background: '#fff', color: '#6B7280', border: '1px solid #E4E7ED' }}>
+                      ? { background: 'var(--color-text-primary)', color: 'var(--color-text-inverse)' }
+                      : { background: 'var(--color-bg-surface)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}>
                     {f.label}
                     {filterCounts[f.key] > 0 && (
                       <span className="rounded-md px-1.5 py-0.5 text-[9px] font-bold"
                         style={filter === f.key
                           ? { background: 'rgba(255,255,255,0.15)', color: '#fff' }
-                          : { background: 'rgba(0,0,0,0.07)', color: '#374151' }}>
+                          : { background: 'rgba(0,0,0,0.07)', color: 'var(--color-text-secondary)' }}>
                         {filterCounts[f.key]}
                       </span>
                     )}
@@ -601,20 +601,20 @@ export default function LiveClassesPage() {
               <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                 {/* Search */}
                 <div className="relative w-full sm:flex-1 sm:min-w-[180px]">
-                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#9CA3AF' }} />
+                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--color-text-muted)' }} />
                   <input
                     value={search}
                     onChange={e => setSearch(e.target.value)}
                     placeholder="Search sessions…"
                     className="w-full rounded-xl py-2 pl-9 pr-8 text-sm outline-none transition-all"
-                    style={{ background: '#fff', border: '1px solid #E4E7ED', color: '#0D0F1A' }}
+                    style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
                     onFocus={e => { e.currentTarget.style.border = '1px solid #0057b8'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0,87,184,0.10)' }}
-                    onBlur={e => { e.currentTarget.style.border = '1px solid #E4E7ED'; e.currentTarget.style.boxShadow = 'none' }}
+                    onBlur={e => { e.currentTarget.style.border = '1px solid var(--color-border)'; e.currentTarget.style.boxShadow = 'none' }}
                   />
                   {search && (
                     <button onClick={() => setSearch('')}
                       className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-opacity hover:opacity-70"
-                      style={{ color: '#9CA3AF' }}>
+                      style={{ color: 'var(--color-text-muted)' }}>
                       <XIcon size={12} />
                     </button>
                   )}
@@ -625,8 +625,8 @@ export default function LiveClassesPage() {
                     <button key={val} onClick={() => setTypeFilter(val)}
                       className="rounded-xl px-3 py-2 text-xs font-semibold transition-all"
                       style={typeFilter === val
-                        ? { background: '#0D0F1A', color: '#fff' }
-                        : { background: '#fff', color: '#6B7280', border: '1px solid #E4E7ED' }}>
+                        ? { background: 'var(--color-text-primary)', color: 'var(--color-text-inverse)' }
+                        : { background: 'var(--color-bg-surface)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}>
                       {label}
                     </button>
                   ))}
@@ -638,9 +638,9 @@ export default function LiveClassesPage() {
                   onChange={e => setLanguageFilter(e.target.value)}
                   className="rounded-xl px-3 py-2 text-xs font-semibold outline-none transition-all"
                   style={{
-                    background: languageFilter ? '#0D0F1A' : '#fff',
-                    color: languageFilter ? '#fff' : '#6B7280',
-                    border: languageFilter ? '1px solid #0D0F1A' : '1px solid #E4E7ED',
+                    background: languageFilter ? 'var(--color-text-primary)' : '#fff',
+                    color: languageFilter ? '#fff' : 'var(--color-text-muted)',
+                    border: languageFilter ? '1px solid var(--color-text-primary)' : '1px solid var(--color-border)',
                   }}>
                   <option value="">All Languages</option>
                   {['English','Malayalam','Hindi','Tamil'].map(lang => (
@@ -655,14 +655,14 @@ export default function LiveClassesPage() {
                   <motion.div key="empty"
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                     className="flex flex-col items-center gap-4 rounded-2xl py-16 text-center"
-                    style={{ background: '#fff', border: '1px solid #E4E7ED' }}>
+                    style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)' }}>
                     <div className="flex h-14 w-14 items-center justify-center rounded-3xl"
                       style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.15)' }}>
                       <Calendar size={24} style={{ color: '#6366F1' }} />
                     </div>
                     <div>
-                      <p className="font-bold" style={{ color: '#0D0F1A' }}>No sessions found</p>
-                      <p className="mt-1 text-sm" style={{ color: '#9CA3AF' }}>
+                      <p className="font-bold" style={{ color: 'var(--color-text-primary)' }}>No sessions found</p>
+                      <p className="mt-1 text-sm" style={{ color: 'var(--color-text-muted)' }}>
                         {selectedDate ? 'No sessions on this day' : 'Enroll in courses to see live classes here.'}
                       </p>
                     </div>
@@ -690,8 +690,8 @@ export default function LiveClassesPage() {
               {/* Upcoming next 3 */}
               {upcoming.slice(0, 3).length > 0 && (
                 <div className="mt-4 rounded-2xl p-4"
-                  style={{ background: '#fff', border: '1px solid #E4E7ED' }}>
-                  <p className="mb-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#9CA3AF' }}>
+                  style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)' }}>
+                  <p className="mb-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--color-text-muted)' }}>
                     Next up
                   </p>
                   <div className="space-y-2.5">
@@ -713,8 +713,8 @@ export default function LiveClassesPage() {
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-xs font-semibold" style={{ color: '#0D0F1A' }}>{l.title}</p>
-                          <p className="text-[10px]" style={{ color: '#0057b8' }}>
+                          <p className="truncate text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>{l.title}</p>
+                          <p className="text-[10px]" style={{ color: 'var(--color-primary)' }}>
                             {fmtDate(l.scheduledStart)} · {fmtTime(l.scheduledStart)}
                           </p>
                         </div>

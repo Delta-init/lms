@@ -47,10 +47,10 @@ function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: 
     <div className="mb-2 flex items-center gap-1.5">
       <div className="flex h-4 w-4 items-center justify-center rounded-md"
         style={{ background: 'rgba(0,87,184,0.10)' }}>
-        <Icon size={9} style={{ color: '#0057b8' }} />
+        <Icon size={9} style={{ color: 'var(--color-primary)' }} />
       </div>
       <h3 className="text-[10px] font-bold uppercase tracking-[0.08em]"
-        style={{ color: '#B0B7C3' }}>{title}</h3>
+        style={{ color: 'var(--color-text-muted)' }}>{title}</h3>
     </div>
   )
 }
@@ -125,8 +125,8 @@ export function RightSidebar() {
             transition={{ type: 'spring', stiffness: 320, damping: 32 }}
             className="fixed right-0 top-0 z-30 flex h-screen w-[min(320px,100vw)] flex-col lg:top-[100px] lg:h-[calc(100vh-100px)] lg:z-20"
             style={{
-              background: '#FAFBFC',
-              borderLeft: '1px solid #EAECF0',
+              background: 'var(--color-bg-inset)',
+              borderLeft: '1px solid var(--color-border)',
               boxShadow: '-6px 0 20px rgba(13,15,26,0.05)',
             }}>
 
@@ -137,7 +137,7 @@ export function RightSidebar() {
               <div
                 className="m-3 rounded-2xl p-3.5"
                 style={{
-                  background: '#ffffff',
+                  background: 'var(--color-bg-surface)',
                   border: '1px solid rgba(0,87,184,0.14)',
                 }}>
                 {/* Close */}
@@ -145,25 +145,25 @@ export function RightSidebar() {
                   <div className="flex items-center gap-2.5">
                     <div className="relative flex-shrink-0">
                       <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl text-sm font-bold text-white"
-                        style={{ background: '#0057b8', boxShadow: '0 2px 8px rgba(0,87,184,0.20)' }}>
+                        style={{ background: 'var(--color-primary)', boxShadow: '0 2px 8px rgba(0,87,184,0.20)' }}>
                         {hasAvatarImage
                           ? <img src={user!.avatarUrl} alt="" className="h-full w-full object-cover" />
                           : avatarInitial}
                       </div>
                       <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white"
-                        style={{ background: '#22C55E' }} />
+                        style={{ background: 'var(--color-success)' }} />
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-bold leading-tight" style={{ color: '#0D0F1A' }}>
+                      <p className="truncate text-sm font-bold leading-tight" style={{ color: 'var(--color-text-primary)' }}>
                         {user?.name ?? '—'}
                       </p>
-                      <p className="truncate text-[11px] leading-tight mt-0.5" style={{ color: '#B0B7C3' }}>
+                      <p className="truncate text-[11px] leading-tight mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
                         {user?.headline ?? (user?.role ? user.role[0]!.toUpperCase() + user.role.slice(1) : 'Student')}
                       </p>
                     </div>
                   </div>
                   <button onClick={() => setRightPanel(false)} aria-label="Close"
-                    className="ml-2 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-white/80"
+                    className="ml-2 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-[var(--color-bg-surface)]/80"
                     style={{ color: '#C4C9D4' }}>
                     <X size={11} />
                   </button>
@@ -196,15 +196,15 @@ export function RightSidebar() {
               <div className="px-3 pt-3 pb-2">
                 <SectionHeader icon={ListChecks} title="Today's plan" />
                 {!enrollments && (
-                  <div className="flex items-center gap-1.5 py-1.5 text-xs" style={{ color: '#B0B7C3' }}>
+                  <div className="flex items-center gap-1.5 py-1.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>
                     <Spinner size={10} />Loading…
                   </div>
                 )}
                 {enrollments && todos.length === 0 && (
                   <div className="rounded-xl px-3 py-2 text-xs"
-                    style={{ background: '#F4F5F8', color: '#6B7280', border: '1px solid #EAECF0' }}>
+                    style={{ background: 'var(--color-bg-page)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}>
                     Nothing queued.{' '}
-                    <Link href="/courses" className="font-semibold" style={{ color: '#0057b8' }}>Browse →</Link>
+                    <Link href="/courses" className="font-semibold" style={{ color: 'var(--color-primary)' }}>Browse →</Link>
                   </div>
                 )}
                 <div className="space-y-1">
@@ -214,35 +214,35 @@ export function RightSidebar() {
                       : `/courses/${t.course.slug}`
                     return (
                       <Link key={t.enrollment.id} href={href}>
-                        <div className="group flex items-center gap-2 rounded-xl px-2.5 py-2 transition-all hover:bg-blue-50"
-                          style={{ border: '1px solid #F0F1F5', background: 'white' }}>
+                        <div className="group flex items-center gap-2 rounded-xl px-2.5 py-2 transition-all hover:bg-[var(--color-hover)]"
+                          style={{ border: '1px solid var(--color-border)', background: 'var(--color-bg-surface)' }}>
                           <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg"
                             style={{
-                              background: t.kind === 'continue' ? 'rgba(0,87,184,0.08)' : '#F4F5F8',
-                              border: t.kind === 'continue' ? '1px solid rgba(0,87,184,0.16)' : '1px solid #EAECF0',
+                              background: t.kind === 'continue' ? 'rgba(0,87,184,0.08)' : 'var(--color-bg-page)',
+                              border: t.kind === 'continue' ? '1px solid rgba(0,87,184,0.16)' : '1px solid var(--color-border)',
                             }}>
                             {t.kind === 'continue'
                               ? <Play size={9} fill="#0057b8" color="#0057b8" />
-                              : <Sparkles size={9} style={{ color: '#9CA3AF' }} />}
+                              : <Sparkles size={9} style={{ color: 'var(--color-text-muted)' }} />}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-xs font-semibold leading-snug" style={{ color: '#0D0F1A' }}>
+                            <p className="truncate text-xs font-semibold leading-snug" style={{ color: 'var(--color-text-primary)' }}>
                               {t.kind === 'continue' ? 'Continue' : 'Start'}{' '}{t.course.title}
                             </p>
                             {t.kind === 'continue' && (
                               <div className="mt-1 flex items-center gap-1.5">
                                 <div className="h-1 flex-1 rounded-full" style={{ background: '#F0F2F5' }}>
                                   <div className="h-full rounded-full"
-                                    style={{ background: '#22C55E', width: `${t.enrollment.progressPercent}%` }} />
+                                    style={{ background: 'var(--color-success)', width: `${t.enrollment.progressPercent}%` }} />
                                 </div>
-                                <span className="text-[10px] font-bold tabular-nums" style={{ color: '#22C55E' }}>
+                                <span className="text-[10px] font-bold tabular-nums" style={{ color: 'var(--color-success)' }}>
                                   {t.enrollment.progressPercent}%
                                 </span>
                               </div>
                             )}
                           </div>
                           <ChevronRight size={10} className="flex-shrink-0 opacity-0 transition-opacity group-hover:opacity-60"
-                            style={{ color: '#0057b8' }} />
+                            style={{ color: 'var(--color-primary)' }} />
                         </div>
                       </Link>
                     )
@@ -256,13 +256,13 @@ export function RightSidebar() {
               <div className="px-3 pt-3 pb-2">
                 <SectionHeader icon={Activity} title="Recent activity" />
                 {!activity && (
-                  <div className="flex items-center gap-1.5 py-1.5 text-xs" style={{ color: '#B0B7C3' }}>
+                  <div className="flex items-center gap-1.5 py-1.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>
                     <Spinner size={10} />Loading…
                   </div>
                 )}
                 {activity && activity.items.length === 0 && (
                   <div className="rounded-xl px-3 py-2 text-xs"
-                    style={{ background: '#F4F5F8', color: '#6B7280', border: '1px solid #EAECF0' }}>
+                    style={{ background: 'var(--color-bg-page)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}>
                     Mark a lesson complete and it&apos;ll show up here.
                   </div>
                 )}
@@ -274,21 +274,21 @@ export function RightSidebar() {
                       <div key={a.id} className="flex items-start gap-2">
                         <div className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full"
                           style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.16)' }}>
-                          <CheckCircle2 size={10} style={{ color: '#22C55E' }} />
+                          <CheckCircle2 size={10} style={{ color: 'var(--color-success)' }} />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="line-clamp-1 text-xs leading-snug" style={{ color: '#111827' }}>
-                            <span style={{ color: '#6B7280' }}>Completed </span>
+                          <p className="line-clamp-1 text-xs leading-snug" style={{ color: 'var(--color-text-primary)' }}>
+                            <span style={{ color: 'var(--color-text-muted)' }}>Completed </span>
                             <span className="font-semibold">{l?.title ?? 'a lesson'}</span>
                           </p>
                           {c && (
                             <Link href={`/courses/${c.slug}`}
                               className="mt-0.5 block line-clamp-1 text-[10px] transition-colors hover:text-[#0057b8]"
-                              style={{ color: '#B0B7C3' }}>
+                              style={{ color: 'var(--color-text-muted)' }}>
                               {c.title}
                             </Link>
                           )}
-                          <p className="mt-0.5 flex items-center gap-1 text-[10px]" style={{ color: '#D1D5DB' }}>
+                          <p className="mt-0.5 flex items-center gap-1 text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
                             <Clock size={8} />{relTime(a.completedAt ?? a.updatedAt)}
                             {l && l.durationMins > 0 && <> · {fmtMins(l.durationMins)}</>}
                           </p>
@@ -303,11 +303,11 @@ export function RightSidebar() {
               {activity && (weekLessons > 0 || weekMins > 0) && (
                 <>
                   <Divider />
-                  <div className="mx-3 mt-3 mb-2 rounded-2xl p-3.5" style={{ background: '#0D0F1A' }}>
+                  <div className="mx-3 mt-3 mb-2 rounded-2xl p-3.5" style={{ background: 'var(--color-text-primary)' }}>
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="flex items-center gap-1.5 mb-1.5">
-                          <Flame size={10} style={{ color: '#0057b8' }} />
+                          <Flame size={10} style={{ color: 'var(--color-primary)' }} />
                           <span className="text-[9px] font-bold uppercase tracking-[0.09em]"
                             style={{ color: 'rgba(255,255,255,0.35)' }}>This week</span>
                         </div>
@@ -325,7 +325,7 @@ export function RightSidebar() {
                       </div>
                       <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl"
                         style={{ background: 'rgba(0,87,184,0.15)', border: '1px solid rgba(0,87,184,0.22)' }}>
-                        <TrendingUp size={13} style={{ color: '#0057b8' }} />
+                        <TrendingUp size={13} style={{ color: 'var(--color-primary)' }} />
                       </div>
                     </div>
                     <p className="mt-2 text-[10px]" style={{ color: 'rgba(255,255,255,0.25)' }}>
@@ -362,14 +362,14 @@ function StatPill({ icon: Icon, value, label, color, bg }: {
 }) {
   return (
     <div className="flex flex-col gap-0.5 rounded-xl p-2"
-      style={{ background: 'white', border: '1px solid #EAECF0' }}>
+      style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)' }}>
       <div className="flex items-center gap-1">
         <div className="flex h-4 w-4 items-center justify-center rounded-md" style={{ background: bg }}>
           <Icon size={8} style={{ color }} />
         </div>
-        <span className="text-sm font-bold leading-none" style={{ color: '#0D0F1A' }}>{value}</span>
+        <span className="text-sm font-bold leading-none" style={{ color: 'var(--color-text-primary)' }}>{value}</span>
       </div>
-      <p className="text-[9px] font-medium" style={{ color: '#B0B7C3' }}>{label}</p>
+      <p className="text-[9px] font-medium" style={{ color: 'var(--color-text-muted)' }}>{label}</p>
     </div>
   )
 }
@@ -382,8 +382,8 @@ function LiveRow({ live, index }: { live: LiveClass; index: number }) {
   })
   return (
     <a href={live.meetingUrl} target="_blank" rel="noreferrer noopener"
-      className="group flex items-center gap-2 rounded-xl px-2.5 py-2 transition-all hover:bg-blue-50"
-      style={{ border: '1px solid #F0F1F5', background: 'white' }}>
+      className="group flex items-center gap-2 rounded-xl px-2.5 py-2 transition-all hover:bg-[var(--color-hover)]"
+      style={{ border: '1px solid var(--color-border)', background: 'var(--color-bg-surface)' }}>
       <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg"
         style={{
           background: liveNow ? 'rgba(239,68,68,0.08)' : 'rgba(99,102,241,0.08)',
@@ -391,15 +391,15 @@ function LiveRow({ live, index }: { live: LiveClass; index: number }) {
         }}>
         {liveNow
           ? <motion.div animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 1.4, repeat: Infinity }}>
-              <Radio size={10} style={{ color: '#EF4444' }} />
+              <Radio size={10} style={{ color: 'var(--color-danger)' }} />
             </motion.div>
           : <Calendar size={10} style={{ color: '#6366F1' }} />}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-semibold leading-tight" style={{ color: '#0D0F1A' }}>{live.title}</p>
-        <p className="mt-0.5 text-[10px] leading-tight" style={{ color: '#B0B7C3' }}>
+        <p className="truncate text-xs font-semibold leading-tight" style={{ color: 'var(--color-text-primary)' }}>{live.title}</p>
+        <p className="mt-0.5 text-[10px] leading-tight" style={{ color: 'var(--color-text-muted)' }}>
           {liveNow
-            ? <span style={{ color: '#EF4444', fontWeight: 700 }}>● LIVE NOW</span>
+            ? <span style={{ color: 'var(--color-danger)', fontWeight: 700 }}>● LIVE NOW</span>
             : <>{when}{course && ` · ${course.title}`}</>}
         </p>
       </div>
@@ -412,12 +412,12 @@ function LiveRow({ live, index }: { live: LiveClass; index: number }) {
 function QuickTile({ href, label, icon: Icon }: { href: string; label: string; icon: React.ElementType }) {
   return (
     <Link href={href}>
-      <div className="group flex items-center gap-1.5 rounded-xl px-2.5 py-2 transition-all hover:bg-white"
+      <div className="group flex items-center gap-1.5 rounded-xl px-2.5 py-2 transition-all hover:bg-[var(--color-bg-surface)]"
         style={{ border: '1px solid #F0F2F5' }}
-        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#E5E7EB' }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border)' }}
         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#F0F2F5' }}>
-        <Icon size={11} className="flex-shrink-0" style={{ color: '#B0B7C3' }} />
-        <span className="text-xs font-medium" style={{ color: '#6B7280' }}>{label}</span>
+        <Icon size={11} className="flex-shrink-0" style={{ color: 'var(--color-text-muted)' }} />
+        <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>{label}</span>
       </div>
     </Link>
   )
@@ -434,8 +434,8 @@ export function RightSidebarToggle() {
       onClick={() => setRightPanel(true)}
       aria-label="Show activity panel"
       className="fixed right-4 bottom-6 z-20 flex h-10 w-10 items-center justify-center rounded-full transition-shadow hover:shadow-xl lg:bottom-auto lg:top-[120px]"
-      style={{ background: 'white', border: '1px solid #E5E7EB', boxShadow: '0 4px 14px rgba(0,0,0,0.10)' }}>
-      <Zap size={15} style={{ color: '#0057b8' }} />
+      style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)', boxShadow: '0 4px 14px rgba(0,0,0,0.10)' }}>
+      <Zap size={15} style={{ color: 'var(--color-primary)' }} />
     </motion.button>
   )
 }

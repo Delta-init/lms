@@ -51,7 +51,7 @@ function ToastCard({
       animate={{ opacity: 1, x: 0,  scale: 1    }}
       exit={{    opacity: 0, x: 24, scale: 0.96  }}
       transition={{ type: 'spring', stiffness: 320, damping: 28 }}
-      className="pointer-events-auto flex items-start gap-3 rounded-2xl bg-white p-3.5"
+      className="pointer-events-auto flex items-start gap-3 rounded-2xl bg-[var(--color-bg-surface)] p-3.5"
       style={{
         border:     `1px solid ${s.border}`,
         boxShadow:  '0 8px 32px rgba(0,0,0,0.10)',
@@ -61,13 +61,13 @@ function ToastCard({
         <Icon size={15} style={{ color: s.fg }} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold" style={{ color: '#111827' }}>{title}</p>
+        <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>{title}</p>
         {body && (
-          <p className="mt-0.5 text-xs leading-relaxed" style={{ color: '#6B7280' }}>{body}</p>
+          <p className="mt-0.5 text-xs leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>{body}</p>
         )}
       </div>
       <Button type="button" variant="ghost" size="icon" onClick={onDismiss}
-        className="h-6 w-6 flex-shrink-0 rounded-lg text-gray-400 hover:bg-gray-100">
+        className="h-6 w-6 flex-shrink-0 rounded-lg text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)]">
         <X size={11} />
       </Button>
     </motion.div>

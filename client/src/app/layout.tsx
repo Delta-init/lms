@@ -50,12 +50,38 @@ export const viewport: Viewport = {
   initialScale: 1,
 }
 
+/* Runs before the first paint, ahead of React and ahead of the stylesheet
+   being applied to any pixels. Without it a dark-theme user gets a white
+   flash on every navigation: the server cannot know the preference (it lives
+   in localStorage, not a cookie), so the document starts light and only turns
+   dark once the store rehydrates — which is after paint.
+
+   Deliberately inline and dependency-free so it cannot be deferred, and
+   wrapped in try/catch because a browser with storage disabled must still
+   render the app rather than a blank page. */
+const THEME_BOOT = `
+(function(){try{
+  var p = localStorage.getItem('lms-theme');
+  if (p) { try { p = JSON.parse(p).state.preference } catch (e) { } }
+  if (p !== 'light' && p !== 'dark') {
+    p = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  document.documentElement.setAttribute('data-theme', p);
+}catch(e){document.documentElement.setAttribute('data-theme','light')}})();
+`
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en"
+      /* The boot script sets data-theme before React hydrates, so the server
+         markup and the client markup differ on this attribute by design. */
+      suppressHydrationWarning
       className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
+      </head>
       <body><Providers>{children}</Providers></body>
     </html>
   )

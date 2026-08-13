@@ -2,27 +2,110 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Design tokens ──────────────────────────────── */
-:root {
+/* ── Design tokens ────────────────────────────────
+   Every colour the UI uses flows through these. Components reference the
+   variables (inline styles included — style={{ color: 'var(--color-…) '}}
+   resolves exactly like a stylesheet does), so switching theme is a matter of
+   redefining the values on <html data-theme>, with no component re-render and
+   nothing to keep in sync per screen.
+
+   Brand and status colours (primary, success, warning, danger) are
+   deliberately near-identical across themes: they carry meaning, and a red
+   that stops being red in the dark stops being a warning. Only their tints
+   shift, so they keep enough contrast against a dark surface.
+─────────────────────────────────────────────────── */
+:root, [data-theme='light'] {
+  color-scheme: light;
+
   --color-primary:        #0057b8;
   --color-primary-hover:  #003d80;
   --color-primary-light:  #EEF5FF;
+  /* Same as the brand on light — only dark needs to lift blue text. */
+  --color-primary-on-surface: #0057b8;
+  /* Hover washes. Were hardcoded as Tailwind blue-50/red-50, which paint a
+     brilliant light square on a dark surface — the one place a theme-blind
+     colour is most obvious, because it only appears under the cursor. */
+  --color-hover:          #EFF6FF;
+  --color-hover-danger:   #FEF2F2;
   --color-secondary:      #2F6BFF;
   --color-secondary-hover:#1A53E0;
   --color-secondary-light:#EEF3FF;
   --color-success:        #0ECC8E;
   --color-warning:        #F59E0B;
   --color-danger:         #EF4444;
+
+  /* Surfaces, from furthest back to nearest front */
   --color-bg-page:        #F4F5F8;
   --color-bg-surface:     #FFFFFF;
   --color-bg-muted:       #F0F1F5;
+  --color-bg-subtle:      #F3F4F6;
+  --color-bg-inset:       #FAFBFC;
+
   --color-border:         #E4E7ED;
+  --color-border-strong:  #D1D5DB;
+
   --color-text-primary:   #0D0F1A;
   --color-text-secondary: #4B5563;
   --color-text-muted:     #9CA3AF;
+  --color-text-inverse:   #FFFFFF;
+
+  /* Shadows read as "depth" on light and as "separation" on dark, where a
+     drop shadow is nearly invisible — dark leans on borders instead. */
+  --shadow-sm:            0 1px 2px rgba(13,15,26,0.06);
+  --shadow-md:            0 4px 16px rgba(13,15,26,0.08);
+
   --font-display:         'Bricolage Grotesque', sans-serif;
   --font-body:            'DM Sans', sans-serif;
   --font-mono:            'JetBrains Mono', monospace;
+}
+
+/* ── Dark ─────────────────────────────────────────
+   Surfaces get LIGHTER as they come forward, which is how depth reads without
+   shadows. Text tops out at #E8EAF0 rather than pure white: full-contrast
+   white on a dark ground haloes and is tiring to read for long stretches,
+   which is most of what a student does here.
+─────────────────────────────────────────────────── */
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* The brand blue does NOT change with the theme. An earlier version of this
+     block lightened it to #4d94ff for contrast, and because every #0057b8 in
+     the app routes through this token, the whole brand panel on the sign-in
+     screen repainted itself a different blue. Identity is not a theme
+     variable. Buttons and brand surfaces carry white text, which is legible
+     on #0057b8 against either background, so nothing needs it to move.
+
+     --color-primary-on-surface is the escape hatch: blue TEXT on a dark page
+     does need lifting, and that is a separate decision from the brand fill. */
+  --color-primary:        #0057b8;
+  --color-primary-hover:  #0068d9;
+  --color-primary-light:  rgba(77,148,255,0.16);
+  --color-primary-on-surface: #6ba6ff;
+  --color-hover:          rgba(77,148,255,0.13);
+  --color-hover-danger:   rgba(248,113,113,0.13);
+  --color-secondary:      #2F6BFF;
+  --color-secondary-hover:#4d82ff;
+  --color-secondary-light:rgba(107,155,255,0.16);
+  --color-success:        #2ee0a5;
+  --color-warning:        #FBBF24;
+  --color-danger:         #F87171;
+
+  --color-bg-page:        #0B0D14;
+  --color-bg-surface:     #12151F;
+  --color-bg-muted:       #1A1E2B;
+  --color-bg-subtle:      #1A1E2B;
+  --color-bg-inset:       #161A25;
+
+  --color-border:         #262B3A;
+  --color-border-strong:  #333A4D;
+
+  --color-text-primary:   #E8EAF0;
+  --color-text-secondary: #A9B0C0;
+  --color-text-muted:     #6F7788;
+  --color-text-inverse:   #0B0D14;
+
+  --shadow-sm:            0 1px 2px rgba(0,0,0,0.40);
+  --shadow-md:            0 4px 16px rgba(0,0,0,0.50);
 }
 
 /* ── Base ───────────────────────────────────────── */
@@ -44,15 +127,75 @@ body {
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: #D1D5DB;
+  background: var(--color-border-strong);
   border-radius: 999px;
 }
-::-webkit-scrollbar-thumb:hover { background: #9CA3AF; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
 
 /* ── Focus visible — only on interactive non-form elements ── */
 :focus-visible:not(input):not(textarea):not(select) {
-  outline: 2px solid #0057b8 !important;
+  outline: 2px solid var(--color-primary) !important;
   outline-offset: 2px;
+}
+
+/* ── Logo ─────────────────────────────────────────
+   logo-dark.png is dark ink drawn for a light background, so on the dark
+   surface it disappeared entirely — the header just looked empty. Knocking it
+   to pure white keeps one asset instead of maintaining a second file that can
+   drift out of sync with the brand. */
+[data-theme='dark'] img[src*='logo-dark'],
+[data-theme='dark'] img[src*='logo.png'],
+[data-theme='dark'] img[src*='logo.webp'] {
+  filter: brightness(0) invert(1);
+}
+
+/* ── Form controls follow the theme ───────────────
+   @tailwindcss/forms sets `background-color: #fff` and a grey border on every
+   control in its BASE layer — a stylesheet rule, not a class — so no amount
+   of converting component classes reaches it. Left alone, every input, select
+   and textarea stayed brilliant white in dark mode. Scoped to the dark theme
+   so the light appearance is untouched. */
+[data-theme='dark'] input:not([type='checkbox']):not([type='radio']),
+[data-theme='dark'] textarea,
+[data-theme='dark'] select {
+  background-color: var(--color-bg-muted);
+  border-color:     var(--color-border);
+  color:            var(--color-text-primary);
+}
+[data-theme='dark'] input::placeholder,
+[data-theme='dark'] textarea::placeholder {
+  color: var(--color-text-muted);
+}
+/* The native picker glyphs ship as dark-on-transparent SVGs. */
+[data-theme='dark'] input[type='date']::-webkit-calendar-picker-indicator,
+[data-theme='dark'] input[type='time']::-webkit-calendar-picker-indicator {
+  filter: invert(1) opacity(0.6);
+}
+
+/* A light subtree nested inside the dark document — the auth screens — must
+   win these back. Both selectors match there (html is dark, the wrapper is
+   light) and specificity is equal, so source order decides: these come last
+   and take it. In the dashboard there is no light ancestor, so they simply
+   do not match and the dark rules above stand. */
+[data-theme='light'] input:not([type='checkbox']):not([type='radio']),
+[data-theme='light'] textarea,
+[data-theme='light'] select {
+  background-color: var(--color-bg-surface);
+  border-color:     var(--color-border);
+  color:            var(--color-text-primary);
+}
+[data-theme='light'] input::placeholder,
+[data-theme='light'] textarea::placeholder {
+  color: var(--color-text-muted);
+}
+[data-theme='light'] input[type='date']::-webkit-calendar-picker-indicator,
+[data-theme='light'] input[type='time']::-webkit-calendar-picker-indicator {
+  filter: none;
+}
+[data-theme='light'] img[src*='logo-dark'],
+[data-theme='light'] img[src*='logo.png'],
+[data-theme='light'] img[src*='logo.webp'] {
+  filter: none;
 }
 
 /* ── Kill @tailwindcss/forms blue ring on every form element ── */

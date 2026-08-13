@@ -44,7 +44,7 @@ export default function CategoryLandingPage({ params }: { params: Promise<{ slug
       {/* Back */}
       <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} className="mb-4">
         <Link href="/courses" className="inline-flex items-center gap-1.5 text-sm transition-opacity hover:opacity-70"
-          style={{ color: '#9CA3AF' }}>
+          style={{ color: 'var(--color-text-muted)' }}>
           <ArrowLeft size={13} />Back to all courses
         </Link>
       </motion.div>
@@ -56,7 +56,7 @@ export default function CategoryLandingPage({ params }: { params: Promise<{ slug
         style={{ background: palette.bg, border: `1px solid ${palette.fg}22` }}>
         <div className="flex items-start gap-4">
           <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl"
-            style={{ background: 'white', border: `1px solid ${palette.fg}30` }}>
+            style={{ background: 'var(--color-bg-surface)', border: `1px solid ${palette.fg}30` }}>
             <Sparkles size={22} style={{ color: palette.fg }} />
           </div>
           <div className="min-w-0 flex-1">
@@ -66,16 +66,16 @@ export default function CategoryLandingPage({ params }: { params: Promise<{ slug
               </span>
             </div>
             <h1 className="text-3xl font-bold tracking-tight"
-              style={{ color: '#111827', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
+              style={{ color: 'var(--color-text-primary)', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
               {category?.name ?? slug.replace(/-/g, ' ')}
             </h1>
-            <p className="mt-2 text-sm leading-relaxed" style={{ color: '#4B5563' }}>
+            <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
               {category?.description ?? 'Browse curated courses in this category.'}
             </p>
-            <div className="mt-3 flex items-center gap-4 text-xs" style={{ color: '#6B7280' }}>
+            <div className="mt-3 flex items-center gap-4 text-xs" style={{ color: 'var(--color-text-muted)' }}>
               <span className="inline-flex items-center gap-1.5">
                 <BookOpen size={12} />
-                <span className="font-semibold" style={{ color: '#111827' }}>{total}</span>
+                <span className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{total}</span>
                 {total === 1 ? 'course' : 'courses'}
               </span>
             </div>
@@ -85,14 +85,14 @@ export default function CategoryLandingPage({ params }: { params: Promise<{ slug
 
       {/* Sort row */}
       <div className="mb-5 flex items-center justify-between gap-3">
-        <p className="text-sm" style={{ color: '#6B7280' }}>
+        <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
           {isLoading ? 'Loading…' : `Showing ${data?.docs.length ?? 0} of ${total}`}
         </p>
         <div className="flex items-center gap-2">
-          <span className="text-xs" style={{ color: '#9CA3AF' }}>Sort by</span>
+          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Sort by</span>
           <select value={sort} onChange={e => { setSort(e.target.value); setPage(1) }}
-            className="rounded-xl bg-white px-3 py-1.5 text-sm font-semibold outline-none"
-            style={{ border: '1px solid #E5E7EB', color: '#374151' }}>
+            className="rounded-xl bg-[var(--color-bg-surface)] px-3 py-1.5 text-sm font-semibold outline-none"
+            style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>
             <option value="popular">Most popular</option>
             <option value="rating">Highest rated</option>
             <option value="newest">Newest</option>
@@ -104,20 +104,20 @@ export default function CategoryLandingPage({ params }: { params: Promise<{ slug
 
       {/* Grid */}
       {isLoading ? (
-        <div className="flex items-center justify-center gap-2 py-16 text-sm" style={{ color: '#9CA3AF' }}>
+        <div className="flex items-center justify-center gap-2 py-16 text-sm" style={{ color: 'var(--color-text-muted)' }}>
           <Spinner size={14} />Loading courses…
         </div>
       ) : data && data.docs.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-4 py-24">
           <div className="flex h-16 w-16 items-center justify-center rounded-3xl"
-            style={{ background: '#F3F4F6', border: '1px solid #E5E7EB' }}>
-            <BookOpen size={24} style={{ color: '#D1D5DB' }} />
+            style={{ background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)' }}>
+            <BookOpen size={24} style={{ color: 'var(--color-text-muted)' }} />
           </div>
-          <p className="text-base font-bold" style={{ color: '#111827' }}>No courses yet</p>
-          <p className="text-sm" style={{ color: '#9CA3AF' }}>Check back soon. New content is added regularly.</p>
+          <p className="text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>No courses yet</p>
+          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Check back soon. New content is added regularly.</p>
           <Link href="/courses"
             className="mt-1 rounded-xl px-5 py-2 text-sm font-semibold transition-colors hover:opacity-90"
-            style={{ background: 'rgba(0,87,184,0.10)', color: '#0057b8' }}>
+            style={{ background: 'rgba(0,87,184,0.10)', color: 'var(--color-primary)' }}>
             Browse all courses
           </Link>
         </div>
@@ -136,22 +136,22 @@ export default function CategoryLandingPage({ params }: { params: Promise<{ slug
       {data && data.meta.total_pages > 1 && (
         <div className="mt-8 flex items-center justify-center gap-2">
           <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={!data.meta.has_prev}
-            className="rounded-xl px-4 py-2 text-sm font-semibold bg-white transition-colors hover:bg-gray-50 disabled:opacity-40"
-            style={{ border: '1px solid #E5E7EB', color: '#374151' }}>
+            className="rounded-xl px-4 py-2 text-sm font-semibold bg-[var(--color-bg-surface)] transition-colors hover:bg-[var(--color-bg-muted)] disabled:opacity-40"
+            style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>
             Previous
           </button>
           {Array.from({ length: data.meta.total_pages }, (_, i) => i + 1).map(p => (
             <button key={p} onClick={() => setPage(p)}
               className="h-9 w-9 rounded-xl text-sm font-semibold transition-all"
               style={p === page
-                ? { background: '#111827', color: 'white' }
-                : { color: '#6B7280', background: 'white', border: '1px solid #E5E7EB' }}>
+                ? { background: 'var(--color-text-primary)', color: 'var(--color-text-inverse)' }
+                : { color: 'var(--color-text-muted)', background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)' }}>
               {p}
             </button>
           ))}
           <button onClick={() => setPage(p => p + 1)} disabled={!data.meta.has_next}
-            className="rounded-xl px-4 py-2 text-sm font-semibold bg-white transition-colors hover:bg-gray-50 disabled:opacity-40"
-            style={{ border: '1px solid #E5E7EB', color: '#374151' }}>
+            className="rounded-xl px-4 py-2 text-sm font-semibold bg-[var(--color-bg-surface)] transition-colors hover:bg-[var(--color-bg-muted)] disabled:opacity-40"
+            style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>
             Next
           </button>
         </div>
@@ -165,15 +165,15 @@ function CategoryCard({ course, accent }: { course: Course; accent: string }) {
     <Link href={`/courses/${course.slug}`}>
       <motion.div whileHover={{ y: -4, boxShadow: '0 20px 44px rgba(0,0,0,0.10)' }} whileTap={{ scale: 0.98 }}
         transition={{ type: 'spring', stiffness: 350, damping: 28 }}
-        className="group h-full overflow-hidden rounded-2xl bg-white cursor-pointer flex flex-col"
-        style={{ border: '1px solid #E5E7EB', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
+        className="group h-full overflow-hidden rounded-2xl bg-[var(--color-bg-surface)] cursor-pointer flex flex-col"
+        style={{ border: '1px solid var(--color-border)', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
 
         <div className="relative h-40 overflow-hidden">
           {course.thumbnailUrl
             ? <img src={course.thumbnailUrl} alt={course.title}
                 className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
-            : <div className="flex h-full w-full items-center justify-center" style={{ background: '#F3F4F6' }}>
-                <BookOpen size={32} style={{ color: '#D1D5DB' }} />
+            : <div className="flex h-full w-full items-center justify-center" style={{ background: 'var(--color-bg-subtle)' }}>
+                <BookOpen size={32} style={{ color: 'var(--color-text-muted)' }} />
               </div>
           }
           <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
@@ -185,25 +185,25 @@ function CategoryCard({ course, accent }: { course: Course; accent: string }) {
           </div>
           {course.isFree && (
             <span className="absolute right-3 top-3 rounded-lg px-2 py-0.5 text-[10px] font-bold"
-              style={{ background: 'rgba(34,197,94,0.15)', color: '#16A34A', border: '1px solid rgba(34,197,94,0.25)' }}>
+              style={{ background: 'rgba(34,197,94,0.15)', color: 'var(--color-success)', border: '1px solid rgba(34,197,94,0.25)' }}>
               FREE
             </span>
           )}
         </div>
 
         <div className="flex flex-col flex-1 p-4">
-          <h3 className="line-clamp-2 text-sm font-bold leading-snug" style={{ color: '#111827' }}>
+          <h3 className="line-clamp-2 text-sm font-bold leading-snug" style={{ color: 'var(--color-text-primary)' }}>
             {course.title}
           </h3>
           {course.instructor && (
-            <p className="mt-1 text-xs" style={{ color: '#9CA3AF' }}>{course.instructor.name}</p>
+            <p className="mt-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>{course.instructor.name}</p>
           )}
 
           <div className="mt-auto pt-3 flex items-center justify-between text-xs"
-            style={{ borderTop: '1px solid #F3F4F6', marginTop: 12, color: '#9CA3AF' }}>
+            style={{ borderTop: '1px solid var(--color-border)', marginTop: 12, color: 'var(--color-text-muted)' }}>
             <div className="flex items-center gap-3">
               {course.ratingAvg > 0 && (
-                <span className="flex items-center gap-1 font-semibold" style={{ color: '#F59E0B' }}>
+                <span className="flex items-center gap-1 font-semibold" style={{ color: 'var(--color-warning)' }}>
                   <Star size={11} fill="#F59E0B" />{course.ratingAvg.toFixed(1)}
                 </span>
               )}
@@ -211,7 +211,7 @@ function CategoryCard({ course, accent }: { course: Course; accent: string }) {
                 <Users size={10} />{course.enrolledCount.toLocaleString()}
               </span>
             </div>
-            <span className="font-bold" style={{ color: '#111827' }}>
+            <span className="font-bold" style={{ color: 'var(--color-text-primary)' }}>
               {course.isFree ? 'Free' : `$${course.price}`}
             </span>
           </div>

@@ -39,8 +39,8 @@ function fmtDateTime(iso?: string) {
 
 const STATUS: Record<ClassAssignmentStatus, { label: string; color: string; bg: string; Icon: React.ElementType }> = {
   pending:  { label: 'Awaiting review', color: '#B45309', bg: 'rgba(245,158,11,0.10)', Icon: Clock },
-  approved: { label: 'Approved',        color: '#059669', bg: 'rgba(16,185,129,0.10)', Icon: CheckCircle2 },
-  rejected: { label: 'Needs changes',   color: '#DC2626', bg: 'rgba(239,68,68,0.10)',  Icon: AlertTriangle },
+  approved: { label: 'Approved',        color: 'var(--color-success)', bg: 'rgba(16,185,129,0.10)', Icon: CheckCircle2 },
+  rejected: { label: 'Needs changes',   color: 'var(--color-danger)', bg: 'rgba(239,68,68,0.10)',  Icon: AlertTriangle },
 }
 
 /* ── Attachment picker ───────────────────────────────── */
@@ -85,11 +85,11 @@ function FilePicker({
 
       <button type="button" onClick={() => inputRef.current?.click()} disabled={busy || files.length >= MAX_FILES}
         className="flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-colors disabled:opacity-50"
-        style={{ border: '1.5px dashed #C6CBD4', color: '#0057b8', background: '#FAFBFC' }}>
+        style={{ border: '1.5px dashed #C6CBD4', color: 'var(--color-primary)', background: 'var(--color-bg-inset)' }}>
         {busy ? <Spinner /> : <Upload size={15} />}
         {busy ? 'Uploading…' : files.length ? 'Add another file' : 'Add photos or PDFs'}
       </button>
-      <p className="mt-1.5 text-[11px]" style={{ color: '#9CA3AF' }}>
+      <p className="mt-1.5 text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
         JPG, PNG, WebP or PDF · up to 10 MB each · {MAX_FILES} files max
       </p>
 
@@ -98,14 +98,14 @@ function FilePicker({
           {files.map((f, i) => (
             <motion.li key={`${f.url}-${i}`} layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
               className="flex items-center gap-2.5 rounded-xl px-3 py-2"
-              style={{ background: '#F4F5F8', border: '1px solid #E4E7ED' }}>
+              style={{ background: 'var(--color-bg-page)', border: '1px solid var(--color-border)' }}>
               {f.mimeType === 'application/pdf'
-                ? <FileText size={15} style={{ color: '#DC2626' }} className="flex-shrink-0" />
-                : <ImageIcon size={15} style={{ color: '#0057b8' }} className="flex-shrink-0" />}
-              <span className="min-w-0 flex-1 truncate text-xs font-medium" style={{ color: '#0D0F1A' }}>{f.name}</span>
-              <span className="flex-shrink-0 text-[11px]" style={{ color: '#9CA3AF' }}>{fmtSize(f.sizeBytes)}</span>
+                ? <FileText size={15} style={{ color: 'var(--color-danger)' }} className="flex-shrink-0" />
+                : <ImageIcon size={15} style={{ color: 'var(--color-primary)' }} className="flex-shrink-0" />}
+              <span className="min-w-0 flex-1 truncate text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>{f.name}</span>
+              <span className="flex-shrink-0 text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{fmtSize(f.sizeBytes)}</span>
               <button type="button" onClick={() => setFiles(files.filter((_, j) => j !== i))}
-                className="flex-shrink-0 transition-colors hover:text-red-500" style={{ color: '#9CA3AF' }}>
+                className="flex-shrink-0 transition-colors hover:text-red-500" style={{ color: 'var(--color-text-muted)' }}>
                 <X size={13} />
               </button>
             </motion.li>
@@ -157,17 +157,17 @@ function SubmitCard() {
   }
 
   if (isLoading) {
-    return <div className="flex justify-center rounded-2xl bg-white p-10" style={{ border: '1px solid #E4E7ED' }}><Spinner /></div>
+    return <div className="flex justify-center rounded-2xl bg-[var(--color-bg-surface)] p-10" style={{ border: '1px solid var(--color-border)' }}><Spinner /></div>
   }
 
   if (available.length === 0) {
     return (
-      <div className="rounded-2xl bg-white p-6 text-center" style={{ border: '1px solid #E4E7ED' }}>
-        <ClipboardList size={22} style={{ color: '#9CA3AF' }} className="mx-auto mb-2" />
-        <p className="text-sm font-semibold" style={{ color: '#0D0F1A' }}>
+      <div className="rounded-2xl bg-[var(--color-bg-surface)] p-6 text-center" style={{ border: '1px solid var(--color-border)' }}>
+        <ClipboardList size={22} style={{ color: 'var(--color-text-muted)' }} className="mx-auto mb-2" />
+        <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
           {(sessions ?? []).length === 0 ? 'No classes yet' : 'All caught up'}
         </p>
-        <p className="mt-1 text-xs" style={{ color: '#6B7280' }}>
+        <p className="mt-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
           {(sessions ?? []).length === 0
             ? 'Book and attend a live class, then send your work to the instructor here.'
             : 'You have already sent work for every class you attended.'}
@@ -177,15 +177,15 @@ function SubmitCard() {
   }
 
   return (
-    <div className="rounded-2xl bg-white p-5" style={{ border: '1px solid #E4E7ED' }}>
-      <h2 className="mb-4 text-sm font-bold" style={{ color: '#0D0F1A' }}>Send new work</h2>
+    <div className="rounded-2xl bg-[var(--color-bg-surface)] p-5" style={{ border: '1px solid var(--color-border)' }}>
+      <h2 className="mb-4 text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>Send new work</h2>
 
       {/* Class — the only thing to choose. Course, module and instructor
           follow from it, so there is no way to send work to the wrong person. */}
-      <label className="mb-1.5 block text-xs font-semibold" style={{ color: '#374151' }}>Which class is this for?</label>
+      <label className="mb-1.5 block text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>Which class is this for?</label>
       <select value={classId} onChange={e => setClassId(e.target.value)}
         className="w-full rounded-xl px-3 py-2.5 text-sm outline-none"
-        style={{ border: '1px solid #E4E7ED', background: '#FAFBFC', color: '#0D0F1A' }}>
+        style={{ border: '1px solid var(--color-border)', background: 'var(--color-bg-inset)', color: 'var(--color-text-primary)' }}>
         <option value="">Select a class you attended…</option>
         {available.map(s => (
           <option key={s.id} value={s.id}>{s.title} — {fmtDate(s.scheduledStart)}</option>
@@ -198,33 +198,33 @@ function SubmitCard() {
             className="overflow-hidden">
             <div className="mt-3 grid gap-2 rounded-xl px-3 py-2.5 sm:grid-cols-3"
               style={{ background: 'rgba(0,87,184,0.05)', border: '1px solid rgba(0,87,184,0.14)' }}>
-              <span className="flex items-center gap-1.5 text-[11px]" style={{ color: '#374151' }}>
-                <BookOpen size={11} style={{ color: '#0057b8' }} />{picked.courseId?.title ?? '—'}
+              <span className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
+                <BookOpen size={11} style={{ color: 'var(--color-primary)' }} />{picked.courseId?.title ?? '—'}
               </span>
-              <span className="flex items-center gap-1.5 text-[11px]" style={{ color: '#374151' }}>
-                <Layers size={11} style={{ color: '#0057b8' }} />{picked.sectionId?.title ?? 'No module'}
+              <span className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
+                <Layers size={11} style={{ color: 'var(--color-primary)' }} />{picked.sectionId?.title ?? 'No module'}
               </span>
-              <span className="flex items-center gap-1.5 text-[11px]" style={{ color: '#374151' }}>
-                <User size={11} style={{ color: '#0057b8' }} />{picked.instructorId?.name ?? '—'}
+              <span className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
+                <User size={11} style={{ color: 'var(--color-primary)' }} />{picked.instructorId?.name ?? '—'}
               </span>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <label className="mb-1.5 mt-4 block text-xs font-semibold" style={{ color: '#374151' }}>Title</label>
+      <label className="mb-1.5 mt-4 block text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>Title</label>
       <input value={title} onChange={e => setTitle(e.target.value)} maxLength={200}
         placeholder="e.g. Position sizing worksheet"
         className="w-full rounded-xl px-3 py-2.5 text-sm outline-none"
-        style={{ border: '1px solid #E4E7ED', background: '#FAFBFC', color: '#0D0F1A' }} />
+        style={{ border: '1px solid var(--color-border)', background: 'var(--color-bg-inset)', color: 'var(--color-text-primary)' }} />
 
-      <label className="mb-1.5 mt-4 block text-xs font-semibold" style={{ color: '#374151' }}>
-        Note to your instructor <span style={{ color: '#9CA3AF' }}>(optional)</span>
+      <label className="mb-1.5 mt-4 block text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+        Note to your instructor <span style={{ color: 'var(--color-text-muted)' }}>(optional)</span>
       </label>
       <textarea value={note} onChange={e => setNote(e.target.value)} rows={3} maxLength={5000}
         placeholder="Anything they should know while reviewing…"
         className="w-full resize-none rounded-xl px-3 py-2.5 text-sm outline-none"
-        style={{ border: '1px solid #E4E7ED', background: '#FAFBFC', color: '#0D0F1A' }} />
+        style={{ border: '1px solid var(--color-border)', background: 'var(--color-bg-inset)', color: 'var(--color-text-primary)' }} />
 
       <div className="mt-4">
         <FilePicker files={files} setFiles={setFiles} busy={busy} setBusy={setBusy} />
@@ -232,7 +232,7 @@ function SubmitCard() {
 
       <button type="button" onClick={() => void send()} disabled={submit.isPending || busy}
         className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-white transition-opacity disabled:opacity-50"
-        style={{ background: '#0057b8' }}>
+        style={{ background: 'var(--color-primary)' }}>
         {submit.isPending ? <Spinner /> : <Paperclip size={14} />}
         {submit.isPending ? 'Sending…' : 'Send to instructor'}
       </button>
@@ -264,7 +264,7 @@ function AssignmentCard({ a }: { a: MyClassAssignment }) {
 
   return (
     <motion.div layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-      className="rounded-2xl bg-white p-4" style={{ border: '1px solid #E4E7ED' }}>
+      className="rounded-2xl bg-[var(--color-bg-surface)] p-4" style={{ border: '1px solid var(--color-border)' }}>
 
       <div className="flex items-start gap-3">
         <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ background: bg }}>
@@ -277,11 +277,11 @@ function AssignmentCard({ a }: { a: MyClassAssignment }) {
               style={{ background: bg, color }}>{label}</span>
             {a.attempt > 1 && (
               <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                style={{ background: '#F4F5F8', color: '#6B7280' }}>Attempt {a.attempt}</span>
+                style={{ background: 'var(--color-bg-page)', color: 'var(--color-text-muted)' }}>Attempt {a.attempt}</span>
             )}
           </div>
-          <p className="truncate text-sm font-bold" style={{ color: '#0D0F1A' }}>{a.title}</p>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs" style={{ color: '#6B7280' }}>
+          <p className="truncate text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>{a.title}</p>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>
             <span className="flex items-center gap-1"><Calendar size={10} />{a.liveClassId?.title ?? 'Class'}</span>
             {a.instructorId?.name && <><span>·</span><span>{a.instructorId.name}</span></>}
             <span>·</span><span>Sent {fmtDateTime(a.submittedAt)}</span>
@@ -289,17 +289,17 @@ function AssignmentCard({ a }: { a: MyClassAssignment }) {
         </div>
       </div>
 
-      {a.note && <p className="mt-3 text-xs" style={{ color: '#4B5563' }}>{a.note}</p>}
+      {a.note && <p className="mt-3 text-xs" style={{ color: 'var(--color-text-secondary)' }}>{a.note}</p>}
 
       {a.files.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {a.files.map((f, i) => (
             <a key={i} href={f.url} target="_blank" rel="noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium transition-colors hover:bg-blue-50"
-              style={{ background: '#F4F5F8', border: '1px solid #E4E7ED', color: '#374151' }}>
+              className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium transition-colors hover:bg-[var(--color-hover)]"
+              style={{ background: 'var(--color-bg-page)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>
               {f.mimeType === 'application/pdf'
-                ? <FileText size={11} style={{ color: '#DC2626' }} />
-                : <ImageIcon size={11} style={{ color: '#0057b8' }} />}
+                ? <FileText size={11} style={{ color: 'var(--color-danger)' }} />
+                : <ImageIcon size={11} style={{ color: 'var(--color-primary)' }} />}
               <span className="max-w-[160px] truncate">{f.name}</span>
             </a>
           ))}
@@ -311,7 +311,7 @@ function AssignmentCard({ a }: { a: MyClassAssignment }) {
       {a.status === 'rejected' && a.lastReason && (
         <div className="mt-3 rounded-xl px-3 py-2.5"
           style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)' }}>
-          <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: '#DC2626' }}>
+          <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--color-danger)' }}>
             What to change
           </p>
           <p className="text-xs" style={{ color: '#7F1D1D' }}>{a.lastReason}</p>
@@ -323,25 +323,25 @@ function AssignmentCard({ a }: { a: MyClassAssignment }) {
           {!open ? (
             <button type="button" onClick={() => setOpen(true)}
               className="mt-3 flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-bold text-white"
-              style={{ background: '#0057b8' }}>
+              style={{ background: 'var(--color-primary)' }}>
               <RotateCcw size={12} />Send a revision
             </button>
           ) : (
-            <div className="mt-3 rounded-xl p-3" style={{ background: '#FAFBFC', border: '1px solid #E4E7ED' }}>
+            <div className="mt-3 rounded-xl p-3" style={{ background: 'var(--color-bg-inset)', border: '1px solid var(--color-border)' }}>
               <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} maxLength={5000}
                 placeholder="What you changed (optional)"
                 className="mb-3 w-full resize-none rounded-lg px-3 py-2 text-xs outline-none"
-                style={{ border: '1px solid #E4E7ED', background: '#fff', color: '#0D0F1A' }} />
+                style={{ border: '1px solid var(--color-border)', background: 'var(--color-bg-surface)', color: 'var(--color-text-primary)' }} />
               <FilePicker files={files} setFiles={setFiles} busy={busy} setBusy={setBusy} />
               <div className="mt-3 flex gap-2">
                 <button type="button" onClick={() => void send()} disabled={resubmit.isPending || busy}
                   className="flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
-                  style={{ background: '#0057b8' }}>
+                  style={{ background: 'var(--color-primary)' }}>
                   {resubmit.isPending ? <Spinner /> : <RotateCcw size={12} />}Send revision
                 </button>
                 <button type="button" onClick={() => { setOpen(false); setFiles([]); setNote('') }}
                   className="rounded-xl px-4 py-2 text-xs font-semibold"
-                  style={{ border: '1px solid #E4E7ED', color: '#6B7280' }}>Cancel</button>
+                  style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-muted)' }}>Cancel</button>
               </div>
             </div>
           )}
@@ -351,13 +351,13 @@ function AssignmentCard({ a }: { a: MyClassAssignment }) {
       {/* Earlier rounds, so a student can see what changed between attempts. */}
       {a.reviews.length > 1 && (
         <details className="mt-3">
-          <summary className="cursor-pointer text-[11px] font-semibold" style={{ color: '#6B7280' }}>
+          <summary className="cursor-pointer text-[11px] font-semibold" style={{ color: 'var(--color-text-muted)' }}>
             Review history ({a.reviews.length})
           </summary>
           <ul className="mt-2 flex flex-col gap-1.5">
             {a.reviews.map((r, i) => (
               <li key={i} className="rounded-lg px-2.5 py-1.5 text-[11px]"
-                style={{ background: '#F4F5F8', color: '#4B5563' }}>
+                style={{ background: 'var(--color-bg-page)', color: 'var(--color-text-secondary)' }}>
                 <span className="font-semibold">Attempt {r.attempt}: {r.status}</span>
                 {r.reason && <> — {r.reason}</>}
               </li>
@@ -381,10 +381,10 @@ export default function AssignmentsPage() {
   return (
     <div className="mx-auto w-full max-w-5xl">
       <div className="mb-5">
-        <h1 className="flex items-center gap-2 text-xl font-bold" style={{ color: '#0D0F1A' }}>
-          <ClipboardList size={20} style={{ color: '#0057b8' }} />Assignments
+        <h1 className="flex items-center gap-2 text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+          <ClipboardList size={20} style={{ color: 'var(--color-primary)' }} />Assignments
         </h1>
-        <p className="mt-0.5 text-sm" style={{ color: '#6B7280' }}>
+        <p className="mt-0.5 text-sm" style={{ color: 'var(--color-text-muted)' }}>
           Send your work to the instructor who ran the class, and see what they said.
         </p>
       </div>
@@ -403,22 +403,22 @@ export default function AssignmentsPage() {
               <button key={key} type="button" onClick={() => setFilter(key as typeof filter)}
                 className="rounded-full px-3 py-1.5 text-[11px] font-semibold transition-colors"
                 style={filter === key
-                  ? { background: '#0057b8', color: '#fff' }
-                  : { background: '#fff', color: '#6B7280', border: '1px solid #E4E7ED' }}>
+                  ? { background: 'var(--color-primary)', color: '#fff' }
+                  : { background: 'var(--color-bg-surface)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}>
                 {label}
               </button>
             ))}
           </div>
 
           {isLoading ? (
-            <div className="flex justify-center rounded-2xl bg-white p-10" style={{ border: '1px solid #E4E7ED' }}><Spinner /></div>
+            <div className="flex justify-center rounded-2xl bg-[var(--color-bg-surface)] p-10" style={{ border: '1px solid var(--color-border)' }}><Spinner /></div>
           ) : shown.length === 0 ? (
-            <div className="rounded-2xl bg-white p-8 text-center" style={{ border: '1px solid #E4E7ED' }}>
-              <ClipboardList size={22} style={{ color: '#9CA3AF' }} className="mx-auto mb-2" />
-              <p className="text-sm font-semibold" style={{ color: '#0D0F1A' }}>
+            <div className="rounded-2xl bg-[var(--color-bg-surface)] p-8 text-center" style={{ border: '1px solid var(--color-border)' }}>
+              <ClipboardList size={22} style={{ color: 'var(--color-text-muted)' }} className="mx-auto mb-2" />
+              <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
                 {list.length === 0 ? 'Nothing sent yet' : 'Nothing here'}
               </p>
-              <p className="mt-1 text-xs" style={{ color: '#6B7280' }}>
+              <p className="mt-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
                 {list.length === 0 ? 'Your submissions will appear here.' : 'Try another filter.'}
               </p>
             </div>

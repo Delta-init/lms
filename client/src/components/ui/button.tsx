@@ -15,10 +15,9 @@ const buttonVariants = cva(
           'bg-[#0057b8] text-white shadow-[0_4px_20px_rgba(0,87,184,0.25)] hover:bg-[#004fa6] hover:shadow-[0_8px_28px_rgba(0,87,184,0.35)] hover:-translate-y-0.5 active:translate-y-0',
         secondary:
           'bg-[#2F6BFF] text-white shadow-[0_4px_20px_rgba(47,107,255,0.24)] hover:bg-[#1A53E0] hover:shadow-[0_8px_28px_rgba(47,107,255,0.34)] hover:-translate-y-0.5 active:translate-y-0',
-        outline:
-          'border border-[#E4E7ED] bg-white text-[#0D0F1A] hover:bg-[#F4F5F8] hover:border-[#CDD0DA] active:bg-[#EDEEF2]',
+        outline: 'border border-[var(--color-border)] bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-page)] hover:border-[#CDD0DA] active:bg-[#EDEEF2]',
         ghost:
-          'text-[#4B5563] hover:bg-[#F3F4F6] hover:text-[#0D0F1A] active:bg-[#EDEEF2]',
+          'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-text-primary)] active:bg-[#EDEEF2]',
         destructive:
           'bg-[#EF4444] text-white hover:bg-[#DC2626] shadow-[0_4px_16px_rgba(239,68,68,0.25)] hover:-translate-y-0.5 active:translate-y-0',
         link:

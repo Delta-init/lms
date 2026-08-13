@@ -30,9 +30,9 @@ function fmtDuration(mins: number) {
 
 function statusInfo(status: BookingStatus) {
   switch (status) {
-    case 'attended':  return { label: 'Attended',  color: '#10B981', bg: 'rgba(16,185,129,0.08)',  icon: CheckCircle }
-    case 'missed':    return { label: 'Missed',    color: '#EF4444', bg: 'rgba(239,68,68,0.08)',   icon: XCircle }
-    case 'cancelled': return { label: 'Cancelled', color: '#9CA3AF', bg: 'rgba(156,163,175,0.08)', icon: XIcon }
+    case 'attended':  return { label: 'Attended',  color: 'var(--color-success)', bg: 'rgba(16,185,129,0.08)',  icon: CheckCircle }
+    case 'missed':    return { label: 'Missed',    color: 'var(--color-danger)', bg: 'rgba(239,68,68,0.08)',   icon: XCircle }
+    case 'cancelled': return { label: 'Cancelled', color: 'var(--color-text-muted)', bg: 'rgba(156,163,175,0.08)', icon: XIcon }
     default:          return { label: 'Booked',    color: '#6366F1', bg: 'rgba(99,102,241,0.08)',  icon: CheckCircle }
   }
 }
@@ -60,8 +60,8 @@ function BookingCard({ booking }: { booking: MyBooking }) {
       layout
       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97 }}
-      className="rounded-2xl bg-white p-4 transition-shadow hover:shadow-sm"
-      style={{ border: isLiveNow ? '1px solid rgba(239,68,68,0.30)' : '1px solid #E4E7ED' }}>
+      className="rounded-2xl bg-[var(--color-bg-surface)] p-4 transition-shadow hover:shadow-sm"
+      style={{ border: isLiveNow ? '1px solid rgba(239,68,68,0.30)' : '1px solid var(--color-border)' }}>
 
       {/* Top row */}
       <div className="flex items-start gap-3">
@@ -73,11 +73,11 @@ function BookingCard({ booking }: { booking: MyBooking }) {
           }}>
           {isLiveNow
             ? <motion.div animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 1.4, repeat: Infinity }}>
-                <Video size={16} style={{ color: '#EF4444' }} />
+                <Video size={16} style={{ color: 'var(--color-danger)' }} />
               </motion.div>
             : isExternal
             ? <ExternalLink size={16} style={{ color: '#6366F1' }} />
-            : <Tv2 size={16} style={{ color: '#0057b8' }} />}
+            : <Tv2 size={16} style={{ color: 'var(--color-primary)' }} />}
         </div>
 
         {/* Info */}
@@ -87,8 +87,8 @@ function BookingCard({ booking }: { booking: MyBooking }) {
             {isLiveNow && (
               <motion.span animate={{ opacity: [1, 0.5, 1] }} transition={{ duration: 1.4, repeat: Infinity }}
                 className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white"
-                style={{ background: '#EF4444' }}>
-                <span className="h-1 w-1 rounded-full bg-white" />LIVE
+                style={{ background: 'var(--color-danger)' }}>
+                <span className="h-1 w-1 rounded-full bg-[var(--color-bg-surface)]" />LIVE
               </motion.span>
             )}
             {/* Attendance status */}
@@ -97,8 +97,8 @@ function BookingCard({ booking }: { booking: MyBooking }) {
               <StatusIcon size={9} />{label}
             </span>
           </div>
-          <p className="text-sm font-bold truncate" style={{ color: '#0D0F1A' }}>{session.title}</p>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs" style={{ color: '#6B7280' }}>
+          <p className="text-sm font-bold truncate" style={{ color: 'var(--color-text-primary)' }}>{session.title}</p>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>
             <span className="flex items-center gap-1"><Calendar size={10} />{fmtDate(session.scheduledStart)}</span>
             <span>·</span>
             <span className="flex items-center gap-1"><Clock size={10} />{fmtTime(session.scheduledStart)}</span>
@@ -128,7 +128,7 @@ function BookingCard({ booking }: { booking: MyBooking }) {
           {!isExternal && (
             <Link href={`/live-classes/${session.id}/watch`}
               className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold"
-              style={{ background: 'rgba(0,87,184,0.08)', color: '#0057b8', border: '1px solid rgba(0,87,184,0.18)' }}>
+              style={{ background: 'rgba(0,87,184,0.08)', color: 'var(--color-primary)', border: '1px solid rgba(0,87,184,0.18)' }}>
               <FileText size={11} />Homework
             </Link>
           )}
@@ -136,12 +136,12 @@ function BookingCard({ booking }: { booking: MyBooking }) {
           {!isPast && isBooked && (
             confirming ? (
               <div className="flex items-center gap-1.5">
-                <button onClick={() => setConfirming(false)} className="text-[10px] font-medium" style={{ color: '#9CA3AF' }}>
+                <button onClick={() => setConfirming(false)} className="text-[10px] font-medium" style={{ color: 'var(--color-text-muted)' }}>
                   No
                 </button>
                 <button onClick={handleCancel} disabled={cancelMutation.isPending}
                   className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-bold text-white disabled:opacity-60"
-                  style={{ background: '#EF4444' }}>
+                  style={{ background: 'var(--color-danger)' }}>
                   {cancelMutation.isPending ? <Spinner size={9} /> : null}
                   Cancel booking
                 </button>
@@ -149,7 +149,7 @@ function BookingCard({ booking }: { booking: MyBooking }) {
             ) : (
               <button onClick={() => setConfirming(true)}
                 className="text-[10px] font-medium transition-colors hover:text-red-500"
-                style={{ color: '#9CA3AF' }}>
+                style={{ color: 'var(--color-text-muted)' }}>
                 Cancel
               </button>
             )
@@ -185,22 +185,22 @@ export default function MyBookingsPage() {
     <div className="max-w-2xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: '#0D0F1A', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
           My Classes
         </h1>
-        <p className="mt-1 text-sm" style={{ color: '#6B7280' }}>
+        <p className="mt-1 text-sm" style={{ color: 'var(--color-text-muted)' }}>
           Your session bookings and attendance history
         </p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-5 rounded-2xl p-1" style={{ background: '#F9FAFB' }}>
+      <div className="flex gap-1 mb-5 rounded-2xl p-1" style={{ background: 'var(--color-bg-subtle)' }}>
         {TABS.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className="flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-all"
             style={{
-              background: tab === t.key ? 'white' : 'transparent',
-              color:      tab === t.key ? '#0D0F1A' : '#6B7280',
+              background: tab === t.key ? 'var(--color-bg-surface)' : 'transparent',
+              color:      tab === t.key ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
               boxShadow:  tab === t.key ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
             }}>
             {t.label}
@@ -210,7 +210,7 @@ export default function MyBookingsPage() {
 
       {/* Content */}
       {isLoading ? (
-        <div className="flex h-48 items-center justify-center gap-2 text-sm" style={{ color: '#9CA3AF' }}>
+        <div className="flex h-48 items-center justify-center gap-2 text-sm" style={{ color: 'var(--color-text-muted)' }}>
           <Spinner size={16} />Loading…
         </div>
       ) : filtered.length === 0 ? (
@@ -218,12 +218,12 @@ export default function MyBookingsPage() {
           className="flex flex-col items-center gap-3 py-16">
           <div className="flex h-14 w-14 items-center justify-center rounded-3xl"
             style={{ background: 'rgba(0,87,184,0.08)', border: '1px solid rgba(0,87,184,0.15)' }}>
-            <Video size={22} style={{ color: '#0057b8' }} />
+            <Video size={22} style={{ color: 'var(--color-primary)' }} />
           </div>
-          <p className="text-sm font-semibold" style={{ color: '#0D0F1A' }}>
+          <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
             No {tab === 'upcoming' ? 'upcoming classes' : `${tab} sessions`}
           </p>
-          <p className="text-xs text-center max-w-xs" style={{ color: '#9CA3AF' }}>
+          <p className="text-xs text-center max-w-xs" style={{ color: 'var(--color-text-muted)' }}>
             {tab === 'upcoming'
               ? 'Visit the Live Classes page to book available sessions.'
               : 'Your history will appear here once you attend or miss a session.'}

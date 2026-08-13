@@ -8,12 +8,13 @@ import {
   Search, Bell, X, MessageSquare, BookOpen,
   GraduationCap, Heart, Sparkles, Trophy,
   Settings, Clock, Star, Users, Video, Flame, Menu, ShoppingCart, Map, CalendarDays, LifeBuoy,
-  ClipboardList,
+  ClipboardList, LogOut, Sun, Moon, Monitor,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/axios'
 import { useUIStore } from '@/store/ui.store'
-import { useCurrentUser } from '@/lib/api/user'
+import { useCurrentUser, logout as apiLogout } from '@/lib/api/user'
+import { useThemeStore } from '@/store/theme.store'
 import { useCartStore } from '@/store/cart.store'
 import type { Course, PaginationMeta } from '@/types/index'
 import {
@@ -106,6 +107,56 @@ function fmtMins(m: number) {
   return rem > 0 ? `${h}h ${rem}m` : `${h}h`
 }
 
+/* ── Theme toggle ────────────────────────────────────
+   Cycles light → dark → system, and shows the icon for the state you are IN,
+   which is the convention people already read correctly from every OS and
+   editor: sun means "you are in light", not "press for light".
+
+   Rendered as a placeholder until mounted. The server has no way to know the
+   preference — it lives in localStorage — so rendering a sun on the server
+   and a moon on the client is a hydration mismatch. Reserving the exact same
+   box until mount keeps the row from shifting by a pixel. */
+function ThemeToggle() {
+  const preference = useThemeStore(s => s.preference)
+  const cycleTheme = useThemeStore(s => s.cycleTheme)
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
+  const Icon  = preference === 'dark' ? Moon : preference === 'light' ? Sun : Monitor
+  const label = preference === 'dark'
+    ? 'Dark theme — switch to system'
+    : preference === 'light'
+      ? 'Light theme — switch to dark'
+      : 'Following your system theme — switch to light'
+
+  if (!mounted) return <div className="h-8 w-8" aria-hidden />
+
+  return (
+    <motion.button
+      type="button"
+      onClick={cycleTheme}
+      whileTap={{ scale: 0.92 }}
+      title={label}
+      aria-label={label}
+      className="relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--color-hover)]"
+      style={{ color: 'var(--color-text-secondary)' }}>
+      {/* Cross-fade with a small rotation — enough to feel deliberate, short
+          enough not to delay the theme change it is describing. */}
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={preference}
+          initial={{ opacity: 0, rotate: -35, scale: 0.7 }}
+          animate={{ opacity: 1, rotate: 0, scale: 1 }}
+          exit={{ opacity: 0, rotate: 35, scale: 0.7 }}
+          transition={{ duration: 0.16, ease: 'easeOut' }}
+          className="absolute inset-0 flex items-center justify-center">
+          <Icon size={16} />
+        </motion.span>
+      </AnimatePresence>
+    </motion.button>
+  )
+}
+
 export function ClientTopbar() {
   const { setMobileNav } = useUIStore()
   const pathname = usePathname()
@@ -163,6 +214,15 @@ export function ClientTopbar() {
   const tabs = TOPBAR_TABS
   const cartCount = useCartStore(s => s.items.length)
 
+  /* Same teardown the mobile drawer does: end the session, drop the local cart
+     so the next account does not inherit it, and hard-navigate so no cached
+     React Query data survives the switch. */
+  const handleLogout = async () => {
+    await apiLogout()
+    localStorage.removeItem('lms-cart')
+    window.location.href = '/login'
+  }
+
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href)
 
@@ -173,17 +233,17 @@ export function ClientTopbar() {
         initial={{ y: -100, opacity: 0 }}
         animate={{ left, y: 0, opacity: 1 }}
         transition={{ y: { type: 'spring', stiffness: 280, damping: 28, mass: 0.8 }, left: { type: 'spring', stiffness: 300, damping: 30 } }}
-        className="fixed top-0 right-0 z-30 bg-white"
-        style={{ borderBottom: '1px solid #E5E7EB' }}>
+        className="fixed top-0 right-0 z-30 bg-[var(--color-bg-surface)]"
+        style={{ borderBottom: '1px solid var(--color-border)' }}>
 
         {/* ── Row 1: Logo (topbar mode) + search + actions ── */}
-        <div className="flex h-[60px] items-center gap-3 px-4 sm:px-6" style={{ borderBottom: '1px solid #F3F4F6' }}>
+        <div className="flex h-[60px] items-center gap-3 px-4 sm:px-6" style={{ borderBottom: '1px solid var(--color-border)' }}>
 
           {/* Hamburger — always shown on mobile for the mobile drawer */}
           <button
             onClick={() => setMobileNav(true)}
-            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-blue-50 lg:hidden"
-            style={{ color: '#0057b8' }}
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-[var(--color-hover)] lg:hidden"
+            style={{ color: 'var(--color-primary)' }}
             aria-label="Open menu">
             <Menu size={18} />
           </button>
@@ -207,7 +267,7 @@ export function ClientTopbar() {
                 router.push(q ? `/search?q=${encodeURIComponent(q)}` : '/search')
               }}>
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10"
-                style={{ color: '#0057b8', opacity: focused ? 1 : 0.55 }} />
+                style={{ color: 'var(--color-primary)', opacity: focused ? 1 : 0.55 }} />
               <input
                 ref={inputRef}
                 value={query}
@@ -224,10 +284,10 @@ export function ClientTopbar() {
                 placeholder="Search courses…"
                 className="w-full rounded-xl py-2 pl-9 pr-10 text-sm outline-none transition-all"
                 style={{
-                  background: focused ? '#FFF7ED' : '#F3F4F6',
+                  background: focused ? 'var(--color-primary-light)' : 'var(--color-bg-subtle)',
                   border: focused ? '1.5px solid #0057b8' : '1.5px solid transparent',
                   boxShadow: focused ? '0 0 0 3px rgba(0,87,184,0.10)' : 'none',
-                  color: '#111827',
+                  color: 'var(--color-text-primary)',
                 }} />
               {query && (
                 <button type="button"
@@ -237,7 +297,7 @@ export function ClientTopbar() {
                     inputRef.current?.focus()
                   }}
                   className="absolute right-9 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-md hover:bg-gray-200 transition-colors"
-                  style={{ color: '#9CA3AF' }}>
+                  style={{ color: 'var(--color-text-muted)' }}>
                   <X size={11} />
                 </button>
               )}
@@ -245,7 +305,7 @@ export function ClientTopbar() {
               type="submit"
               whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
               className="absolute right-1.5 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-lg text-white"
-              style={{ background: '#0057b8', boxShadow: '0 2px 8px rgba(0,87,184,0.30)' }}>
+              style={{ background: 'var(--color-primary)', boxShadow: '0 2px 8px rgba(0,87,184,0.30)' }}>
               <Search size={12} />
             </motion.button> */}
             </form>
@@ -259,16 +319,16 @@ export function ClientTopbar() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -6, scale: 0.98 }}
                   transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                  className="absolute left-0 right-0 top-full mt-1.5 rounded-2xl overflow-hidden z-50 bg-white"
-                  style={{ border: '1px solid #E5E7EB', boxShadow: '0 8px 32px rgba(0,0,0,0.10)' }}>
+                  className="absolute left-0 right-0 top-full mt-1.5 rounded-2xl overflow-hidden z-50 bg-[var(--color-bg-surface)]"
+                  style={{ border: '1px solid var(--color-border)', boxShadow: '0 8px 32px rgba(0,0,0,0.10)' }}>
 
                   {isFetching && !suggestions?.length ? (
-                    <div className="flex items-center gap-2 px-4 py-3 text-xs" style={{ color: '#9CA3AF' }}>
+                    <div className="flex items-center gap-2 px-4 py-3 text-xs" style={{ color: 'var(--color-text-muted)' }}>
                       <Search size={12} className="animate-pulse" />
                       Searching…
                     </div>
                   ) : suggestions && suggestions.length === 0 ? (
-                    <div className="px-4 py-3 text-xs" style={{ color: '#9CA3AF' }}>
+                    <div className="px-4 py-3 text-xs" style={{ color: 'var(--color-text-muted)' }}>
                       No courses found for &ldquo;{debouncedQ}&rdquo;
                     </div>
                   ) : (
@@ -278,25 +338,25 @@ export function ClientTopbar() {
                           key={course.id}
                           href={`/courses/${course.slug}`}
                           onClick={() => { setFocused(false); setQuery(course.title) }}>
-                          <div className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-blue-50 cursor-pointer"
-                            style={{ borderBottom: '1px solid #F9FAFB' }}>
+                          <div className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-[var(--color-hover)] cursor-pointer"
+                            style={{ borderBottom: '1px solid var(--color-bg-subtle)' }}>
                             {/* Thumbnail */}
                             <div className="h-10 w-14 flex-shrink-0 overflow-hidden rounded-lg"
-                              style={{ background: '#F3F4F6' }}>
+                              style={{ background: 'var(--color-bg-subtle)' }}>
                               {course.thumbnailUrl
                                 ? <img src={course.thumbnailUrl} alt="" className="h-full w-full object-cover" />
                                 : <div className="flex h-full w-full items-center justify-center">
-                                  <BookOpen size={14} style={{ color: '#D1D5DB' }} />
+                                  <BookOpen size={14} style={{ color: 'var(--color-text-muted)' }} />
                                 </div>}
                             </div>
                             {/* Info */}
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-semibold leading-snug" style={{ color: '#111827' }}>
+                              <p className="truncate text-xs font-semibold leading-snug" style={{ color: 'var(--color-text-primary)' }}>
                                 {course.title}
                               </p>
-                              <div className="mt-0.5 flex items-center gap-2 text-[10px]" style={{ color: '#9CA3AF' }}>
+                              <div className="mt-0.5 flex items-center gap-2 text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
                                 {course.ratingAvg > 0 && (
-                                  <span className="flex items-center gap-0.5" style={{ color: '#F59E0B' }}>
+                                  <span className="flex items-center gap-0.5" style={{ color: 'var(--color-warning)' }}>
                                     <Star size={9} fill="#F59E0B" />{course.ratingAvg.toFixed(1)}
                                   </span>
                                 )}
@@ -317,8 +377,8 @@ export function ClientTopbar() {
                       <Link
                         href={`/search?q=${encodeURIComponent(debouncedQ)}`}
                         onClick={() => setFocused(false)}
-                        className="flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-semibold transition-colors hover:bg-blue-50"
-                        style={{ color: '#0057b8', borderTop: '1px solid #F3F4F6' }}>
+                        className="flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-semibold transition-colors hover:bg-[var(--color-hover)]"
+                        style={{ color: 'var(--color-primary)', borderTop: '1px solid var(--color-border)' }}>
                         <Search size={11} />
                         View all results for &ldquo;{debouncedQ}&rdquo;
                       </Link>
@@ -335,15 +395,15 @@ export function ClientTopbar() {
               onClick={() => setAiChatOpen(v => !v)}
               whileHover={{ scale: 1.02, boxShadow: '0 6px 20px rgba(0,87,184,0.35)' }} whileTap={{ scale: 0.97 }}
               className="hidden sm:flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold text-white"
-              style={{ background: '#0057b8', boxShadow: '0 3px 12px rgba(0,87,184,0.22)' }}>
+              style={{ background: 'var(--color-primary)', boxShadow: '0 3px 12px rgba(0,87,184,0.22)' }}>
               <Sparkles size={12} />Ask AI
             </motion.button>
 
             {/* Help & Support */}
             <Link href="/support">
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                className="flex h-9 w-9 items-center justify-center rounded-xl transition-colors hover:bg-blue-50"
-                style={{ color: '#0057b8' }}>
+                className="flex h-9 w-9 items-center justify-center rounded-xl transition-colors hover:bg-[var(--color-hover)]"
+                style={{ color: 'var(--color-primary)' }}>
                 <MessageSquare size={16} />
               </motion.div>
             </Link>
@@ -351,8 +411,8 @@ export function ClientTopbar() {
             {/* Cart */}
             <Link href="/cart">
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                className="relative flex h-9 w-9 items-center justify-center rounded-xl transition-colors hover:bg-blue-50"
-                style={{ color: '#0057b8' }}>
+                className="relative flex h-9 w-9 items-center justify-center rounded-xl transition-colors hover:bg-[var(--color-hover)]"
+                style={{ color: 'var(--color-primary)' }}>
                 <ShoppingCart size={16} />
                 <AnimatePresence>
                   {cartCount > 0 && (
@@ -361,7 +421,7 @@ export function ClientTopbar() {
                       initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
                       transition={{ type: 'spring', stiffness: 400 }}
                       className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold text-white"
-                      style={{ background: '#0057b8' }}>
+                      style={{ background: 'var(--color-primary)' }}>
                       {cartCount}
                     </motion.span>
                   )}
@@ -373,14 +433,14 @@ export function ClientTopbar() {
             <div className="relative">
               <motion.button onClick={() => setNotifOpen(v => !v)}
                 whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                className="relative flex h-9 w-9 items-center justify-center rounded-xl transition-colors hover:bg-blue-50"
-                style={{ color: '#0057b8' }}>
+                className="relative flex h-9 w-9 items-center justify-center rounded-xl transition-colors hover:bg-[var(--color-hover)]"
+                style={{ color: 'var(--color-primary)' }}>
                 <Bell size={16} />
                 {unread > 0 && (
                   <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }}
                     transition={{ type: 'spring', stiffness: 400 }}
                     className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white"
-                    style={{ background: '#EF4444' }}>
+                    style={{ background: 'var(--color-danger)' }}>
                     {unread}
                   </motion.span>
                 )}
@@ -394,38 +454,38 @@ export function ClientTopbar() {
                       initial={{ opacity: 0, y: -8, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -8, scale: 0.96 }}
                       transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-                      className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-72 rounded-2xl overflow-hidden z-50 bg-white"
-                      style={{ border: '1px solid #E5E7EB', boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
-                      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid #F3F4F6' }}>
-                        <span className="text-sm font-semibold" style={{ color: '#111827' }}>Notifications</span>
+                      className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-72 rounded-2xl overflow-hidden z-50 bg-[var(--color-bg-surface)]"
+                      style={{ border: '1px solid var(--color-border)', boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
+                      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--color-border)' }}>
+                        <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Notifications</span>
                         {unread > 0 && (
                           <button
                             onClick={() => markAllRead.mutate()}
                             disabled={markAllRead.isPending}
                             className="text-[11px] font-semibold transition-opacity hover:opacity-70 disabled:opacity-50"
-                            style={{ color: '#0057b8' }}>
+                            style={{ color: 'var(--color-primary)' }}>
                             Mark all read
                           </button>
                         )}
                       </div>
                       {notifications.length === 0 && (
-                        <p className="px-4 py-8 text-center text-xs" style={{ color: '#9CA3AF' }}>
+                        <p className="px-4 py-8 text-center text-xs" style={{ color: 'var(--color-text-muted)' }}>
                           You&apos;re all caught up.
                         </p>
                       )}
                       {notifications.map((n, i) => {
                         const isUnread = !n.readAt
                         const inner = (
-                          <div className="flex gap-3 px-4 py-3 transition-colors hover:bg-blue-50 cursor-pointer"
-                            style={{ borderBottom: i < notifications.length - 1 ? '1px solid #F3F4F6' : 'none' }}>
+                          <div className="flex gap-3 px-4 py-3 transition-colors hover:bg-[var(--color-hover)] cursor-pointer"
+                            style={{ borderBottom: i < notifications.length - 1 ? '1px solid var(--color-bg-subtle)' : 'none' }}>
                             <div className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full"
-                              style={{ background: isUnread ? '#0057b8' : '#E5E7EB' }} />
+                              style={{ background: isUnread ? '#0057b8' : 'var(--color-border)' }} />
                             <div className="min-w-0 flex-1">
-                              <p className="text-xs leading-relaxed font-semibold" style={{ color: isUnread ? '#111827' : '#6B7280' }}>{n.title}</p>
+                              <p className="text-xs leading-relaxed font-semibold" style={{ color: isUnread ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>{n.title}</p>
                               {n.body && (
-                                <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: '#9CA3AF' }}>{n.body}</p>
+                                <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: 'var(--color-text-muted)' }}>{n.body}</p>
                               )}
-                              <p className="mt-0.5 text-[10px]" style={{ color: '#9CA3AF' }}>{relTime(n.createdAt)}</p>
+                              <p className="mt-0.5 text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{relTime(n.createdAt)}</p>
                             </div>
                           </div>
                         )
@@ -452,21 +512,53 @@ export function ClientTopbar() {
               </AnimatePresence>
             </div>
 
+            {/* Theme — sits with the other utility icons rather than beside the
+                avatar, because it is a preference about the app, not about the
+                account. Same 34px square and same hover treatment as its
+                neighbours so it reads as one row, not an afterthought. */}
+            <ThemeToggle />
+
             {/* Profile */}
             <Link href="/settings">
-              <div className="flex cursor-pointer items-center gap-2.5 rounded-xl px-2 py-1 transition-colors hover:bg-blue-50">
+              <div className="flex cursor-pointer items-center gap-2.5 rounded-xl px-2 py-1 transition-colors hover:bg-[var(--color-hover)]">
                 <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full text-xs font-bold text-white ring-2 ring-blue-100"
-                  style={{ background: '#0057b8' }}>
+                  style={{ background: 'var(--color-primary)' }}>
                   {hasAvatarImage
                     ? <img src={user!.avatarUrl} alt="" className="h-full w-full object-cover" />
                     : avatarInitial}
                 </div>
                 <div className="hidden md:block max-w-[160px]">
-                  <p className="truncate text-xs font-semibold leading-tight" style={{ color: '#111827' }}>{displayName}</p>
-                  <p className="truncate text-[10px]" style={{ color: '#9CA3AF' }}>{displayRole}</p>
+                  <p className="truncate text-xs font-semibold leading-tight" style={{ color: 'var(--color-text-primary)' }}>{displayName}</p>
+                  <p className="truncate text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{displayRole}</p>
                 </div>
               </div>
             </Link>
+
+            {/* Sign out — last, and behind a hairline rule.
+
+                Placed AFTER the avatar because it acts on the account the
+                avatar names; grouped with the utility icons it would read as
+                another app control and get mis-clicked. The rule is what stops
+                it looking bolted on: it closes the identity group rather than
+                extending the icon row. Red only on hover, so a destructive
+                action is never the loudest thing in the bar. */}
+            <div className="ml-1 flex items-center gap-1 pl-1.5"
+              style={{ borderLeft: '1px solid var(--color-border)' }}>
+              <button
+                type="button"
+                onClick={handleLogout}
+                title="Sign out"
+                aria-label="Sign out"
+                /* Same hover wash as every other icon in the bar so the row
+                   reads as one control group — just tinted danger rather than
+                   brand, which is the only cue that sets it apart. */
+                className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--color-hover-danger)]"
+                style={{ color: 'var(--color-text-muted)' }}
+                onMouseEnter={e => { e.currentTarget.style.color = 'var(--color-danger)' }}
+                onMouseLeave={e => { e.currentTarget.style.color = 'var(--color-text-muted)' }}>
+                <LogOut size={16} />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -487,20 +579,20 @@ export function ClientTopbar() {
                   transition={{ type: 'spring', stiffness: 320, damping: 26, delay: 0.05 + i * 0.04 }}
                   className="relative flex h-[40px] items-center gap-1.5 px-4 cursor-pointer select-none">
                   <span className="whitespace-nowrap text-sm font-medium transition-colors"
-                    style={{ color: active ? '#111827' : '#9CA3AF', fontWeight: active ? 600 : 400 }}>
+                    style={{ color: active ? 'var(--color-text-primary)' : 'var(--color-text-muted)', fontWeight: active ? 600 : 400 }}>
                     {tab.label}
                   </span>
                   {tab.badge && (
                     <span aria-label={`${tab.badge} items`}
                       className="flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white"
-                      style={{ background: '#0057b8' }}>
+                      style={{ background: 'var(--color-primary)' }}>
                       <span aria-hidden="true">{tab.badge}</span>
                     </span>
                   )}
                   {active && (
                     <motion.div layoutId="tab-underline"
                       className="absolute bottom-0 left-0 right-0 h-[2.5px] rounded-full"
-                      style={{ background: '#0057b8' }}
+                      style={{ background: 'var(--color-primary)' }}
                       transition={{ type: 'spring', stiffness: 500, damping: 35 }} />
                   )}
                 </motion.div>

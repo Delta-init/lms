@@ -39,7 +39,7 @@ function VerifyEmailInner() {
     return (
       <div className="flex flex-col items-center gap-3 py-6 text-center">
         <Spinner size={26} />
-        <p className="text-sm" style={{ color: '#6B7280' }}>Verifying your email…</p>
+        <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Verifying your email…</p>
       </div>
     )
   }
@@ -48,14 +48,14 @@ function VerifyEmailInner() {
       <div className="flex flex-col items-center gap-3 py-2 text-center">
         <div className="flex h-14 w-14 items-center justify-center rounded-3xl"
           style={{ background: 'rgba(16,185,129,0.10)', border: '1px solid rgba(16,185,129,0.22)' }}>
-          <CheckCircle2 size={24} style={{ color: '#10B981' }} />
+          <CheckCircle2 size={24} style={{ color: 'var(--color-success)' }} />
         </div>
-        <p className="text-base font-bold" style={{ color: '#0D0F1A' }}>Email verified</p>
-        <p className="text-sm max-w-sm" style={{ color: '#6B7280' }}>
+        <p className="text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>Email verified</p>
+        <p className="text-sm max-w-sm" style={{ color: 'var(--color-text-muted)' }}>
           Thanks for confirming. You now have full access to notifications, certificates, and account recovery.
         </p>
         <Link href="/my-learning" className="mt-3 rounded-xl px-5 py-2.5 text-sm font-bold text-white"
-          style={{ background: '#0057b8' }}>
+          style={{ background: 'var(--color-primary)' }}>
           Go to My Learning
         </Link>
       </div>
@@ -65,11 +65,11 @@ function VerifyEmailInner() {
     <div className="flex flex-col items-center gap-3 py-2 text-center">
       <div className="flex h-14 w-14 items-center justify-center rounded-3xl"
         style={{ background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.22)' }}>
-        <AlertCircle size={24} style={{ color: '#EF4444' }} />
+        <AlertCircle size={24} style={{ color: 'var(--color-danger)' }} />
       </div>
-      <p className="text-base font-bold" style={{ color: '#0D0F1A' }}>Couldn&apos;t verify</p>
-      <p className="text-sm max-w-sm" style={{ color: '#6B7280' }}>{errorMsg}</p>
-      <Link href="/login" className="mt-3 text-sm font-semibold" style={{ color: '#0057b8' }}>
+      <p className="text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>Couldn&apos;t verify</p>
+      <p className="text-sm max-w-sm" style={{ color: 'var(--color-text-muted)' }}>{errorMsg}</p>
+      <Link href="/login" className="mt-3 text-sm font-semibold" style={{ color: 'var(--color-primary)' }}>
         Back to sign in
       </Link>
     </div>
@@ -78,15 +78,15 @@ function VerifyEmailInner() {
 
 export default function VerifyEmailPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center px-6 py-10" style={{ background: '#F4F5F8' }}>
+    <div className="flex min-h-screen items-center justify-center px-6 py-10" style={{ background: 'var(--color-bg-page)' }}>
       <motion.div
         initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 280, damping: 26 }}
-        className="w-full max-w-[460px] rounded-3xl bg-white p-8"
-        style={{ border: '1px solid #E4E7ED', boxShadow: '0 24px 80px rgba(13,15,26,0.08)' }}>
+        className="w-full max-w-[460px] rounded-3xl bg-[var(--color-bg-surface)] p-8"
+        style={{ border: '1px solid var(--color-border)', boxShadow: '0 24px 80px rgba(13,15,26,0.08)' }}>
         <div className="mb-2 flex items-center gap-2">
-          <Mail size={16} style={{ color: '#0057b8' }} />
-          <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: '#0057b8' }}>
+          <Mail size={16} style={{ color: 'var(--color-primary)' }} />
+          <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--color-primary)' }}>
             Email verification
           </span>
         </div>

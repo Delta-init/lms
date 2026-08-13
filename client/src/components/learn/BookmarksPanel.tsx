@@ -32,18 +32,18 @@ export function BookmarksPanel({ lessonId, onSeek }: Props) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: '#9CA3AF' }}>
+        <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--color-text-muted)' }}>
           Bookmarks
         </p>
-        <p className="text-[10px]" style={{ color: '#9CA3AF' }}>
+        <p className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
           Use the 🔖 button in the player to add
         </p>
       </div>
 
       {bookmarks?.length === 0 ? (
         <div className="py-8 text-center">
-          <Bookmark size={22} className="mx-auto mb-2" style={{ color: '#E5E7EB' }} />
-          <p className="text-xs" style={{ color: '#9CA3AF' }}>
+          <Bookmark size={22} className="mx-auto mb-2" style={{ color: 'var(--color-border)' }} />
+          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
             No bookmarks yet. Click the bookmark button while watching to save a timestamp.
           </p>
         </div>
@@ -52,16 +52,16 @@ export function BookmarksPanel({ lessonId, onSeek }: Props) {
           {bookmarks?.map(bm => (
             <div key={bm.id}
               className="group flex items-center gap-2 rounded-xl px-3 py-2 transition-colors"
-              style={{ background: '#F9FAFB', border: '1px solid #F0F1F5' }}>
+              style={{ background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)' }}>
               <button
                 onClick={() => onSeek?.(bm.timeSecs)}
                 className="flex flex-1 items-center gap-2.5 text-left"
                 title="Jump to this timestamp">
                 <span className="flex h-7 w-14 flex-shrink-0 items-center justify-center rounded-lg text-[11px] font-mono font-bold"
-                  style={{ background: 'rgba(0,87,184,0.10)', color: '#0057b8' }}>
+                  style={{ background: 'rgba(0,87,184,0.10)', color: 'var(--color-primary)' }}>
                   <Clock size={9} className="mr-0.5" />{fmtTime(bm.timeSecs)}
                 </span>
-                <span className="flex-1 truncate text-xs font-medium" style={{ color: '#374151' }}>
+                <span className="flex-1 truncate text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
                   {bm.label || `Bookmark at ${fmtTime(bm.timeSecs)}`}
                 </span>
               </button>
@@ -69,7 +69,7 @@ export function BookmarksPanel({ lessonId, onSeek }: Props) {
                 onClick={() => del.mutate(bm.id)}
                 disabled={del.isPending}
                 className="flex-shrink-0 rounded-lg p-1 opacity-0 transition-opacity group-hover:opacity-100 disabled:opacity-40">
-                <Trash2 size={11} style={{ color: '#EF4444' }} />
+                <Trash2 size={11} style={{ color: 'var(--color-danger)' }} />
               </button>
             </div>
           ))}

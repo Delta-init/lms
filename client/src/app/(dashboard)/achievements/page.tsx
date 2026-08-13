@@ -39,34 +39,34 @@ export default function AchievementsPage() {
     <div>
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
         <div className="flex items-center gap-2 mb-1">
-          <Trophy size={14} style={{ color: '#F59E0B' }} />
-          <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: '#F59E0B' }}>
+          <Trophy size={14} style={{ color: 'var(--color-warning)' }} />
+          <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--color-warning)' }}>
             Achievements
           </span>
         </div>
-        <h1 className="text-2xl font-bold" style={{ color: '#111827', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
           Badges
           {data && (
             <span className="ml-2 inline-flex items-center justify-center rounded-lg px-2 py-0.5 text-sm font-bold"
-              style={{ background: 'rgba(245,158,11,0.10)', color: '#F59E0B' }}>
+              style={{ background: 'rgba(245,158,11,0.10)', color: 'var(--color-warning)' }}>
               {data.earnedCount} / {data.total}
             </span>
           )}
         </h1>
-        <p className="mt-1 text-sm" style={{ color: '#6B7280' }}>
+        <p className="mt-1 text-sm" style={{ color: 'var(--color-text-muted)' }}>
           Milestones you&apos;ve hit on your learning journey.
         </p>
       </motion.div>
 
       {isLoading && (
-        <div className="flex items-center justify-center gap-2 py-16 text-sm" style={{ color: '#9CA3AF' }}>
+        <div className="flex items-center justify-center gap-2 py-16 text-sm" style={{ color: 'var(--color-text-muted)' }}>
           <Spinner size={14} />Loading achievements…
         </div>
       )}
 
       {earned.length > 0 && (
         <section className="mb-8">
-          <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-widest" style={{ color: '#9CA3AF' }}>
+          <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--color-text-muted)' }}>
             Earned
           </h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -77,7 +77,7 @@ export default function AchievementsPage() {
 
       {inProgress.length > 0 && (
         <section>
-          <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-widest" style={{ color: '#9CA3AF' }}>
+          <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--color-text-muted)' }}>
             In progress
           </h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -97,35 +97,35 @@ function BadgeCard({ a, index }: { a: Achievement; index: number }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }}
-      className="rounded-2xl bg-white p-4 transition-all hover:shadow-md"
+      className="rounded-2xl bg-[var(--color-bg-surface)] p-4 transition-all hover:shadow-md"
       style={{
-        border: a.earned ? `1px solid ${palette.fg}40` : '1px solid #E5E7EB',
+        border: a.earned ? `1px solid ${palette.fg}40` : '1px solid var(--color-border)',
         opacity: a.earned ? 1 : 0.85,
       }}>
       <div className="flex items-start gap-3">
         <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl"
           style={{
-            background: a.earned ? palette.bg : '#F4F5F8',
-            border: `1px solid ${a.earned ? palette.fg + '40' : '#E5E7EB'}`,
+            background: a.earned ? palette.bg : 'var(--color-bg-page)',
+            border: `1px solid ${a.earned ? palette.fg + '40' : 'var(--color-border)'}`,
           }}>
-          <Icon size={20} style={{ color: a.earned ? palette.fg : '#9CA3AF' }} />
+          <Icon size={20} style={{ color: a.earned ? palette.fg : 'var(--color-text-muted)' }} />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <p className="text-sm font-bold" style={{ color: a.earned ? '#111827' : '#6B7280' }}>{a.title}</p>
+            <p className="text-sm font-bold" style={{ color: a.earned ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>{a.title}</p>
             {a.earned && (
               <Award size={12} style={{ color: palette.fg }} />
             )}
           </div>
-          <p className="mt-1 text-xs leading-relaxed" style={{ color: '#6B7280' }}>{a.description}</p>
+          <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>{a.description}</p>
 
           {!a.earned && a.target > 1 && (
             <div className="mt-2.5">
-              <div className="flex items-center justify-between text-[10px]" style={{ color: '#9CA3AF' }}>
+              <div className="flex items-center justify-between text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
                 <span>{a.progress} / {a.target}</span>
                 <span>{pct}%</span>
               </div>
-              <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full" style={{ background: '#F3F4F6' }}>
+              <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'var(--color-bg-subtle)' }}>
                 <motion.div className="h-full rounded-full"
                   initial={{ width: 0 }} animate={{ width: `${pct}%` }}
                   transition={{ duration: 0.7, ease: 'easeOut' }}
@@ -135,7 +135,7 @@ function BadgeCard({ a, index }: { a: Achievement; index: number }) {
           )}
 
           {a.earned && a.earnedAt && (
-            <p className="mt-1.5 text-[10px]" style={{ color: '#9CA3AF' }}>
+            <p className="mt-1.5 text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
               Earned {new Date(a.earnedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </p>
           )}

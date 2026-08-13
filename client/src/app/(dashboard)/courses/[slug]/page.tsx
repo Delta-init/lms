@@ -86,7 +86,7 @@ function CourseDetailInner({ slug }: { slug: string }) {
     return (
       <div className="flex h-[70vh] flex-col items-center justify-center gap-3">
         <Spinner size={30} />
-        <p className="text-sm" style={{ color: '#9CA3AF' }}>Loading course…</p>
+        <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Loading course…</p>
       </div>
     )
   }
@@ -96,10 +96,10 @@ function CourseDetailInner({ slug }: { slug: string }) {
       <div className="flex h-[70vh] flex-col items-center justify-center gap-4">
         <div className="flex h-14 w-14 items-center justify-center rounded-3xl"
           style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.18)' }}>
-          <AlertCircle size={24} style={{ color: '#EF4444' }} />
+          <AlertCircle size={24} style={{ color: 'var(--color-danger)' }} />
         </div>
-        <p className="text-base font-semibold" style={{ color: '#0D0F1A' }}>Course not found</p>
-        <Link href="/courses" className="text-sm font-semibold" style={{ color: '#0057b8' }}>
+        <p className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>Course not found</p>
+        <Link href="/courses" className="text-sm font-semibold" style={{ color: 'var(--color-primary)' }}>
           ← Back to courses
         </Link>
       </div>
@@ -155,7 +155,7 @@ function CourseDetailInner({ slug }: { slug: string }) {
       <motion.div initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
         transition={{ type: 'spring', stiffness: 300, damping: 26 }} className="mb-6">
         <Link href="/courses" className="inline-flex items-center gap-1.5 text-sm transition-opacity hover:opacity-70"
-          style={{ color: '#9CA3AF' }}>
+          style={{ color: 'var(--color-text-muted)' }}>
           <ArrowLeft size={13} />Back to courses
         </Link>
       </motion.div>
@@ -168,13 +168,13 @@ function CourseDetailInner({ slug }: { slug: string }) {
             transition={{ type: 'spring', stiffness: 260, damping: 26 }}>
             <div className="mb-3 flex items-center gap-2">
               {course.category && (
-                <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#0057b8' }}>
+                <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--color-primary)' }}>
                   {course.category.name}
                 </span>
               )}
               {course.level && level && (
                 <>
-                  <span style={{ color: '#E4E7ED' }}>·</span>
+                  <span style={{ color: 'var(--color-border)' }}>·</span>
                   <span className="rounded-lg px-2 py-0.5 text-[10px] font-bold capitalize"
                     style={{ background: level.bg, color: level.text, border: `1px solid ${level.border}` }}>
                     {course.level}
@@ -184,7 +184,7 @@ function CourseDetailInner({ slug }: { slug: string }) {
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-bold leading-tight tracking-tight"
-              style={{ color: '#0D0F1A', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
+              style={{ color: 'var(--color-text-primary)', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
               {course.title}
             </h1>
 
@@ -194,22 +194,22 @@ function CourseDetailInner({ slug }: { slug: string }) {
                   <div className="flex">
                     {[1,2,3,4,5].map(s => (
                       <Star key={s} size={14} fill={s <= Math.round(course.ratingAvg) ? '#F59E0B' : 'none'}
-                        style={{ color: '#F59E0B' }} />
+                        style={{ color: 'var(--color-warning)' }} />
                     ))}
                   </div>
-                  <span className="text-sm font-bold" style={{ color: '#F59E0B' }}>{course.ratingAvg.toFixed(1)}</span>
-                  <span className="text-xs" style={{ color: '#9CA3AF' }}>({course.ratingCount.toLocaleString()} reviews)</span>
+                  <span className="text-sm font-bold" style={{ color: 'var(--color-warning)' }}>{course.ratingAvg.toFixed(1)}</span>
+                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>({course.ratingCount.toLocaleString()} reviews)</span>
                 </div>
               )}
-              <div className="flex items-center gap-1.5 text-sm" style={{ color: '#6B7280' }}>
+              <div className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--color-text-muted)' }}>
                 <Users size={14} />{course.enrolledCount.toLocaleString()} students
               </div>
               {course.durationMins > 0 && (
-                <div className="flex items-center gap-1.5 text-sm" style={{ color: '#6B7280' }}>
+                <div className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--color-text-muted)' }}>
                   <Clock size={14} />{fmt(course.durationMins)} total
                 </div>
               )}
-              <div className="flex items-center gap-1.5 text-sm" style={{ color: '#6B7280' }}>
+              <div className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--color-text-muted)' }}>
                 <Globe size={14} />{course.language}
               </div>
             </div>
@@ -221,12 +221,12 @@ function CourseDetailInner({ slug }: { slug: string }) {
                   {course.instructor.avatarUrl
                     ? <img src={course.instructor.avatarUrl} alt="" className="h-full w-full object-cover" />
                     : <div className="flex h-full w-full items-center justify-center text-xs font-bold"
-                        style={{ color: '#0057b8' }}>
+                        style={{ color: 'var(--color-primary)' }}>
                         {course.instructor.name[0]}
                       </div>}
                 </div>
-                <p className="text-sm" style={{ color: '#6B7280' }}>
-                  Created by <span className="font-semibold" style={{ color: '#0D0F1A' }}>{course.instructor.name}</span>
+                <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                  Created by <span className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{course.instructor.name}</span>
                 </p>
               </div>
             )}
@@ -236,7 +236,7 @@ function CourseDetailInner({ slug }: { slug: string }) {
           {course.thumbnailUrl && (
             <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.06 }} className="mt-6 overflow-hidden rounded-2xl lg:hidden"
-              style={{ border: '1px solid #E4E7ED' }}>
+              style={{ border: '1px solid var(--color-border)' }}>
               <img src={course.thumbnailUrl} alt={course.title} className="w-full object-cover max-h-48 sm:max-h-60" />
             </motion.div>
           )}
@@ -244,10 +244,10 @@ function CourseDetailInner({ slug }: { slug: string }) {
           {/* Description */}
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }} className="mt-8">
-            <h2 className="mb-3 text-lg font-bold" style={{ color: '#0D0F1A', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
+            <h2 className="mb-3 text-lg font-bold" style={{ color: 'var(--color-text-primary)', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
               About this course
             </h2>
-            <p className="text-sm leading-relaxed" style={{ color: '#4B5563' }}>
+            <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
               {course.description ?? 'No description available.'}
             </p>
           </motion.div>
@@ -255,16 +255,16 @@ function CourseDetailInner({ slug }: { slug: string }) {
           {/* What you'll learn */}
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.14 }} className="mt-8 rounded-2xl p-5"
-            style={{ background: '#FFFBF7', border: '1px solid rgba(0,87,184,0.14)' }}>
-            <h2 className="mb-4 text-base font-bold" style={{ color: '#0D0F1A', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
+            style={{ background: 'var(--color-primary-light)', border: '1px solid rgba(0,87,184,0.14)' }}>
+            <h2 className="mb-4 text-base font-bold" style={{ color: 'var(--color-text-primary)', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
               What you&apos;ll learn
             </h2>
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
               {whatYouLearn.map((item, i) => (
                 <motion.div key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.18 + i * 0.04 }} className="flex items-start gap-2.5">
-                  <CheckCircle2 size={15} className="mt-0.5 flex-shrink-0" style={{ color: '#10B981' }} />
-                  <p className="text-sm" style={{ color: '#4B5563' }}>{item}</p>
+                  <CheckCircle2 size={15} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--color-success)' }} />
+                  <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>{item}</p>
                 </motion.div>
               ))}
             </div>
@@ -274,10 +274,10 @@ function CourseDetailInner({ slug }: { slug: string }) {
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.18 }} className="mt-8">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-bold" style={{ color: '#0D0F1A', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
+              <h2 className="text-base font-bold" style={{ color: 'var(--color-text-primary)', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
                 Course curriculum
               </h2>
-              <span className="text-xs" style={{ color: '#9CA3AF' }}>
+              <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
                 {totalLessons} lessons · {lessons.filter(l => l.isFree).length} free preview
               </span>
             </div>
@@ -287,19 +287,19 @@ function CourseDetailInner({ slug }: { slug: string }) {
                 return (
                   <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2 + i * 0.04 }}
-                    className="overflow-hidden rounded-xl bg-white"
-                    style={{ border: '1px solid #E4E7ED' }}>
+                    className="overflow-hidden rounded-xl bg-[var(--color-bg-surface)]"
+                    style={{ border: '1px solid var(--color-border)' }}>
                     {/* Section header */}
                     <div className="flex items-center justify-between px-4 py-3"
-                      style={{ background: '#FAFAFA', borderBottom: s.lessons.length > 0 ? '1px solid #F0F1F5' : 'none' }}>
+                      style={{ background: 'var(--color-bg-inset)', borderBottom: s.lessons.length > 0 ? '1px solid var(--color-bg-muted)' : 'none' }}>
                       <div className="flex items-center gap-3">
                         <div className="flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold"
-                          style={{ background: 'rgba(0,87,184,0.10)', color: '#0057b8' }}>{i + 1}</div>
-                        <span className="text-sm font-semibold" style={{ color: '#0D0F1A' }}>{s.section}</span>
+                          style={{ background: 'rgba(0,87,184,0.10)', color: 'var(--color-primary)' }}>{i + 1}</div>
+                        <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>{s.section}</span>
                       </div>
-                      <div className="flex items-center gap-3 text-xs" style={{ color: '#9CA3AF' }}>
+                      <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--color-text-muted)' }}>
                         <span>{s.lessons.length} lessons</span>
-                        <span style={{ color: '#E4E7ED' }}>·</span>
+                        <span style={{ color: 'var(--color-border)' }}>·</span>
                         <span>{fmt(totalSecs)}</span>
                       </div>
                     </div>
@@ -311,27 +311,27 @@ function CourseDetailInner({ slug }: { slug: string }) {
                       return (
                         <div key={lesson.id}
                           className={`flex items-center gap-3 px-4 py-2.5 ${li < s.lessons.length - 1 ? 'border-b' : ''}`}
-                          style={{ borderColor: '#F0F1F5' }}>
+                          style={{ borderColor: 'var(--color-border)' }}>
                           {/* Icon */}
                           <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md"
                             style={{ background: canAccess ? 'rgba(0,87,184,0.08)' : 'rgba(156,163,175,0.10)' }}>
                             {canAccess
-                              ? <TypeIcon size={11} style={{ color: '#0057b8' }} />
-                              : <Lock size={10} style={{ color: '#9CA3AF' }} />}
+                              ? <TypeIcon size={11} style={{ color: 'var(--color-primary)' }} />
+                              : <Lock size={10} style={{ color: 'var(--color-text-muted)' }} />}
                           </div>
                           {/* Title */}
-                          <span className="flex-1 text-xs" style={{ color: canAccess ? '#374151' : '#9CA3AF' }}>
+                          <span className="flex-1 text-xs" style={{ color: canAccess ? 'var(--color-text-secondary)' : 'var(--color-text-muted)' }}>
                             {lesson.title}
                           </span>
                           {/* Right side */}
                           <div className="flex flex-shrink-0 items-center gap-2">
                             {lesson.isFree && !isEnrolled && (
                               <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
-                                style={{ background: 'rgba(16,185,129,0.10)', color: '#10B981' }}>
+                                style={{ background: 'rgba(16,185,129,0.10)', color: 'var(--color-success)' }}>
                                 Preview
                               </span>
                             )}
-                            <span className="text-[11px]" style={{ color: '#9CA3AF' }}>
+                            <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
                               {lesson.durationMins > 0 ? fmt(lesson.durationMins) : ''}
                             </span>
                           </div>
@@ -348,10 +348,10 @@ function CourseDetailInner({ slug }: { slug: string }) {
           {course.tags && course.tags.length > 0 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
               className="mt-8 flex flex-wrap items-center gap-2">
-              <Tag size={13} style={{ color: '#9CA3AF' }} />
+              <Tag size={13} style={{ color: 'var(--color-text-muted)' }} />
               {course.tags.map(t => (
                 <span key={t} className="rounded-lg px-2.5 py-1 text-xs font-medium"
-                  style={{ background: 'rgba(0,87,184,0.08)', color: '#0057b8', border: '1px solid rgba(0,87,184,0.16)' }}>
+                  style={{ background: 'rgba(0,87,184,0.08)', color: 'var(--color-primary)', border: '1px solid rgba(0,87,184,0.16)' }}>
                   {t}
                 </span>
               ))}
@@ -385,8 +385,8 @@ function CourseDetailInner({ slug }: { slug: string }) {
             initial={{ opacity: 0, y: 20, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ delay: 0.08, type: 'spring', stiffness: 260, damping: 26 }}
-            className="lg:sticky lg:top-[108px] overflow-hidden rounded-3xl bg-white"
-            style={{ border: '1px solid #E4E7ED', boxShadow: '0 8px 32px rgba(13,15,26,0.10)' }}>
+            className="lg:sticky lg:top-[108px] overflow-hidden rounded-3xl bg-[var(--color-bg-surface)]"
+            style={{ border: '1px solid var(--color-border)', boxShadow: '0 8px 32px rgba(13,15,26,0.10)' }}>
 
             {course.thumbnailUrl && (
               <div className="relative hidden overflow-hidden lg:block" style={{ height: 180 }}>
@@ -405,14 +405,14 @@ function CourseDetailInner({ slug }: { slug: string }) {
                 {checkoutStatus === 'success' && (
                   <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
                     className="mb-4 rounded-xl px-4 py-3 text-sm font-semibold"
-                    style={{ background: 'rgba(16,185,129,0.12)', color: '#10B981', border: '1px solid rgba(16,185,129,0.25)' }}>
+                    style={{ background: 'rgba(16,185,129,0.12)', color: 'var(--color-success)', border: '1px solid rgba(16,185,129,0.25)' }}>
                     🎉 Payment successful! You&apos;re enrolled.
                   </motion.div>
                 )}
                 {checkoutStatus === 'cancel' && (
                   <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
                     className="mb-4 rounded-xl px-4 py-3 text-sm font-semibold"
-                    style={{ background: 'rgba(239,68,68,0.08)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.18)' }}>
+                    style={{ background: 'rgba(239,68,68,0.08)', color: 'var(--color-danger)', border: '1px solid rgba(239,68,68,0.18)' }}>
                     Payment cancelled. You were not charged.
                   </motion.div>
                 )}
@@ -422,22 +422,22 @@ function CourseDetailInner({ slug }: { slug: string }) {
                 <div>
                   {isPaid && couponInfo ? (
                     <div className="flex items-baseline gap-2">
-                      <p className="text-3xl font-bold" style={{ color: '#0D0F1A', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
+                      <p className="text-3xl font-bold" style={{ color: 'var(--color-text-primary)', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
                         {formatPrice(discountedPrice)}
                       </p>
-                      <p className="text-sm line-through" style={{ color: '#9CA3AF' }}>
+                      <p className="text-sm line-through" style={{ color: 'var(--color-text-muted)' }}>
                         {formatPrice(course.price)}
                       </p>
                     </div>
                   ) : (
-                    <p className="text-3xl font-bold" style={{ color: '#0D0F1A', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
+                    <p className="text-3xl font-bold" style={{ color: 'var(--color-text-primary)', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
                       {course.isFree ? 'Free' : formatPrice(course.price)}
                     </p>
                   )}
                 </div>
                 {isEnrolled && (
                   <span className="rounded-lg px-2 py-0.5 text-xs font-bold"
-                    style={{ background: 'rgba(16,185,129,0.10)', color: '#10B981', border: '1px solid rgba(16,185,129,0.22)' }}>
+                    style={{ background: 'rgba(16,185,129,0.10)', color: 'var(--color-success)', border: '1px solid rgba(16,185,129,0.22)' }}>
                     Enrolled
                   </span>
                 )}
@@ -450,7 +450,7 @@ function CourseDetailInner({ slug }: { slug: string }) {
                     whileHover={{ y: -2, boxShadow: '0 12px 32px rgba(0,87,184,0.40)' }}
                     whileTap={{ scale: 0.97 }}
                     className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white transition-all"
-                    style={{ background: '#0057b8', boxShadow: '0 6px 24px rgba(0,87,184,0.30)' }}>
+                    style={{ background: 'var(--color-primary)', boxShadow: '0 6px 24px rgba(0,87,184,0.30)' }}>
                     <Play size={15} fill="white" />
                     Continue learning
                   </motion.button>
@@ -464,7 +464,7 @@ function CourseDetailInner({ slug }: { slug: string }) {
                     whileHover={{ y: -2, boxShadow: '0 12px 32px rgba(0,87,184,0.40)' }}
                     whileTap={{ scale: 0.97 }}
                     className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white transition-all disabled:opacity-70"
-                    style={{ background: '#0057b8', boxShadow: '0 6px 24px rgba(0,87,184,0.30)' }}>
+                    style={{ background: 'var(--color-primary)', boxShadow: '0 6px 24px rgba(0,87,184,0.30)' }}>
                     {(checkout.isPending || abzerCheckout.isPending)
                       ? <><Spinner size={15} />Redirecting…</>
                       : isUAE
@@ -504,7 +504,7 @@ function CourseDetailInner({ slug }: { slug: string }) {
                   <div className="mt-3">
                     <button onClick={() => setCouponOpen(o => !o)}
                       className="flex w-full items-center justify-between text-xs font-semibold transition-opacity hover:opacity-70"
-                      style={{ color: '#9CA3AF' }}>
+                      style={{ color: 'var(--color-text-muted)' }}>
                       <span className="flex items-center gap-1">
                         <TagIcon size={11} />Have a promo code?
                       </span>
@@ -520,29 +520,29 @@ function CourseDetailInner({ slug }: { slug: string }) {
                               onChange={e => setCouponCode(e.target.value.toUpperCase())}
                               placeholder="PROMO10"
                               className="flex-1 rounded-xl px-3 py-2 text-xs outline-none"
-                              style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', color: '#111827' }}
+                              style={{ background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
                             />
                             {couponCode && (
                               <button onClick={() => setCouponCode('')}
                                 className="flex h-9 w-9 items-center justify-center rounded-xl"
-                                style={{ background: '#F3F4F6' }}>
-                                <X size={12} style={{ color: '#9CA3AF' }} />
+                                style={{ background: 'var(--color-bg-subtle)' }}>
+                                <X size={12} style={{ color: 'var(--color-text-muted)' }} />
                               </button>
                             )}
                           </div>
                           <div className="mt-1 min-h-[16px]">
                             {couponChecking && (
-                              <p className="text-[11px]" style={{ color: '#9CA3AF' }}>Checking…</p>
+                              <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>Checking…</p>
                             )}
                             {!couponChecking && couponInfo && (
-                              <p className="text-[11px] font-semibold" style={{ color: '#10B981' }}>
+                              <p className="text-[11px] font-semibold" style={{ color: 'var(--color-success)' }}>
                                 ✓ {couponInfo.discountType === 'percent'
                                   ? `${couponInfo.discountValue}% off`
                                   : `$${couponInfo.discountValue} off`} applied
                               </p>
                             )}
                             {!couponChecking && couponCode.length >= 2 && couponInvalid && (
-                              <p className="text-[11px]" style={{ color: '#EF4444' }}>Invalid or expired code</p>
+                              <p className="text-[11px]" style={{ color: 'var(--color-danger)' }}>Invalid or expired code</p>
                             )}
                           </div>
                         </motion.div>
@@ -557,7 +557,7 @@ function CourseDetailInner({ slug }: { slug: string }) {
                   whileHover={{ y: -2, boxShadow: '0 12px 32px rgba(0,87,184,0.40)' }}
                   whileTap={{ scale: 0.97 }}
                   className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white transition-all disabled:opacity-70"
-                  style={{ background: '#0057b8', boxShadow: '0 6px 24px rgba(0,87,184,0.30)' }}>
+                  style={{ background: 'var(--color-primary)', boxShadow: '0 6px 24px rgba(0,87,184,0.30)' }}>
                   {enroll.isPending
                     ? <><Spinner size={15} />Enrolling…</>
                     : <><Zap size={15} fill="white" />Enroll for free</>}
@@ -565,13 +565,13 @@ function CourseDetailInner({ slug }: { slug: string }) {
               )}
 
               {enrollError && (
-                <p className="mt-2.5 text-center text-xs" style={{ color: '#EF4444' }}>
+                <p className="mt-2.5 text-center text-xs" style={{ color: 'var(--color-danger)' }}>
                   {enrollError}
                 </p>
               )}
 
               {!enrollError && (
-                <p className="mt-2.5 text-center text-[11px]" style={{ color: '#9CA3AF' }}>
+                <p className="mt-2.5 text-center text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
                   {isEnrolled
                     ? `${progress?.progressPercent ?? 0}% complete`
                     : isPaid
@@ -594,7 +594,7 @@ function CourseDetailInner({ slug }: { slug: string }) {
                 <FavoriteButton courseId={course.id} />
               </div>
 
-              <div className="mt-5 space-y-3" style={{ borderTop: '1px solid #F0F1F5', paddingTop: 16 }}>
+              <div className="mt-5 space-y-3" style={{ borderTop: '1px solid var(--color-border)', paddingTop: 16 }}>
                 {[
                   { icon: Clock,    label: 'Total duration', value: fmt(course.durationMins) },
                   { icon: BookOpen, label: 'Lectures',       value: `${totalLessons} lessons` },
@@ -602,10 +602,10 @@ function CourseDetailInner({ slug }: { slug: string }) {
                   { icon: Users,    label: 'Students',       value: course.enrolledCount.toLocaleString() },
                 ].map(({ icon: Icon, label, value }) => (
                   <div key={label} className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2" style={{ color: '#9CA3AF' }}>
+                    <div className="flex items-center gap-2" style={{ color: 'var(--color-text-muted)' }}>
                       <Icon size={13} />{label}
                     </div>
-                    <span className="font-semibold" style={{ color: '#0D0F1A' }}>{value}</span>
+                    <span className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{value}</span>
                   </div>
                 ))}
               </div>

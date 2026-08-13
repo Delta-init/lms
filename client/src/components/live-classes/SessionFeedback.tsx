@@ -28,13 +28,13 @@ export function SessionFeedback({ sessionId, sessionTitle }: Props) {
     return (
       <div className="rounded-2xl p-4" style={{ background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.18)' }}>
         <div className="flex items-center gap-2">
-          <CheckCircle size={14} style={{ color: '#10B981' }} />
-          <p className="text-sm font-semibold" style={{ color: '#10B981' }}>
+          <CheckCircle size={14} style={{ color: 'var(--color-success)' }} />
+          <p className="text-sm font-semibold" style={{ color: 'var(--color-success)' }}>
             Feedback submitted: {rating} star{rating !== 1 ? 's' : ''}
           </p>
         </div>
         {existing?.comment && (
-          <p className="mt-1.5 text-xs" style={{ color: '#6B7280' }}>{existing.comment}</p>
+          <p className="mt-1.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>{existing.comment}</p>
         )}
       </div>
     )
@@ -43,10 +43,10 @@ export function SessionFeedback({ sessionId, sessionTitle }: Props) {
   const active = hovered || selected
 
   return (
-    <div className="rounded-2xl p-4" style={{ border: '1px solid #E4E7ED', background: '#fff' }}>
+    <div className="rounded-2xl p-4" style={{ border: '1px solid var(--color-border)', background: 'var(--color-bg-surface)' }}>
       <div className="flex items-center gap-2 mb-3">
-        <MessageSquare size={14} style={{ color: '#0057b8' }} />
-        <p className="text-sm font-bold" style={{ color: '#0D0F1A' }}>Rate this session</p>
+        <MessageSquare size={14} style={{ color: 'var(--color-primary)' }} />
+        <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>Rate this session</p>
       </div>
 
       {/* Stars */}
@@ -63,12 +63,12 @@ export function SessionFeedback({ sessionId, sessionTitle }: Props) {
             <Star
               size={24}
               fill={star <= active ? '#F59E0B' : 'none'}
-              style={{ color: star <= active ? '#F59E0B' : '#D1D5DB' }}
+              style={{ color: star <= active ? '#F59E0B' : 'var(--color-text-muted)' }}
             />
           </button>
         ))}
         {selected > 0 && (
-          <span className="ml-2 text-xs font-semibold" style={{ color: '#F59E0B' }}>
+          <span className="ml-2 text-xs font-semibold" style={{ color: 'var(--color-warning)' }}>
             {['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'][selected]}
           </span>
         )}
@@ -82,10 +82,10 @@ export function SessionFeedback({ sessionId, sessionTitle }: Props) {
             exit={{ opacity: 0, height: 0 }}
           >
             <textarea
-              className="w-full rounded-xl border border-[#E4E7ED] px-3 py-2 text-sm outline-none focus:border-[#0057b8] mb-3 resize-none"
+              className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm outline-none focus:border-[#0057b8] mb-3 resize-none"
               rows={2}
               placeholder="Share your thoughts (optional)"
-              style={{ color: '#374151' }}
+              style={{ color: 'var(--color-text-secondary)' }}
               value={comment}
               onChange={e => setComment(e.target.value)}
             />
@@ -96,7 +96,7 @@ export function SessionFeedback({ sessionId, sessionTitle }: Props) {
               }}
               disabled={mutation.isPending}
               className="flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
-              style={{ background: '#0057b8' }}
+              style={{ background: 'var(--color-primary)' }}
             >
               {mutation.isPending
                 ? <><Spinner size={12} /><span>Submitting…</span></>

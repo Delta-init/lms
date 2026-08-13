@@ -79,7 +79,7 @@ export function EnrollmentStatusBanner() {
           </span>
           <span className="sm:hidden">: pending approval</span>
         </p>
-        <ChevronRight size={13} className="flex-shrink-0" style={{ color: '#D1D5DB' }} />
+        <ChevronRight size={13} className="flex-shrink-0" style={{ color: 'var(--color-text-muted)' }} />
       </motion.div>
     )
   }
@@ -96,7 +96,7 @@ export function EnrollmentStatusBanner() {
           border: '1px solid rgba(239,68,68,0.20)',
         }}>
         <div className="flex items-center gap-2.5">
-          <XCircle size={13} className="flex-shrink-0" style={{ color: '#EF4444' }} />
+          <XCircle size={13} className="flex-shrink-0" style={{ color: 'var(--color-danger)' }} />
           <p className="min-w-0 flex-1 text-xs font-medium" style={{ color: '#991B1B' }}>
             <span className="font-semibold">Application not approved</span>
             <span className="hidden sm:inline">
@@ -106,15 +106,15 @@ export function EnrollmentStatusBanner() {
           <Link
             href="/complete-registration"
             className="flex flex-shrink-0 items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition-all hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, #EF4444, #DC2626)', whiteSpace: 'nowrap' }}
+            style={{ background: 'linear-gradient(135deg, var(--color-danger), var(--color-danger))', whiteSpace: 'nowrap' }}
           >
             Reapply
             <ArrowRight size={11} />
           </Link>
         </div>
         {reason && (
-          <p className="mt-2 text-xs" style={{ color: '#374151' }}>
-            <span className="font-semibold" style={{ color: '#EF4444' }}>Reason: </span>{reason}
+          <p className="mt-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+            <span className="font-semibold" style={{ color: 'var(--color-danger)' }}>Reason: </span>{reason}
           </p>
         )}
       </motion.div>
