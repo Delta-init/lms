@@ -13,6 +13,7 @@ import {
 } from '@/lib/api/stats'
 import { useCourses } from '@/lib/api/courses'
 import Spinner from '@/components/ui/Spinner'
+import { useOrgCurrency, formatCoursePrice } from '@/lib/currency'
 
 /* ─── Local types ────────────────────────────────────── */
 interface CourseItem {
@@ -50,6 +51,7 @@ function CoursePicker({
   selectedIds: string[]
   onAdd:       (item: CourseItem) => void
 }) {
+  const cur                 = useOrgCurrency()
   const [query,  setQuery]  = useState('')
   const [open,   setOpen]   = useState(false)
   const ref                 = useRef<HTMLDivElement>(null)
@@ -113,7 +115,7 @@ function CoursePicker({
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs font-medium text-white">{c.title}</p>
                   <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                    {c.isFree ? 'Free' : `$${c.price}`} · {c.level}
+                    {formatCoursePrice(c, cur)} · {c.level}
                   </p>
                 </div>
                 <Plus size={12} style={{ color: '#0057b8' }} />

@@ -4,8 +4,11 @@
  * Runs N Bun fork instances on consecutive ports starting at 4000:
  *   instance 0 → :4000   (also runs the reminder cron jobs)
  *   instance 1 → :4001
- *   instance 2 → :4002
- *   instance 3 → :4003
+ *
+ * `instances` here and the `upstream lms_backend` block in nginx.lms.conf are
+ * ONE setting expressed in two files. Change this number and nginx keeps
+ * proxying to ports nothing is listening on — connection refused, three
+ * strikes, then the port is retried every fail_timeout. Always edit both.
  *
  * nginx `upstream` (see nginx.lms.conf) round-robins across those ports.
  * Bun does NOT support PM2 cluster mode, so we use `fork` + `increment_var`.
@@ -29,10 +32,10 @@ module.exports = {
       script: 'src/index.ts',
       interpreter: 'bun', // ← absolute path if not on PATH, e.g. '/root/.bun/bin/bun'
       exec_mode: 'fork', // cluster mode is NOT supported with the Bun interpreter
-      instances: 4, // ← set to (CPU cores - 1)
+      instances: 2, // ← set to (CPU cores - 1); must match nginx upstream
       // NOTE: no `increment_var` — the app derives its listen port from
       // NODE_APP_INSTANCE (see backend/src/index.ts). All forks share PORT=4000
-      // as the BASE; instance N listens on 4000+N (4000..4003). Matches nginx upstream.
+      // as the BASE; instance N listens on 4000+N (4000..4001). Matches nginx upstream.
       autorestart: true,
       watch: false,
       max_memory_restart: '500M',

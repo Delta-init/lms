@@ -15,6 +15,7 @@ import { useCourse, useUpdateCourse, useDeleteCourse } from '@/lib/api/courses'
 import { useToast } from '@/store/ui.store'
 import type { Course, CourseStatus } from '@/types/index'
 import Spinner from '@/components/ui/Spinner'
+import { useOrgCurrency, formatCoursePrice } from '@/lib/currency'
 
 /* ── Helpers ──────────────────────────────────────────────────── */
 function fmtDuration(mins: number) {
@@ -102,6 +103,7 @@ function MetaRow({ icon: Icon, label, value, iconColor = 'rgba(255,255,255,0.4)'
 
 /* ── Main Component ───────────────────────────────────────────── */
 export function CourseDetail({ id }: { id: string }) {
+  const cur          = useOrgCurrency()
   const router       = useRouter()
   const toast        = useToast()
   const { data: course, isLoading, isError } = useCourse(id)
@@ -339,7 +341,7 @@ export function CourseDetail({ id }: { id: string }) {
               <div className="shrink-0 rounded-2xl px-4 py-2.5 text-center backdrop-blur-sm"
                 style={{ background: 'rgba(0,87,184,0.2)', border: '1px solid rgba(0,87,184,0.3)' }}>
                 <p className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>Price</p>
-                <p className="text-2xl font-bold text-white">${course.price.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-white">{formatCoursePrice(course, cur)}</p>
               </div>
             )}
           </div>
@@ -509,7 +511,7 @@ export function CourseDetail({ id }: { id: string }) {
             )}
             <MetaRow
               icon={DollarSign} label="Price"
-              value={course.isFree ? 'Free' : `$${course.price.toFixed(2)}`}
+              value={formatCoursePrice(course, cur)}
               iconColor={course.isFree ? '#4ADE80' : 'rgba(255,255,255,0.4)'}
             />
             <MetaRow

@@ -13,6 +13,7 @@ import { useCourses, useBulkCourses } from '@/lib/api/courses'
 import { useAdminStats } from '@/lib/api/stats'
 import { useUIStore } from '@/store/ui.store'
 import type { Course, CourseStatus } from '@/types/index'
+import { useOrgCurrency, formatCoursePrice } from '@/lib/currency'
 
 /* ── Config ────────────────────────────────────────────────────── */
 const STATUS_CONFIG: Record<CourseStatus, {
@@ -139,6 +140,7 @@ function CourseCard({ course, index, checked, onToggle, onDelete }: {
 }) {
   const st = STATUS_CONFIG[course.status]
   const lv = course.level ? LEVEL_CONFIG[course.level] : null
+  const cur = useOrgCurrency()
 
   return (
     <motion.div
@@ -267,7 +269,7 @@ function CourseCard({ course, index, checked, onToggle, onDelete }: {
             )}
           </div>
           <span className="text-sm font-bold" style={{ color: course.isFree ? '#4ADE80' : 'white' }}>
-            {course.isFree ? 'Free' : `$${course.price.toFixed(2)}`}
+            {formatCoursePrice(course, cur)}
           </span>
         </div>
       </div>
@@ -281,6 +283,7 @@ function CourseRow({ course, index, checked, onToggle, onDelete }: {
 }) {
   const st = STATUS_CONFIG[course.status]
   const lv = course.level ? LEVEL_CONFIG[course.level] : null
+  const cur = useOrgCurrency()
 
   return (
     <motion.tr
@@ -383,7 +386,7 @@ function CourseRow({ course, index, checked, onToggle, onDelete }: {
       <td className="px-4 py-3.5">
         {course.isFree
           ? <span className="text-xs font-semibold" style={{ color: '#4ADE80' }}>Free</span>
-          : <span className="text-sm font-semibold text-white">${course.price.toFixed(2)}</span>}
+          : <span className="text-sm font-semibold text-white">{formatCoursePrice(course, cur)}</span>}
       </td>
 
       {/* Created */}

@@ -6,6 +6,7 @@ import { LiveClassController } from '@/controllers/liveClass.controller.ts'
 import { RolesController } from '@/controllers/roles.controller.ts'
 import { authenticateAdmin, requireRole, requireAdmin, requireAnyAdmin, requireInstructor, requireCourseAuthor, injectCategoryScope, requirePermission } from '@/middleware/auth.middleware.ts'
 import { validate } from '@/middleware/validate.middleware.ts'
+import { env } from '@/config/env.ts'
 import { authRateLimit } from '@/middleware/rateLimit.middleware.ts'
 import { QuizService } from '@/services/quiz.service.ts'
 import { AssignmentService } from '@/services/assignment.service.ts'
@@ -105,12 +106,45 @@ const usersQuerySchema = z.object({
   enrollmentStatus:  z.enum(['pending', 'approved', 'rejected', 'cancelled']).optional(),
 })
 
-/* ─── Organizations (super_admin only) ───────────── */
+/* The rate the CHECKOUT actually uses, handed out so the admin panel shows
+   the number a student will really be charged rather than re-deriving it and
+   drifting. Same env values order.service.ts converts with. */
+const rateFor = (currency: string): number =>
+  currency === 'AED' ? env.UAE_EXCHANGE_RATE : env.INR_EXCHANGE_RATE
+
+/* ─── Organizations (super_admin only) ─────────────
+   Only a super admin sees every academy, because only they can switch
+   between them. Scoped admins get their own via /my-organization below. */
 router.get('/organizations', requireRole('super_admin'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { OrganizationModel } = await import('@/models/schema.ts')
     const orgs = await OrganizationModel.find().select('name slug currency').lean()
-    sendSuccess(res, orgs.map(o => ({ id: (o._id as any).toString(), name: o.name, slug: o.slug, currency: o.currency })))
+    sendSuccess(res, orgs.map(o => ({
+      id: (o._id as any).toString(), name: o.name, slug: o.slug,
+      currency: o.currency, exchangeRate: rateFor(o.currency),
+    })))
+  } catch (err) { next(err) }
+})
+
+/* ─── The caller's own academy ─────────────────────
+   Every admin needs to know which currency their panel works in, but
+   /organizations above is super_admin-only — so a Bangalore admin had no way
+   to learn they are an INR academy, and the UI fell back to showing the USD
+   base price to everyone. This returns exactly one org: the caller's.
+
+   No org on the account (super admins have none) returns null rather than an
+   error, and the panel falls back to the base currency. */
+router.get('/my-organization', requireAnyAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user?.organizationId
+    if (!orgId) { sendSuccess(res, null); return }
+    const { OrganizationModel } = await import('@/models/schema.ts')
+    const org = await OrganizationModel.findById(orgId).select('name slug currency').lean()
+    if (!org) { sendSuccess(res, null); return }
+    sendSuccess(res, {
+      id: (org._id as any).toString(), name: org.name, slug: org.slug,
+      currency: org.currency, exchangeRate: rateFor(org.currency),
+    })
   } catch (err) { next(err) }
 })
 

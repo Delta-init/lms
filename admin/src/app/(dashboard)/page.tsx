@@ -15,6 +15,7 @@ import { useAdminStats } from '@/lib/api/stats'
 import { useCurrentUser } from '@/lib/api/user'
 import Link from 'next/link'
 import Spinner from '@/components/ui/Spinner'
+import { useOrgCurrency, formatCoursePrice } from '@/lib/currency'
 
 function timeGreeting() {
   const h = new Date().getHours()
@@ -24,6 +25,7 @@ function timeGreeting() {
 }
 
 export default function DashboardPage() {
+  const cur = useOrgCurrency()
   const { data: coursesData } = useCourses({ per_page: 5, status: 'published', sort: 'createdAt:desc' })
   const { data: stats, isLoading: statsLoading } = useAdminStats()
   const { data: currentUser } = useCurrentUser()
@@ -42,7 +44,7 @@ export default function DashboardPage() {
     { label: 'Total Courses',    value: stats?.totalCourses     ?? 0, change: 0, changeLabel: `${stats?.publishedCourses ?? 0} published · ${stats?.draftCourses ?? 0} drafts`, icon: BookOpen,      color: '#0057b8', prefix: '',  suffix: '',         delay: 0     },
     { label: 'Total Students',   value: stats?.totalStudents    ?? 0, change: 0, changeLabel: `${stats?.totalEnrollments ?? 0} active enrollments`,                            icon: Users,         color: '#2F6BFF', prefix: '',  suffix: '',         delay: 0.05  },
     { label: 'Instructors',      value: stats?.totalInstructors ?? 0, change: 0, changeLabel: 'Course authors',                                                                 icon: GraduationCap, color: '#A78BFA', prefix: '',  suffix: '',         delay: 0.1   },
-    { label: 'Revenue (est.)',   value: rev.value,                     change: 0, changeLabel: 'Sum of paid course earnings',                                                   icon: DollarSign,    color: '#4ADE80', prefix: '$', suffix: rev.suffix, delay: 0.15  },
+    { label: 'Revenue (est.)',   value: rev.value,                     change: 0, changeLabel: 'Sum of paid course earnings',                                                   icon: DollarSign,    color: '#4ADE80', prefix: cur.symbol, suffix: rev.suffix, delay: 0.15  },
   ]
 
   return (
@@ -133,7 +135,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="text-right flex-shrink-0">
                   <p className="text-sm font-semibold text-white">
-                    {c.isFree ? 'Free' : `$${c.price}`}
+                    {formatCoursePrice(c, cur)}
                   </p>
                   <span className="text-[10px] font-semibold"
                     style={{ color: c.status === 'published' ? '#4ADE80' : '#FACC15' }}>

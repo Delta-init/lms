@@ -7,6 +7,8 @@ export interface Organization {
   name:     string
   slug:     'dubai' | 'bangalore'
   currency: 'AED' | 'INR'
+  /** Multiplier from the USD base price — the same rate checkout converts at. */
+  exchangeRate?: number
 }
 
 export function useOrganizations(enabled = true) {
