@@ -20,8 +20,15 @@
    Restore is additive by default (upsert on _id). Add --drop to make the
    target match the snapshot exactly.
 ───────────────────────────────────────────────────── */
-import { MongoClient } from 'mongodb'
-import { EJSON } from 'bson'
+/* mongodb and bson are NOT direct dependencies — they arrive under mongoose.
+   Importing them by name works locally only because the package manager
+   hoisted them; on a server with a different layout the script dies with
+   "Cannot find package 'mongodb'". Mongoose re-exports the exact driver it
+   uses, so this resolves anywhere mongoose does and can never drift from the
+   driver version the app itself runs. */
+import mongoose from 'mongoose'
+const { MongoClient } = mongoose.mongo
+const { EJSON } = mongoose.mongo.BSON
 import { gzipSync, gunzipSync } from 'zlib'
 import { mkdir, readdir, stat, writeFile, readFile } from 'fs/promises'
 import { join } from 'path'

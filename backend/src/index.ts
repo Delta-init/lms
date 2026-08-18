@@ -69,10 +69,9 @@ async function bootstrap() {
        stops them lingering as permanently unscoped. */
     const { LearningPathModel } = await import('@/models/schema.ts')
 
-    const [users, courses, classes, enrollments, orders, coupons, tickets, paths] = await Promise.all([
+    const [users, courses, enrollments, orders, coupons, tickets, paths] = await Promise.all([
       UserModel.updateMany({ ...noOrg, role: { $ne: 'super_admin' } }, setOrg),
       CourseModel.updateMany(noOrg, setOrg),
-      LiveClassModel.updateMany(noOrg, setOrg),
       EnrollmentModel.updateMany(noOrg, setOrg),
       OrderModel.updateMany(noOrg, setOrg),
       CouponModel.updateMany(noOrg, setOrg),
@@ -80,7 +79,30 @@ async function bootstrap() {
       LearningPathModel.updateMany(noOrg, setOrg),
     ])
 
-    const total = users.modifiedCount + courses.modifiedCount + classes.modifiedCount
+    /* Live classes inherit their COURSE's academy, not a blanket Dubai stamp.
+       Every list students and org-scoped admins see filters organizationId
+       with strict equality, so stamping a Bangalore course's session as Dubai
+       makes it vanish for the people it was scheduled for. Runs after the
+       course backfill above so the parent org is resolvable; Dubai stays the
+       last resort for classes whose course has no academy either. */
+    let classCount = 0
+    const orphanClasses = await LiveClassModel.find(noOrg).select('courseId').lean()
+    if (orphanClasses.length > 0) {
+      const courseIds  = [...new Set(orphanClasses.map(c => String(c.courseId)))]
+      const courseOrgs = new Map(
+        (await CourseModel.find({ _id: { $in: courseIds } }).select('organizationId').lean())
+          .map(c => [String(c._id), (c as { organizationId?: unknown }).organizationId]),
+      )
+      const result = await LiveClassModel.bulkWrite(orphanClasses.map(c => ({
+        updateOne: {
+          filter: { _id: c._id, organizationId: { $exists: false } },
+          update: { $set: { organizationId: (courseOrgs.get(String(c.courseId)) ?? orgId) as typeof orgId } },
+        },
+      })))
+      classCount = result.modifiedCount
+    }
+
+    const total = users.modifiedCount + courses.modifiedCount + classCount
       + enrollments.modifiedCount + orders.modifiedCount + coupons.modifiedCount
       + tickets.modifiedCount + paths.modifiedCount
 

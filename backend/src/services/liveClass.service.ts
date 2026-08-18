@@ -201,6 +201,13 @@ export class LiveClassService {
     if (input.room)     (doc as any).room     = input.room.trim()
     if (input.organizationId && Types.ObjectId.isValid(input.organizationId)) {
       ;(doc as any).organizationId = new Types.ObjectId(input.organizationId)
+    } else if ((course as { organizationId?: Types.ObjectId }).organizationId) {
+      /* No caller academy (super_admin browsing "All Orgs" sends no
+         X-Organization-Id). A class must live in its course's academy anyway —
+         every list students and org-scoped admins see filters on
+         organizationId with strict equality, so an unstamped class is
+         invisible to all of them until the boot backfill claims it. */
+      ;(doc as any).organizationId = (course as { organizationId?: Types.ObjectId }).organizationId
     }
     if (input.seriesId && Types.ObjectId.isValid(input.seriesId)) {
       doc.seriesId = new Types.ObjectId(input.seriesId)

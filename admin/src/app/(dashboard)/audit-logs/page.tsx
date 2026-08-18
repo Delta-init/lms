@@ -31,6 +31,10 @@ const ACTION_COLORS: Record<string, { bg: string; text: string }> = {
   'review.delete':   { bg: 'rgba(248,113,113,0.15)', text: '#F87171' },
   'bulk.publish':    { bg: 'rgba(74,222,128,0.15)',  text: '#4ADE80' },
   'bulk.archive':    { bg: 'rgba(250,204,21,0.15)',  text: '#FACC15' },
+  'liveclass.create':{ bg: 'rgba(74,222,128,0.15)',  text: '#4ADE80' },
+  'liveclass.update':{ bg: 'rgba(96,165,250,0.15)',  text: '#60A5FA' },
+  'liveclass.delete':{ bg: 'rgba(248,113,113,0.15)', text: '#F87171' },
+  'liveclass.repeat':{ bg: 'rgba(196,181,253,0.15)', text: '#C4B5FD' },
 }
 
 function ActionBadge({ action }: { action: string }) {
@@ -58,6 +62,7 @@ const ACTION_OPTIONS = [
   'category.create', 'category.update', 'category.delete',
   'user.roleChange', 'user.deactivate', 'review.delete',
   'bulk.publish', 'bulk.archive',
+  'liveclass.create', 'liveclass.update', 'liveclass.delete', 'liveclass.repeat',
 ]
 
 /* ─── Row ──────────────────────────────────────────────── */

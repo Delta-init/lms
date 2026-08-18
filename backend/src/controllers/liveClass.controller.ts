@@ -361,7 +361,10 @@ export class LiveClassController {
   adminListAll = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const status = typeof req.query['status'] === 'string' ? req.query['status'] : 'all'
-      const limit  = Math.min(Number(req.query['limit'] ?? 100), 200)
+      /* Ceiling, not pagination: the admin UI filters client-side and needs the
+         full set. 100/200 was low enough that weekly-repeat series pushed this
+         week's classes out of the capped, farthest-future-first response. */
+      const limit  = Math.min(Number(req.query['limit'] ?? 1000), 2000)
       const isInstructor = req.user?.role === 'instructor'
       const scope  = isInstructor ? undefined : req.user?.categoryScope
       let courseIds: string[] | undefined

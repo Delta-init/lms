@@ -1527,6 +1527,7 @@ export type AuditAction =
   | 'category.create' | 'category.update' | 'category.delete'
   | 'bulk.publish'    | 'bulk.archive'    | 'bulk.delete'
   | 'course.import'   | 'course.export'
+  | 'liveclass.create' | 'liveclass.update' | 'liveclass.delete' | 'liveclass.repeat'
 
 export interface IAuditLog extends Document {
   id:         string

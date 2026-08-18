@@ -103,10 +103,16 @@ export class LiveClassRepository extends BaseRepository<ILiveClass> {
       }
     }
 
+    /* The bound exists only to keep a runaway collection from flattening the
+       process — it must stay far above any realistic class count. At 100 it
+       silently swallowed real data: the sort is farthest-future-first, so
+       once weekly-repeat series pushed the collection past 100 docs, the
+       NEAREST sessions (this week's classes) fell off the response and the
+       admin UI showed them as vanished while students could still book them. */
     const docs = await LiveClassModel
       .find(query)
       .sort({ scheduledStart: -1 })   // newest first
-      .limit(filter.limit ?? 100)
+      .limit(filter.limit ?? 1000)
       .populate('courseId',     'title slug thumbnailUrl')
       .populate('instructorId', 'name avatarUrl')
       .exec()

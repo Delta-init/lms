@@ -69,7 +69,11 @@ export const liveClassKeys = {
 export function useAllLiveClasses(status: string = 'all') {
   return useQuery({
     queryKey:        ['admin', 'live-classes', 'all', status],
-    queryFn:         () => apiGet<LiveClass[]>('/admin/live-classes', { status }),
+    /* limit is a guard-rail, not pagination — without it the server's default
+       cap silently dropped the nearest-dated classes once weekly-repeat series
+       pushed the collection past the cap (they looked deleted in this UI
+       while students could still book them). */
+    queryFn:         () => apiGet<LiveClass[]>('/admin/live-classes', { status, limit: 1000 }),
     staleTime:       10_000,
     refetchInterval: 15_000,   // refresh so live status pulses update
   })
@@ -273,8 +277,15 @@ export function useDeleteLiveClass(courseId: string | undefined) {
 export function useRepeatLiveClassWeekly(courseId: string | undefined) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, weeks }: { id: string; weeks: number }) =>
-      apiPost<LiveClass[]>(`/admin/live-classes/${id}/repeat`, { weeks }),
+    mutationFn: async ({ id, weeks }: { id: string; weeks: number }) => {
+      /* The backend mints one Google Meet link per generated week (~1s each),
+         so a long series overruns the instance-default 15s timeout. Aborting
+         here doesn't stop the server — it kept creating while the UI showed
+         an error, and re-submitting then produced duplicate series. */
+      const res = await api.post<{ success: true; data: LiveClass[] }>(
+        `/admin/live-classes/${id}/repeat`, { weeks }, { timeout: 120_000 })
+      return res.data.data
+    },
     onSuccess: () => {
       if (courseId) qc.invalidateQueries({ queryKey: liveClassKeys.forCourse(courseId) })
       qc.invalidateQueries({ queryKey: ['admin', 'live-classes', 'all'] })

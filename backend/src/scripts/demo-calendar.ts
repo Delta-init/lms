@@ -1,8 +1,12 @@
-/* Fixtures for the month-calendar overflow: eight live classes on a single
-   day, so the "+N more" path and the day panel have something to show.
+/* Fixtures for eyeballing the class-schedule date labels.
 
-   Every row is titled with `demo-cal`, and --clean removes exactly those.
-   Reuses the instructor/course created by demo-assignments.ts when present.
+   Creates a handful of live classes spread across today, tomorrow, later this
+   week and a future month, so every branch of the day label is visible at
+   once: Today / Tomorrow / "Sun 17 Aug" / "Wed 23 Sep" / a next-year date
+   that has to carry its year.
+
+   Every row is titled with `demo-cal`; --clean removes exactly those and
+   nothing else.
 
    Run:  bun src/scripts/demo-calendar.ts
    Undo: bun src/scripts/demo-calendar.ts --clean
@@ -27,23 +31,28 @@ try {
     const section    = await SectionModel.findOne({ courseId: course?._id }).select('_id').lean()
     const org        = await OrganizationModel.findOne().select('_id').lean()
     if (!instructor || !course) {
-      console.error('Need at least one instructor and one course — run demo-assignments.ts first.')
+      console.error('Need at least one instructor and one course.')
       process.exit(1)
     }
 
-    /* All eight on the SAME day, spread across the working day so the sort
-       is visible: the cell should show the three earliest. */
-    const day = new Date()
-    day.setDate(day.getDate() + 2)
-    const hours = [9, 10, 11, 13, 14, 15, 17, 19]
+    /* [days from today, hour, label the UI should produce] */
+    const plan: Array<[number, number, string]> = [
+      [0,   9,  'Today'],
+      [0,  14,  'Today (afternoon)'],
+      [1,  10,  'Tomorrow'],
+      [3,  11,  'later this week'],
+      [40, 16,  'next month'],
+      [150, 9,  'next year — must show the year'],
+    ]
 
-    for (const [i, h] of hours.entries()) {
-      const start = new Date(day)
-      start.setHours(h, 0, 0, 0)
+    for (const [offset, hour, why] of plan) {
+      const start = new Date()
+      start.setDate(start.getDate() + offset)
+      start.setHours(hour, 0, 0, 0)
       await LiveClassModel.create({
         courseId:       course._id,
         sectionId:      section?._id,
-        title:          `Session ${i + 1} — ${h}:00 (${TAG})`,
+        title:          `${why} (${TAG})`,
         scheduledStart: start,
         durationMins:   60,
         type:           'external',
@@ -51,14 +60,12 @@ try {
         organizationId: (course as any).organizationId ?? org?._id,
         language:       'English',
         status:         'scheduled',
-        isOnline:       false,
-        location:       'Dubai Campus',
-        room:           `R${i + 1}`,
+        isOnline:       true,
         sessionCapacity: 30,
       })
+      console.log(`  ${start.toDateString()} ${String(hour).padStart(2, '0')}:00  — ${why}`)
     }
-    console.log(`\ncreated ${hours.length} classes on ${day.toDateString()}`)
-    console.log(`instructor: ${(instructor as { name?: string }).name}`)
+    console.log(`\ncreated ${plan.length} classes`)
   }
 } finally {
   await mongoose.disconnect()

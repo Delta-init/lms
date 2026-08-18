@@ -24,11 +24,42 @@ const FONT_CSS = `@import url('https://fonts.googleapis.com/css2?family=Syne:wgh
 const FontLoader = () => <style dangerouslySetInnerHTML={{ __html: FONT_CSS }} />
 
 /* ── Date helpers ──────────────────────────────────────────── */
+/** The calendar day a moment falls on IN THE ACADEMY'S TIMEZONE, as
+    YYYY-MM-DD. Comparing these strings is what makes "Today" mean today in
+    Dubai rather than today in the reader's browser. */
+const zonedKey = (d: Date) =>
+  new Intl.DateTimeFormat('en-CA', {
+    timeZone: APP_TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(d)
+
+/* Day label for a session card.
+
+   Carries the MONTH now. "Wed 19" alone is ambiguous the moment you page to
+   another month, and these cards also show up in lists that span months —
+   two sessions could both read "Wed 19" and be five weeks apart. The year is
+   added only when it differs from the current one, so the common case stays
+   short and a January class viewed in December still says which January.
+
+   Today/Tomorrow are decided from the ZONED day, not the browser's. Students
+   resident abroad read this same schedule — someone in New York is up to nine
+   hours behind Dubai, so a naive local-date comparison would put "Today" on
+   the wrong session for hours every evening. */
 function zonedDayLabel(iso: string): string {
+  const when = new Date(iso)
+  const key  = zonedKey(when)
+  const now  = new Date()
+
+  if (key === zonedKey(now)) return 'Today'
+  /* Asia/Dubai has no daylight saving, so a flat 24h step is exact here. */
+  if (key === zonedKey(new Date(now.getTime() + 86_400_000))) return 'Tomorrow'
+
   const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: APP_TIMEZONE, weekday: 'short', day: 'numeric',
-  }).formatToParts(new Date(iso))
-  return `${parts.find(p => p.type === 'weekday')?.value ?? ''} ${parts.find(p => p.type === 'day')?.value ?? ''}`
+    timeZone: APP_TIMEZONE, weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+  }).formatToParts(when)
+  const get = (t: string) => parts.find(p => p.type === t)?.value ?? ''
+  const sameYear = get('year') === zonedKey(now).slice(0, 4)
+
+  return `${get('weekday')} ${get('day')} ${get('month')}${sameYear ? '' : ` ${get('year')}`}`
 }
 function getMondayOfWeek(d: Date): Date {
   const r = new Date(d); const day = r.getDay()
@@ -37,9 +68,6 @@ function getMondayOfWeek(d: Date): Date {
 function addDays(d: Date, n: number): Date { const r = new Date(d); r.setDate(r.getDate() + n); return r }
 function isSameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
-}
-function toDateKey(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 }
 function fmtTime(iso: string) {
   return new Date(iso).toLocaleTimeString('en-US', { timeZone: APP_TIMEZONE, hour: 'numeric', minute: '2-digit', hour12: true })
@@ -1315,14 +1343,25 @@ export default function ClassBookingsPage() {
           .sort((a,b)=>new Date(a.scheduledStart).getTime()-new Date(b.scheduledStart).getTime())[0]
         :g.slots.sort((a,b)=>new Date(a.scheduledStart).getTime()-new Date(b.scheduledStart).getTime())[0]
       if(!firstSlot) return
-      const dk = toDateKey(new Date(firstSlot.scheduledStart))
+      /* Bucket by the ZONED day, matching the label on each card. Keying on
+         the browser's local date instead put a class under a header naming a
+         different day for anyone not in Asia/Dubai — a session at 02:00 UTC
+         is the 20th in Dubai but still the 19th in New York, so the group
+         said "Wednesday, Aug 19" over a card reading "Thu 20 Aug". */
+      const dk = zonedKey(new Date(firstSlot.scheduledStart))
       if(!by.has(dk)) by.set(dk,[])
       by.get(dk)!.push(g)
     })
     return Array.from(by.keys()).sort().map(dk=>{
       const [y,mo,d]=dk.split('-').map(Number)
-      const date = new Date(y,mo-1,d)
-      return{dateKey:dk,dateLabel:date.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'}),isToday:isSameDay(date,tod),groups:by.get(dk)!}
+      /* Noon UTC, so rendering this key in any timezone lands on the same
+         calendar day — building it at local midnight let the formatter, which
+         resolves its own zone, slip to the previous day. */
+      const date = new Date(Date.UTC(y!, mo!-1, d!, 12))
+      const dateLabel = new Intl.DateTimeFormat('en-US', {
+        timeZone: APP_TIMEZONE, weekday: 'long', month: 'short', day: 'numeric',
+      }).format(date)
+      return{dateKey:dk,dateLabel,isToday:dk===zonedKey(tod),groups:by.get(dk)!}
     })
   },[allGroups,rangeStart,rangeEndIncl,useWindowRange])
 
