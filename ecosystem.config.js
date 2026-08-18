@@ -42,7 +42,7 @@ module.exports = {
       kill_timeout: 10000, // give in-flight requests 10s to drain on reload (matches graceful shutdown)
       env: {
         NODE_ENV: 'production',
-        PORT: 4002, // base port; incremented per instance
+        PORT: 4000, // base port; incremented per instance — MUST match nginx upstream (4000..4001)
       },
       out_file: './logs/backend-out.log',
       error_file: './logs/backend-error.log',
