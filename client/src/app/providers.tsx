@@ -2,7 +2,8 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
-import '@/lib/timezone'   // pin all date/time display to UAE time (Asia/Dubai)
+// Dates render in the student's device timezone — the old app-wide Asia/Dubai
+// pin was removed deliberately (see src/lib/timezone.ts).
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [qc] = useState(() => new QueryClient({

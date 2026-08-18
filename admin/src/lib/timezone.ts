@@ -1,28 +1,60 @@
 /**
- * timezone.ts — Display every date/time in UAE time (Asia/Dubai, UTC+4).
+ * timezone.ts — Display every date/time in the ACTIVE ACADEMY's timezone.
  *
- * The backend sends timestamps in UTC. By default the browser renders them in the
- * viewer's *device* timezone, so the admin dashboard would show times in whatever
- * zone the operator's machine is set to. This module pins all date/time *formatting*
- * to Dubai so the admin always works in UAE time.
+ * The backend sends timestamps in UTC. By default the browser renders them in
+ * the viewer's *device* timezone, so the dashboard would show times in whatever
+ * zone the operator's machine is set to. This module pins all date/time
+ * *formatting* to the academy being administered:
  *
- * It works by wrapping the locale-aware formatters to inject `timeZone: 'Asia/Dubai'`
- * whenever the caller didn't pass an explicit `timeZone`. This covers every existing
- * `toLocaleDateString` / `toLocaleTimeString` / `toLocaleString` / `Intl.DateTimeFormat`
- * call across the app — and any added later — from one place.
+ *   Dubai academy     → Asia/Dubai   (UTC+4)
+ *   Bangalore academy → Asia/Kolkata (UTC+5:30)
  *
- * Note: `Number.prototype.toLocaleString` (used for counts) is a different method
- * and is intentionally left untouched.
+ * Scoped admins/instructors get their own academy's zone; a super admin follows
+ * the org switcher in the topbar ("All Orgs" falls back to Dubai, the HQ zone).
+ * `<TimezoneScope>` in providers.tsx resolves the zone and calls
+ * `setActiveTimeZone` — this module only holds the mechanism.
  *
- * Installed once from `providers.tsx`, which runs during both server render and in
- * the browser, so SSR and client output match (no hydration mismatch).
+ * It works by wrapping the locale-aware formatters to inject the active zone
+ * whenever the caller didn't pass an explicit `timeZone`. This covers every
+ * existing `toLocaleDateString` / `toLocaleTimeString` / `toLocaleString` /
+ * `Intl.DateTimeFormat` call across the app — and any added later — from one
+ * place.
+ *
+ * Note: `Number.prototype.toLocaleString` (used for counts) is a different
+ * method and is intentionally left untouched.
+ *
+ * Installed once from `providers.tsx`, which runs during both server render and
+ * in the browser. SSR always formats in the default zone (org context resolves
+ * client-side only, after data loads), so server and client first paint match.
  */
-export const APP_TIMEZONE = 'Asia/Dubai'
+export const DEFAULT_TIMEZONE = 'Asia/Dubai'
+
+/* One academy → one timezone. Keyed by Organization.slug (see backend
+   Organization model — slugs are a closed enum, so new academies already
+   require a code change and belong in this map too). */
+export const ORG_TIMEZONES: Record<string, string> = {
+  dubai:     'Asia/Dubai',
+  bangalore: 'Asia/Kolkata',
+}
+
+export function orgTimeZone(slug?: string | null): string {
+  return (slug && ORG_TIMEZONES[slug]) || DEFAULT_TIMEZONE
+}
+
+let activeTimeZone = DEFAULT_TIMEZONE
+
+export function setActiveTimeZone(tz: string | undefined | null): void {
+  activeTimeZone = tz || DEFAULT_TIMEZONE
+}
+
+export function getActiveTimeZone(): string {
+  return activeTimeZone
+}
 
 let installed = false
 
 const withTz = (options?: Intl.DateTimeFormatOptions): Intl.DateTimeFormatOptions =>
-  options?.timeZone ? options : { ...options, timeZone: APP_TIMEZONE }
+  options?.timeZone ? options : { ...options, timeZone: activeTimeZone }
 
 export function installAppTimezone(): void {
   if (installed) return
@@ -68,18 +100,20 @@ export function installAppTimezone(): void {
 installAppTimezone()
 
 /* ─────────────────────────────────────────────────────────
-   <input type="datetime-local"> helpers — keep the picker on UAE time.
+   <input type="datetime-local"> helpers — keep the picker on the academy zone.
 
    A datetime-local value is a naive "YYYY-MM-DDTHH:mm" wall-clock string with
    no timezone. By default `new Date(value)` parses it in the *device* timezone,
-   so an admin in India entering "8:00 PM" would store 8 PM IST. These helpers
-   instead treat the picker value as APP_TIMEZONE (UAE) wall-clock.
+   so an admin whose laptop is on IST entering "8:00 PM" for a Dubai class would
+   store 8 PM IST. These helpers instead treat the picker value as wall-clock in
+   the ACTIVE academy zone — a Bangalore admin schedules in IST, a Dubai admin
+   in GST, regardless of the device.
 ───────────────────────────────────────────────────────── */
 
-/** Offset (APP_TIMEZONE wall time − UTC), in ms, for the given instant. */
+/** Offset (active-zone wall time − UTC), in ms, for the given instant. */
 function tzOffsetMs(date: Date): number {
   const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: APP_TIMEZONE, hour12: false,
+    timeZone: activeTimeZone, hour12: false,
     year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', second: '2-digit',
   }).formatToParts(date)
@@ -90,19 +124,19 @@ function tzOffsetMs(date: Date): number {
   return asIfUTC - date.getTime()
 }
 
-/** Picker value (UAE wall-clock "YYYY-MM-DDTHH:mm") → UTC ISO string for the API. */
+/** Picker value (academy wall-clock "YYYY-MM-DDTHH:mm") → UTC ISO string for the API. */
 export function datetimeLocalToISO(wall: string): string {
   if (!wall) return ''
   const naiveUTC = new Date(`${wall}:00.000Z`).getTime()  // parse the digits as if UTC
-  const offset   = tzOffsetMs(new Date(naiveUTC))         // UAE is +4h (no DST)
+  const offset   = tzOffsetMs(new Date(naiveUTC))         // Dubai +4h / Kolkata +5:30 (neither has DST)
   return new Date(naiveUTC - offset).toISOString()
 }
 
-/** Stored UTC ISO → picker value showing the UAE wall-clock. */
+/** Stored UTC ISO → picker value showing the academy wall-clock. */
 export function isoToDatetimeLocal(iso: string): string {
   if (!iso) return ''
   const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: APP_TIMEZONE, hour12: false,
+    timeZone: activeTimeZone, hour12: false,
     year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit',
   }).formatToParts(new Date(iso))

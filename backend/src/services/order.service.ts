@@ -60,24 +60,38 @@ export class OrderService {
   private readonly notifications = new NotificationService()
 
   /* ─── Gateway config for current user ────────────────────────
-     UAE users (homeCountry === 'United Arab Emirates') get Tabby + Abzer
-     when those credentials are configured. Everyone else gets Razorpay. */
+     Middle East residents (declared homeCountry) get the Abzer AED checkout;
+     Tamara/Tabby BNPL ride along for UAE only, matching where those providers
+     are licensed. Everyone else gets Razorpay (INR). Country strings must
+     match the client's CountryPicker spellings exactly (RegisterForm.tsx /
+     RequestSection.tsx share the same list). */
   async getGatewayConfig(userId: string): Promise<GatewayConfig> {
     const user = await UserModel.findById(userId).select('enrollmentApplication.homeCountry').lean()
-    const isUAE = (user as any)?.enrollmentApplication?.homeCountry === 'United Arab Emirates'
+    const homeCountry = String((user as any)?.enrollmentApplication?.homeCountry ?? '').trim()
+    const isUAE = homeCountry === 'United Arab Emirates'
 
-    if (isUAE) {
+    if (OrderService.MIDDLE_EAST_COUNTRIES.has(homeCountry)) {
       const gateways: ('tabby' | 'abzer' | 'tamara')[] = []
-      if (env.TAMARA_API_KEY)    gateways.push('tamara')
-      if (env.ABZER_ACCESS_KEY)  gateways.push('abzer')
-      if (env.TABBY_SECRET_KEY)  gateways.push('tabby')
-      if (gateways.length > 0)   return { gateways, currency: 'AED' }
+      if (isUAE && env.TAMARA_API_KEY)   gateways.push('tamara')
+      if (env.ABZER_ACCESS_KEY)          gateways.push('abzer')
+      if (isUAE && env.TABBY_SECRET_KEY) gateways.push('tabby')
+      if (gateways.length > 0)           return { gateways, currency: 'AED' }
     }
     if (env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET) {
       return { gateways: ['razorpay'], currency: 'INR' }
     }
     return { gateways: [], currency: 'USD' }
   }
+
+  /* Spellings must stay in step with the client's country lists. Cyprus is
+     deliberately absent (EU/EUR market). Sanctioned markets in this set are
+     the gateway's call to decline — membership here only selects the
+     checkout currency and button set. */
+  static readonly MIDDLE_EAST_COUNTRIES: ReadonlySet<string> = new Set([
+    'Bahrain', 'Egypt', 'Iran', 'Iraq', 'Israel', 'Jordan', 'Kuwait',
+    'Lebanon', 'Oman', 'Palestine', 'Qatar', 'Saudi Arabia', 'Syria',
+    'Turkey', 'United Arab Emirates', 'Yemen',
+  ])
 
   /* ─── Coupon reservation rollback ───────────────────
      Every create*Order path claims a coupon usage slot BEFORE it creates the

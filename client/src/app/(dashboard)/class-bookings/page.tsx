@@ -24,9 +24,10 @@ const FONT_CSS = `@import url('https://fonts.googleapis.com/css2?family=Syne:wgh
 const FontLoader = () => <style dangerouslySetInnerHTML={{ __html: FONT_CSS }} />
 
 /* ── Date helpers ──────────────────────────────────────────── */
-/** The calendar day a moment falls on IN THE ACADEMY'S TIMEZONE, as
-    YYYY-MM-DD. Comparing these strings is what makes "Today" mean today in
-    Dubai rather than today in the reader's browser. */
+/** The calendar day a moment falls on IN THE STUDENT'S OWN TIMEZONE
+    (APP_TIMEZONE = the device zone), as YYYY-MM-DD. A Dubai 11 PM Friday
+    class correctly files under Saturday for a student in India — the same
+    zone their clock times are rendered in, so labels and times always agree. */
 const zonedKey = (d: Date) =>
   new Intl.DateTimeFormat('en-CA', {
     timeZone: APP_TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit',
@@ -40,17 +41,17 @@ const zonedKey = (d: Date) =>
    added only when it differs from the current one, so the common case stays
    short and a January class viewed in December still says which January.
 
-   Today/Tomorrow are decided from the ZONED day, not the browser's. Students
-   resident abroad read this same schedule — someone in New York is up to nine
-   hours behind Dubai, so a naive local-date comparison would put "Today" on
-   the wrong session for hours every evening. */
+   Today/Tomorrow are decided in the student's own zone — the same zone the
+   clock times render in, so "Today, 5:30 PM" always means the reader's today
+   and the reader's 5:30. */
 function zonedDayLabel(iso: string): string {
   const when = new Date(iso)
   const key  = zonedKey(when)
   const now  = new Date()
 
   if (key === zonedKey(now)) return 'Today'
-  /* Asia/Dubai has no daylight saving, so a flat 24h step is exact here. */
+  /* A flat 24h step. In a DST zone the transition night is 23/25h long, so
+     within ~1h of midnight twice a year this could mislabel — cosmetic only. */
   if (key === zonedKey(new Date(now.getTime() + 86_400_000))) return 'Tomorrow'
 
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -1343,23 +1344,22 @@ export default function ClassBookingsPage() {
           .sort((a,b)=>new Date(a.scheduledStart).getTime()-new Date(b.scheduledStart).getTime())[0]
         :g.slots.sort((a,b)=>new Date(a.scheduledStart).getTime()-new Date(b.scheduledStart).getTime())[0]
       if(!firstSlot) return
-      /* Bucket by the ZONED day, matching the label on each card. Keying on
-         the browser's local date instead put a class under a header naming a
-         different day for anyone not in Asia/Dubai — a session at 02:00 UTC
-         is the 20th in Dubai but still the 19th in New York, so the group
-         said "Wednesday, Aug 19" over a card reading "Thu 20 Aug". */
+      /* Bucket by the STUDENT'S day (zonedKey = device zone), matching the
+         label on each card — a session at 02:00 UTC files under the 20th for
+         a Dubai student but under the 19th for one in New York, and each sees
+         the day header agree with the card underneath it. */
       const dk = zonedKey(new Date(firstSlot.scheduledStart))
       if(!by.has(dk)) by.set(dk,[])
       by.get(dk)!.push(g)
     })
     return Array.from(by.keys()).sort().map(dk=>{
       const [y,mo,d]=dk.split('-').map(Number)
-      /* Noon UTC, so rendering this key in any timezone lands on the same
-         calendar day — building it at local midnight let the formatter, which
-         resolves its own zone, slip to the previous day. */
+      /* The key names a calendar day, so derive its weekday AT UTC from a
+         UTC-built Date — formatter and key can then never disagree, in any
+         device zone (rendering noon UTC in a UTC+13 zone would slip a day). */
       const date = new Date(Date.UTC(y!, mo!-1, d!, 12))
       const dateLabel = new Intl.DateTimeFormat('en-US', {
-        timeZone: APP_TIMEZONE, weekday: 'long', month: 'short', day: 'numeric',
+        timeZone: 'UTC', weekday: 'long', month: 'short', day: 'numeric',
       }).format(date)
       return{dateKey:dk,dateLabel,isToday:dk===zonedKey(tod),groups:by.get(dk)!}
     })
@@ -1457,6 +1457,9 @@ export default function ClassBookingsPage() {
               <h1 className="syne text-[26px] font-800 leading-none tracking-tight" style={{color: 'var(--color-text-primary)'}}>
                 {filterStatus==='all'?fmtDateRange(rangeStart,rangeEnd):filterStatus==='live'?(isOfflineMode?"Today's Classes":'Live Now'):filterStatus==='upcoming'?'Upcoming Sessions':'Completed Sessions'}
               </h1>
+              <p className="dm mt-1 text-[11px]" style={{color: 'var(--color-text-secondary)'}}>
+                Times are shown in your local time ({APP_TIMEZONE.replace(/_/g, ' ')})
+              </p>
             </div>
 
             {/* Date nav — only shown for 'all' status view */}

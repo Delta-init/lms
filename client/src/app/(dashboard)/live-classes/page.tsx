@@ -530,6 +530,7 @@ export default function LiveClassesPage() {
             {upcoming.length > 0
               ? `${upcoming.length} upcoming · ${liveNow.length > 0 ? `${liveNow.length} live now` : 'none live'}`
               : 'Your enrolled sessions'}
+            {' · times in your local time'}
           </p>
         </div>
 

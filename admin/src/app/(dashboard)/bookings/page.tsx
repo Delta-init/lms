@@ -16,7 +16,6 @@ import {
 import { useCourses } from '@/lib/api/courses'
 import { useUsers } from '@/lib/api/users'
 import { useCurrentUser } from '@/lib/api/user'
-import { APP_TIMEZONE } from '@/lib/timezone'
 import Spinner from '@/components/ui/Spinner'
 
 /* ─── Custom dark dropdown ───────────────────────────────── */
@@ -97,8 +96,9 @@ function FilterSelect({
 
 /* ─── Helpers ────────────────────────────────────────────── */
 function toYMD(d: Date): string {
+  /* No explicit timeZone: the patched Intl.DateTimeFormat injects the active
+     academy zone (Dubai or Bangalore) resolved by TimezoneScope. */
   return new Intl.DateTimeFormat('en-CA', {
-    timeZone: APP_TIMEZONE,
     year: 'numeric', month: '2-digit', day: '2-digit',
   }).format(d)
 }
@@ -116,7 +116,6 @@ function fmtHeading(ymd: string): string {
 
 function fmtTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('en-US', {
-    timeZone: APP_TIMEZONE,
     hour: 'numeric', minute: '2-digit',
   })
 }

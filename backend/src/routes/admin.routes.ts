@@ -134,7 +134,10 @@ router.get('/organizations', requireRole('super_admin'), async (req: Request, re
 
    No org on the account (super admins have none) returns null rather than an
    error, and the panel falls back to the base currency. */
-router.get('/my-organization', requireAnyAdmin, async (req: Request, res: Response, next: NextFunction) => {
+/* requireInstructor (= any admin OR instructor): instructors need their academy
+   too — the panel derives its display timezone (Dubai vs Bangalore) and
+   currency from this. Response is the caller's own org only; nothing scoped. */
+router.get('/my-organization', requireInstructor, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orgId = req.user?.organizationId
     if (!orgId) { sendSuccess(res, null); return }

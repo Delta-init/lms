@@ -73,7 +73,11 @@ Allowed origins are defined in `backend/src/config/cors.ts`. Currently: `env.CLI
 
 ### Timezone — critical
 
-The entire app runs on **UAE time (Asia/Dubai, UTC+4)**. `backend/src/config/timezone.ts` must be the **first** import in `backend/src/index.ts` — it sets `process.env.TZ` before any `Date` objects are created. Cron job schedules, day-boundary math, and all email date labels assume this timezone.
+Three layers, three rules:
+
+- **Backend** runs on **UAE time (Asia/Dubai, UTC+4)**. `backend/src/config/timezone.ts` must be the **first** import in `backend/src/index.ts` — it sets `process.env.TZ` before any `Date` objects are created. Cron job schedules, day-boundary math, and email date labels assume this timezone. Storage is UTC.
+- **Admin** displays in the **active academy's zone**: Dubai → Asia/Dubai, Bangalore → Asia/Kolkata (map in `admin/src/lib/timezone.ts`; resolved per-session by `TimezoneScope` in `admin/src/app/providers.tsx` — super admins follow the org switcher, everyone else their own org). The datetime-local picker helpers convert academy wall-clock ↔ UTC ISO.
+- **Client** displays in the **student's device timezone** (no forced zone; `client/src/lib/timezone.ts` deliberately exports the device zone only — do not re-add the old Dubai monkey-patch).
 
 ### React Query cache namespacing
 

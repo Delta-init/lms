@@ -4,8 +4,10 @@ A full-stack Learning Management System for Delta Digital Academy. The repositor
 monorepo containing three independent sub-projects: a REST API backend, an admin
 dashboard, and a student-facing client app.
 
-> Timezone: the entire system runs on **UAE time (Asia/Dubai, UTC+4)**.
-> Cron schedules, day-boundary math, and email date labels all assume this.
+> Timezone: the **backend** runs on UAE time (Asia/Dubai, UTC+4) — cron
+> schedules, day-boundary math, and email date labels assume it; storage is UTC.
+> The **admin panel** displays the active academy's zone (Dubai → Asia/Dubai,
+> Bangalore → Asia/Kolkata). The **client** displays the student's device time.
 
 ---
 
@@ -153,6 +155,20 @@ Allowed origins live in `backend/src/config/cors.ts`: `env.CLIENT_URL`,
 `backend/src/index.ts` — it sets `process.env.TZ = 'Asia/Dubai'` before any `Date`
 object is created. Do not reorder it.
 
+Frontend display zones (added Aug 2026):
+- **Admin** formats every date/time in the active academy's zone — Dubai →
+  `Asia/Dubai`, Bangalore → `Asia/Kolkata`. `TimezoneScope`
+  (`admin/src/app/providers.tsx`) resolves it: super admins follow the topbar
+  org switcher ("All Orgs" → Dubai); scoped admins/instructors get their own
+  academy via `/admin/my-organization`. The `<input type="datetime-local">`
+  helpers in `admin/src/lib/timezone.ts` convert academy wall-clock ↔ UTC, so a
+  Bangalore admin schedules classes in IST.
+- **Client** formats in the student's **device timezone** (what calendar apps
+  do; correct for travellers, no profile data needed). Class times, day
+  grouping, and Today/Tomorrow labels all follow the student's clock.
+- Known follow-up: backend **email** date labels are still rendered in Dubai
+  time for all recipients.
+
 ---
 
 ## 5. Backend structure (`backend/src/`)
@@ -191,6 +207,11 @@ AuditLog, MentorAvailability, ClassBooking (and more).
 
 ### 5.3 Notable services
 - **Payments**: `razorpay.service.ts`, `stripe.service.ts`, `order.service.ts`.
+  Gateway routing (`OrderService.getGatewayConfig`, keyed on the registration
+  form's Country of Residence): **Middle East residents → Abzer, AED** (Tamara/
+  Tabby BNPL additionally for UAE only); **everyone else → Razorpay, INR**.
+  The country set lives in `OrderService.MIDDLE_EAST_COUNTRIES` and must match
+  the client CountryPicker spellings.
 - **Video**: `mux.service.ts`, `hls.service.ts` (internal streams).
 - **Live classes**: `liveClass.service.ts`, `googleMeet.service.ts`.
 - **Storage**: `r2.service.ts` (S3/R2) with local-disk fallback.
