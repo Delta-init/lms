@@ -7,6 +7,10 @@ export interface CartItem {
   title:          string
   thumbnailUrl?:  string
   price?:         number
+  /* Backend-resolved checkout amounts (see lib/coursePrice.ts). Items added
+     before these fields existed simply fall back to the USD display. */
+  priceAED?:      number
+  priceINR?:      number
   isFree?:        boolean
   instructorName?: string
 }

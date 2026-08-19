@@ -11,6 +11,8 @@ import {
 import { useCartStore, type CartItem } from '@/store/cart.store'
 import { useRazorpayCheckout, useTabbyCheckout, useAbzerCheckout, useTamaraCheckout, useGatewayConfig, useValidateCoupon } from '@/lib/api/checkout'
 import Spinner from '@/components/ui/Spinner'
+import { useCheckoutCurrency, coursePriceIn } from '@/lib/coursePrice'
+import { formatPrice } from '@/lib/formatPrice'
 
 /* ── helpers ─────────────────────────────────────────── */
 function fmt(cents: number, currency = 'USD') {
@@ -82,6 +84,7 @@ function CartItemCard({ item, onRemove }: { item: CartItem; onRemove: () => void
   const { data: gatewayConfig } = useGatewayConfig()
   const isUAE           = gatewayConfig?.currency === 'AED'
   const gateways        = gatewayConfig?.gateways ?? []
+  const itemCurrency    = useCheckoutCurrency()
   const isFree          = item.isFree || !item.price || item.price === 0
   const [coupon,  setCoupon]  = useState<string | undefined>(undefined)
   const [buying,  setBuying]  = useState(false)
@@ -166,7 +169,7 @@ function CartItemCard({ item, onRemove }: { item: CartItem; onRemove: () => void
                 <span className="text-base font-bold" style={{ color: 'var(--color-success)' }}>Free</span>
               ) : (
                 <span className="text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                  ${item.price}
+                  {(() => { const p = coursePriceIn(item, itemCurrency); return formatPrice(p.amount, p.currency) })()}
                 </span>
               )}
             </div>
@@ -248,7 +251,18 @@ export default function CartPage() {
 
   const paidItems = items.filter(i => !i.isFree && i.price && i.price > 0)
   const freeItems = items.filter(i => i.isFree || !i.price || i.price === 0)
-  const total     = paidItems.reduce((sum, i) => sum + (i.price ?? 0), 0)
+
+  /* Sum in the student's checkout currency. Items saved before the
+     per-currency fields existed resolve to their USD price — if any such
+     item is mixed in, fall back to a plain USD total rather than adding
+     apples to oranges. */
+  const currency   = useCheckoutCurrency()
+  const parts      = paidItems.map(i => coursePriceIn(i, currency))
+  const uniform    = parts.every(p => p.currency === currency)
+  const totalCurrency = uniform ? currency : 'USD'
+  const total      = uniform
+    ? parts.reduce((sum, p) => sum + p.amount, 0)
+    : paidItems.reduce((sum, i) => sum + (i.price ?? 0), 0)
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -328,7 +342,7 @@ export default function CartPage() {
               {paidItems.length > 0 && (
                 <div className="flex justify-between" style={{ color: 'var(--color-text-muted)' }}>
                   <span>{paidItems.length} paid course{paidItems.length !== 1 ? 's' : ''}</span>
-                  <span className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>${total.toFixed(2)}</span>
+                  <span className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{formatPrice(total, totalCurrency)}</span>
                 </div>
               )}
               {freeItems.length > 0 && (
@@ -343,7 +357,7 @@ export default function CartPage() {
               <div className="mt-3 flex items-center justify-between pt-3"
                 style={{ borderTop: '1px solid var(--color-border)' }}>
                 <span className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>Total</span>
-                <span className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>${total.toFixed(2)}</span>
+                <span className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>{formatPrice(total, totalCurrency)}</span>
               </div>
             )}
 

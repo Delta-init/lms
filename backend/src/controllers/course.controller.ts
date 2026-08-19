@@ -4,7 +4,24 @@ import { AINotesService } from '@/services/aiNotes.service.ts'
 import { LessonRepository } from '@/repositories/lesson.repository.ts'
 import { EnrollmentRepository } from '@/repositories/enrollment.repository.ts'
 import { sendSuccess, buildPaginationMeta, parsePagination } from '@/utils/response.ts'
-import { toCourseDTO, toSectionDTO, toLessonDTO } from '@/utils/courseDTO.ts'
+import { toCourseDTO, toSectionDTO, toLessonDTO, type CourseDTO } from '@/utils/courseDTO.ts'
+import { aedPriceFor, inrPriceFor } from '@/services/order.service.ts'
+
+/* Public payloads carry the RESOLVED per-currency prices (explicit override or
+   USD × configured rate) so the client can label a course with the exact
+   amount its checkout will charge — AED for Middle-East residents, INR for
+   everyone else. Only these public routes resolve: the admin endpoints keep
+   the raw override-or-absent values, because the course form round-trips
+   priceAED/priceINR as editable overrides and a resolved value would get
+   saved back as if an admin had typed it. */
+function withDisplayPrices(dto: CourseDTO): CourseDTO {
+  if (dto.isFree) return dto
+  return {
+    ...dto,
+    priceAED: aedPriceFor({ price: dto.price, priceAED: dto.priceAED }),
+    priceINR: inrPriceFor({ price: dto.price, priceINR: dto.priceINR }),
+  }
+}
 
 export class CourseController {
   private readonly service      = new CourseService()
@@ -37,7 +54,7 @@ export class CourseController {
 
       /* For list view, fetch lesson counts in bulk so cards can show "N lessons" */
       const counts = await Promise.all(docs.map(c => this.lessonRepo.countByCourse(c.id)))
-      const dtos = docs.map((c, i) => toCourseDTO(c, counts[i]))
+      const dtos = docs.map((c, i) => withDisplayPrices(toCourseDTO(c, counts[i])))
 
       const meta = buildPaginationMeta(totalCount, page, per_page)
       sendSuccess(res, dtos, undefined, 200, meta)
@@ -59,7 +76,7 @@ export class CourseController {
       }
 
       sendSuccess(res, {
-        course:   toCourseDTO(course, lessons.length),
+        course:   withDisplayPrices(toCourseDTO(course, lessons.length)),
         sections: sections.map(toSectionDTO),
         lessons:  lessons.map(l => {
           const j = l.toJSON() as Record<string, unknown>
@@ -84,7 +101,7 @@ export class CourseController {
       }
 
       sendSuccess(res, {
-        course:   toCourseDTO(course, lessons.length),
+        course:   withDisplayPrices(toCourseDTO(course, lessons.length)),
         sections: sections.map(toSectionDTO),
         lessons:  lessons.map(l => {
           const j = l.toJSON() as Record<string, unknown>
@@ -121,7 +138,7 @@ export class CourseController {
       const slug = String(req.params['slug'] ?? '')
       const docs = await this.service.getRecommendations(slug)
       const counts = await Promise.all(docs.map(c => this.lessonRepo.countByCourse(c.id)))
-      const dtos = docs.map((c, i) => toCourseDTO(c, counts[i]))
+      const dtos = docs.map((c, i) => withDisplayPrices(toCourseDTO(c, counts[i])))
       sendSuccess(res, dtos)
     } catch (err) {
       next(err)

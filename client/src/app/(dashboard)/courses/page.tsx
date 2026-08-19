@@ -20,6 +20,7 @@ import { useCartStore } from '@/store/cart.store'
 import { Button, MotionButton } from '@/components/ui/button'
 import type { Course } from '@/types/index'
 import Spinner from '@/components/ui/Spinner'
+import { useCheckoutCurrency, formatCoursePrice } from '@/lib/coursePrice'
 
 const STATUS_TABS = ['All Status', 'Not Started', 'In Progress', 'Completed']
 const SORTS = [
@@ -557,6 +558,7 @@ function MaterialCard({ course }: { course: Course }) {
   const isInCart   = useCartStore(s => s.isInCart)
   const inCart     = isInCart(course.id)
   const isFree     = course.isFree || !course.price || course.price === 0
+  const currency   = useCheckoutCurrency()
 
   const { data: enrollments } = useMyEnrollments()
   const enroll = useEnroll()
@@ -591,6 +593,8 @@ function MaterialCard({ course }: { course: Course }) {
       title:          course.title,
       thumbnailUrl:   course.thumbnailUrl,
       price:          course.price,
+      priceAED:       course.priceAED,
+      priceINR:       course.priceINR,
       isFree:         course.isFree,
       instructorName: course.instructor?.name,
     })
@@ -699,7 +703,7 @@ function MaterialCard({ course }: { course: Course }) {
                 <span className="text-sm font-bold" style={{ color: 'var(--color-success)' }}>Free</span>
               ) : (
                 <span className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                  ${course.price ?? 0}
+                  {formatCoursePrice(course, currency)}
                 </span>
               )}
               {course.level && (

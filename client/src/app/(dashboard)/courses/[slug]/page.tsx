@@ -14,6 +14,7 @@ import { useCourse } from '@/lib/api/courses'
 import { useCourseProgress, useEnroll } from '@/lib/api/enrollments'
 import { useRazorpayCheckout, useTabbyCheckout, useAbzerCheckout, useTamaraCheckout, useGatewayConfig, useValidateCoupon } from '@/lib/api/checkout'
 import { formatPrice } from '@/lib/formatPrice'
+import { useCheckoutCurrency, coursePriceIn, discountedAmount } from '@/lib/coursePrice'
 import { CertificateButton } from '@/components/learn/CertificateButton'
 import { CourseReviews } from '@/components/courses/CourseReviews'
 import { AINotesPanel } from '@/components/courses/AINotesPanel'
@@ -56,6 +57,7 @@ function CourseDetailInner({ slug }: { slug: string }) {
   const enroll          = useEnroll()
   const { data: gatewayConfig } = useGatewayConfig()
   const isUAE           = gatewayConfig?.currency === 'AED'
+  const checkoutCurrency = useCheckoutCurrency()
   const checkout        = useRazorpayCheckout()
   const tabbyCheckout   = useTabbyCheckout({ onError: msg => setEnrollError(msg) })
   const abzerCheckout   = useAbzerCheckout({ onError: msg => setEnrollError(msg) })
@@ -112,13 +114,12 @@ function CourseDetailInner({ slug }: { slug: string }) {
   const isEnrolled   = progress?.isEnrolled ?? false
   const isPaid       = !course.isFree && course.price > 0
 
-  const discountedPrice = (() => {
-    if (!couponInfo || !isPaid) return course.price
-    if (couponInfo.discountType === 'percent') {
-      return Math.max(0, course.price * (1 - couponInfo.discountValue / 100))
-    }
-    return Math.max(0, course.price - couponInfo.discountValue)
-  })()
+  /* Price in the student's checkout currency (AED for Middle-East residents
+     via Abzer, INR otherwise) — the same amount the gateway will charge.
+     Coupons apply in that display currency too: fixed coupons are minted per
+     academy in the student's own currency. */
+  const displayed       = coursePriceIn(course, checkoutCurrency)
+  const discountedPrice = isPaid ? discountedAmount(displayed.amount, couponInfo) : displayed.amount
 
   const onEnroll = async () => {
     setEnrollError(null)
@@ -423,15 +424,15 @@ function CourseDetailInner({ slug }: { slug: string }) {
                   {isPaid && couponInfo ? (
                     <div className="flex items-baseline gap-2">
                       <p className="text-3xl font-bold" style={{ color: 'var(--color-text-primary)', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
-                        {formatPrice(discountedPrice)}
+                        {formatPrice(discountedPrice, displayed.currency)}
                       </p>
                       <p className="text-sm line-through" style={{ color: 'var(--color-text-muted)' }}>
-                        {formatPrice(course.price)}
+                        {formatPrice(displayed.amount, displayed.currency)}
                       </p>
                     </div>
                   ) : (
                     <p className="text-3xl font-bold" style={{ color: 'var(--color-text-primary)', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
-                      {course.isFree ? 'Free' : formatPrice(course.price)}
+                      {course.isFree ? 'Free' : formatPrice(displayed.amount, displayed.currency)}
                     </p>
                   )}
                 </div>
@@ -469,7 +470,7 @@ function CourseDetailInner({ slug }: { slug: string }) {
                       ? <><Spinner size={15} />Redirecting…</>
                       : isUAE
                         ? <><ShoppingCart size={15} />Pay with Abzer</>
-                        : <><ShoppingCart size={15} />Buy for {formatPrice(discountedPrice)}</>}
+                        : <><ShoppingCart size={15} />Buy for {formatPrice(discountedPrice, displayed.currency)}</>}
                   </motion.button>
 
                   {/* Tamara BNPL */}

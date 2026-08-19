@@ -212,6 +212,12 @@ AuditLog, MentorAvailability, ClassBooking (and more).
   Tabby BNPL additionally for UAE only); **everyone else → Razorpay, INR**.
   The country set lives in `OrderService.MIDDLE_EAST_COUNTRIES` and must match
   the client CountryPicker spellings.
+  **Price display follows the checkout currency**: public course payloads carry
+  backend-resolved `priceAED`/`priceINR` (override or USD × rate), and the
+  client (`client/src/lib/coursePrice.ts`) labels courses/cart in the currency
+  the student's gateway will charge. Admin endpoints keep the raw overrides —
+  do not resolve there (the course form would save conversions back as
+  explicit prices).
 - **Video**: `mux.service.ts`, `hls.service.ts` (internal streams).
 - **Live classes**: `liveClass.service.ts`, `googleMeet.service.ts`.
 - **Storage**: `r2.service.ts` (S3/R2) with local-disk fallback.

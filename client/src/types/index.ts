@@ -9,6 +9,11 @@ export interface Course {
   thumbnailUrl?: string
   previewUrl?:   string
   price:         number
+  /* Resolved by the backend for paid courses: explicit override or USD × rate.
+     These are the exact amounts the AED (Abzer) / INR (Razorpay) checkouts
+     charge — display them, never recompute locally. */
+  priceAED?:     number
+  priceINR?:     number
   isFree:        boolean
   status:        CourseStatus
   level?:        CourseLevel
