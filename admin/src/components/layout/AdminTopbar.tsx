@@ -163,7 +163,7 @@ export function AdminTopbar() {
             : { background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.3)', color: '#34D399' }}>
           <span className="h-1.5 w-1.5 rounded-full flex-shrink-0"
             style={{ background: user.role === '4x_admin' ? '#60A5FA' : user.role === 'ai_admin' ? '#8B5CF6' : user.role === 'support' ? '#FBbf24' : '#34D399' }} />
-          {user.role === '4x_admin' ? 'FOREX Trading' : user.role === 'ai_admin' ? 'AI' : user.role === 'support' ? 'Support' : user.role === 'sub_admin' ? (user.program === 'ai' ? 'AI' : user.program === 'forex' ? 'FOREX' : 'Digital Mktg') + ' Sub-Admin' : 'Digital Marketing'} scope
+          {user.role === '4x_admin' ? 'FOREX Trading' : user.role === 'ai_admin' ? 'AI' : user.role === 'support' ? 'Support' : user.role === 'sub_admin' ? (user.program === 'ai' ? 'AI' : user.program === 'forex' ? 'FOREX' : user.program === 'jura' ? 'JURA' : 'Digital Mktg') + ' Sub-Admin' : 'Digital Marketing'} scope
         </div>
       )}
 

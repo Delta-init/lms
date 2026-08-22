@@ -228,6 +228,13 @@ AuditLog, MentorAvailability, ClassBooking (and more).
 
 ## 6. Domain rules & known quirks
 
+- **Programs**: four program categories exist — `4x-trading` (FOREX),
+  `digital-marketing`, `ai`, and `jura` (JURA, added Aug 2026). The sub-admin
+  `User.program` values are `forex | digital_marketing | ai | jura`
+  (`injectCategoryScope` maps them to the category slugs). Adding another
+  program means extending the enum/label maps in all three apps — grep for
+  `4x-trading` to find every touchpoint.
+
 - **`Enrollment.blockedLessons[]` stores section/module IDs, not lesson IDs** — legacy
   misnomer. The booking route checks `session.sectionId` against this array to enforce
   module-level access.
@@ -236,6 +243,13 @@ AuditLog, MentorAvailability, ClassBooking (and more).
   classes, which also carry `location` and `room`. Module-blocking applies to both.
 - **File uploads**: served at `/uploads/images/:file` and `/uploads/videos/:file`
   without auth. Filenames are random hex, so URLs are unguessable.
+- **R2 bucket CORS is required for video uploads.** Images go
+  browser → backend → R2 (same-origin), but videos go browser → R2 **directly**
+  via a presigned PUT, which the browser preflights. A bucket with no CORS
+  policy answers the `OPTIONS` with **403** and video uploads fail while image
+  uploads keep working. Fix/provision with
+  `bun src/scripts/setup-r2-cors.ts` (idempotent; `--dry-run` to inspect).
+  The KYC bucket is intentionally excluded.
 - **Form validation**: Backend uses Zod → `validate(schema)` per route. Frontend uses
   React Hook Form + Zod resolver. Direct DOM `input.value = x` does **not** update RHF
   state — always use the registered `onChange` or `setValue`.

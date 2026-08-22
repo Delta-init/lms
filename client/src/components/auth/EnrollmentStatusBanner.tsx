@@ -7,6 +7,7 @@ import { useCurrentUser } from '@/lib/api/user'
 
 const CATEGORY_LABEL: Record<string, string> = {
   '4x-trading':        'FOREX Trading',
+  'jura':              'JURA',
   'digital-marketing': 'Digital Marketing',
   'ai':                'AI',
 }

@@ -31,7 +31,7 @@ const listQuerySchema = z.object({
   duration_max: z.coerce.number().int().min(0).optional(),
   price_min:    z.coerce.number().min(0).optional(),
   price_max:    z.coerce.number().min(0).optional(),
-  program:      z.enum(['4x-trading', 'digital-marketing', 'ai']).optional(),
+  program:      z.enum(['4x-trading', 'digital-marketing', 'ai', 'jura']).optional(),
   /* Accept presets OR `${field}:${dir}` from admin table column sorts. */
   sort:         z.string().optional(),
 })

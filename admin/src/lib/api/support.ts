@@ -4,7 +4,7 @@ import { api } from '@/lib/axios'
 
 export type SupportStatus   = 'open' | 'pending' | 'resolved' | 'closed'
 export type SupportCategory = 'technical' | 'billing' | 'course' | 'account' | 'other'
-export type SupportProgram  = 'ai' | '4x-trading' | 'digital-marketing' | 'all'
+export type SupportProgram  = 'ai' | '4x-trading' | 'digital-marketing' | 'jura' | 'all'
 
 export interface SupportMessage {
   _id?:       string

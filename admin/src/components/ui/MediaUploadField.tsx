@@ -114,12 +114,13 @@ export function MediaUploadField({
   const [uploadErr,  setUploadErr]  = useState<string | null>(null)
   const [lastFile,   setLastFile]   = useState<{ name: string; size: number } | null>(null)
   const [uploading,    setUploading]    = useState(false)
-  const [transcoding,  setTranscoding]  = useState(false)
   const [vidProgress,  setVidProgress]  = useState(0)
+  /* Lets the user abort a large upload instead of waiting it out. */
+  const abortRef = useRef<AbortController | null>(null)
 
   const uploadImage = useUploadImage()
-  const isUploading = uploadImage.isPending || uploading || transcoding
-  const uploadDone  = !!value && !!lastFile && !transcoding
+  const isUploading = uploadImage.isPending || uploading
+  const uploadDone  = !!value && !!lastFile && !isUploading
 
   const accept = type === 'image'
     ? 'image/jpeg,image/png,image/gif,image/webp'
@@ -136,25 +137,32 @@ export function MediaUploadField({
       } else {
         setUploading(true)
         setVidProgress(0)
-        url = await uploadVideo(
-          file,
-          (pct) => setVidProgress(pct),
-          () => { setUploading(false); setTranscoding(true) },
-        )
-        setTranscoding(false)
+        const controller = new AbortController()
+        abortRef.current = controller
+        /* Direct to R2 — the public URL is usable the moment this resolves. */
+        url = await uploadVideo(file, (pct) => setVidProgress(pct), { signal: controller.signal })
+        setUploading(false)
       }
       onChange(url)
     } catch (err: unknown) {
       setUploading(false)
-      setTranscoding(false)
+      /* A user-initiated cancel is not an error — just reset quietly. */
+      if ((err as { name?: string })?.name === 'AbortError') {
+        setLastFile(null)
+        return
+      }
       const msg =
         (err as { response?: { data?: { error?: { message?: string } } } })
           ?.response?.data?.error?.message
         ?? (err instanceof Error ? err.message : 'Upload failed')
       setUploadErr(msg)
       setLastFile(null)
+    } finally {
+      abortRef.current = null
     }
   }, [type, uploadImage, onChange])
+
+  const cancelUpload = useCallback(() => abortRef.current?.abort(), [])
 
   /* ── Hidden file input ── */
   const { open: openPicker, input: fileInput } = useFilePicker({ accept, onPick: handleFile })
@@ -170,11 +178,11 @@ export function MediaUploadField({
 
   /* ── Clear uploaded file ── */
   const clear = () => {
+    abortRef.current?.abort()
     onChange('')
     setLastFile(null)
     setUploadErr(null)
     setUploading(false)
-    setTranscoding(false)
     setVidProgress(0)
     uploadImage.reset()
   }
@@ -214,14 +222,19 @@ export function MediaUploadField({
               : <Upload size={13} />}
           </button>
         </div>
-        {/* Compact upload/transcode progress */}
-        {(uploading || transcoding) && (
+        {/* Compact upload progress */}
+        {uploading && (
           <div className="flex items-center gap-1.5 rounded-md px-2 py-1"
             style={{ background: 'rgba(0,87,184,0.08)', border: '1px solid rgba(0,87,184,0.18)' }}>
             <Spinner size={10} className="flex-shrink-0" />
-            <p className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>
-              {transcoding ? 'Transcoding to HLS…' : `Uploading… ${vidProgress > 0 ? vidProgress + '%' : ''}`}
+            <p className="flex-1 text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>
+              {`Uploading… ${vidProgress}%`}
             </p>
+            <button type="button" onClick={cancelUpload}
+              className="flex-shrink-0 text-[10px] font-semibold transition-opacity hover:opacity-70"
+              style={{ color: 'rgba(255,255,255,0.45)' }}>
+              Cancel
+            </button>
           </div>
         )}
         {/* Compact error display */}
@@ -245,7 +258,7 @@ export function MediaUploadField({
   const TypeIcon = type === 'image' ? Image : Film
   const hints = type === 'image'
     ? 'JPG, PNG, GIF, WebP · max 5 MB'
-    : 'MP4, WebM, MOV, AVI · max 500 MB'
+    : 'MP4, WebM, MOV, AVI, MKV · max 2 GB'
 
   return (
     <div className="space-y-2">
@@ -339,46 +352,34 @@ export function MediaUploadField({
             )}
 
             {/* Uploading state */}
-            {(uploading || transcoding) && (
+            {uploading && (
               <div className="space-y-2 rounded-xl px-4 py-3"
                 style={{ background: 'rgba(0,87,184,0.07)', border: '1px solid rgba(0,87,184,0.18)' }}>
                 <div className="flex items-center gap-3">
                   <Spinner size={16} className="flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>
-                      {transcoding
-                        ? 'Transcoding to HLS…'
-                        : `Uploading ${lastFile?.name}…`}
+                    <p className="truncate text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>
+                      Uploading {lastFile?.name}…
                     </p>
                     <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                      {transcoding
-                        ? 'Generating 360p / 720p / 1080p streams — this may take a minute'
-                        : `${lastFile ? humanSize(lastFile.size) : ''}${vidProgress > 0 ? ` · ${vidProgress}%` : ''}`}
+                      {`${lastFile ? humanSize(lastFile.size) : ''} · ${vidProgress}%`}
                     </p>
                   </div>
+                  <button type="button" onClick={cancelUpload}
+                    className="flex-shrink-0 rounded-lg px-2 py-1 text-[10px] font-semibold transition-opacity hover:opacity-70"
+                    style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.55)' }}>
+                    Cancel
+                  </button>
                 </div>
                 {/* Upload progress bar */}
-                {uploading && (
-                  <div className="h-1 overflow-hidden rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
-                    <motion.div
-                      className="h-full rounded-full"
-                      style={{ background: 'linear-gradient(90deg,#0057b8,#003d80)' }}
-                      animate={{ width: `${vidProgress}%` }}
-                      transition={{ duration: 0.3 }}
-                    />
-                  </div>
-                )}
-                {/* Transcoding indeterminate bar */}
-                {transcoding && (
-                  <div className="h-1 overflow-hidden rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
-                    <motion.div
-                      className="h-full rounded-full"
-                      style={{ background: 'linear-gradient(90deg,#0057b8,#003d80)', width: '40%' }}
-                      animate={{ x: ['0%', '150%', '0%'] }}
-                      transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
-                    />
-                  </div>
-                )}
+                <div className="h-1 overflow-hidden rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                  <motion.div
+                    className="h-full rounded-full"
+                    style={{ background: 'linear-gradient(90deg,#0057b8,#003d80)' }}
+                    animate={{ width: `${vidProgress}%` }}
+                    transition={{ duration: 0.3 }}
+                  />
+                </div>
               </div>
             )}
 

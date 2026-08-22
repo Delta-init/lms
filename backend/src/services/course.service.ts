@@ -139,7 +139,7 @@ export class CourseService {
     tags?:           string[]
     instructorId:    string
     categoryId?:     string
-    program?:        '4x-trading' | 'digital-marketing' | 'ai'
+    program?:        '4x-trading' | 'digital-marketing' | 'ai' | 'jura'
     organizationId?: string
   }): Promise<ICourse> {
     if (await this.repo.slugExists(input.slug)) {
@@ -193,7 +193,7 @@ export class CourseService {
       tags:         string[]
       categoryId:   string
       instructorId: string
-      program:      '4x-trading' | 'digital-marketing' | 'ai' | ''
+      program:      '4x-trading' | 'digital-marketing' | 'ai' | 'jura' | ''
     }>,
   ): Promise<ICourse> {
     if (!Types.ObjectId.isValid(id)) {

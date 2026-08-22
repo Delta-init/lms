@@ -14,8 +14,8 @@ export interface CreateInstructorDto {
   role:        'student' | 'instructor' | 'admin'
   bio?:        string
   headline?:   string
-  category?:   '4x-trading' | 'digital-marketing' | 'ai'
-  categories?: ('4x-trading' | 'digital-marketing' | 'ai')[]
+  category?:   '4x-trading' | 'digital-marketing' | 'ai' | 'jura'
+  categories?: ('4x-trading' | 'digital-marketing' | 'ai' | 'jura')[]
   avatarUrl?:  string
   courses?:    CourseEnrollmentDto[]
 }

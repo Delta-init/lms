@@ -40,7 +40,7 @@ export interface CurrentUser {
   isVerified:     boolean
   isActive:       boolean
   signupType?:    'express' | 'full'
-  category?:      '4x-trading' | 'digital-marketing' | 'ai'
+  category?:      '4x-trading' | 'digital-marketing' | 'ai' | 'jura'
   organizationId?: string
   enrollmentStatus?:            'pending' | 'approved' | 'cancelled' | 'rejected'
   enrollmentCancellationReason?: string

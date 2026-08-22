@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/axios'
 
 export type EnrollmentRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
-export type ProgramCategory = '4x-trading' | 'digital-marketing' | 'ai'
+export type ProgramCategory = '4x-trading' | 'digital-marketing' | 'ai' | 'jura'
 
 export interface EnrollmentApplication {
   phone?:              string

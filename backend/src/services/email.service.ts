@@ -826,6 +826,7 @@ export async function sendBookingCancelledByStudent(
 
 const CATEGORY_LABEL: Record<string, string> = {
   '4x-trading':        'FOREX',
+  'jura':              'JURA',
   'digital-marketing': 'Digital Marketing',
   'ai':                'AI',
 }

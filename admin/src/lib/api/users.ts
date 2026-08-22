@@ -58,9 +58,9 @@ export interface AdminUser {
   isActive:         boolean
   headline?:        string
   bio?:             string
-  category?:        '4x-trading' | 'digital-marketing' | 'ai'
-  categories?:      ('4x-trading' | 'digital-marketing' | 'ai')[]
-  program?:         'ai' | 'digital_marketing' | 'forex'
+  category?:        '4x-trading' | 'digital-marketing' | 'ai' | 'jura'
+  categories?:      ('4x-trading' | 'digital-marketing' | 'ai' | 'jura')[]
+  program?:         'ai' | 'digital_marketing' | 'forex' | 'jura'
   enrollmentStatus?: 'pending' | 'approved' | 'rejected' | 'cancelled'
   rejectionReason?:        string
   rejectedByEmail?:        string
@@ -197,7 +197,7 @@ export function useUpdateUser() {
   return useMutation({
     mutationFn: async ({
       id, ...dto
-    }: { id: string; role?: AdminUser['role']; isActive?: boolean; isVerified?: boolean; name?: string; email?: string; category?: '4x-trading' | 'digital-marketing' | 'ai' | null; categories?: ('4x-trading' | 'digital-marketing' | 'ai')[]; avatarUrl?: string; headline?: string; bio?: string; program?: 'ai' | 'digital_marketing' | 'forex' }) => {
+    }: { id: string; role?: AdminUser['role']; isActive?: boolean; isVerified?: boolean; name?: string; email?: string; category?: '4x-trading' | 'digital-marketing' | 'ai' | 'jura' | null; categories?: ('4x-trading' | 'digital-marketing' | 'ai' | 'jura')[]; avatarUrl?: string; headline?: string; bio?: string; program?: 'ai' | 'digital_marketing' | 'forex' | 'jura' }) => {
       const res = await api.patch<{ success: true; data: AdminUser }>(`/admin/users/${id}`, dto)
       return res.data.data
     },

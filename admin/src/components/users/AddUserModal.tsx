@@ -118,16 +118,18 @@ const ROLE_OPTIONS_BY_CREATOR: Record<string, { value: AdminUserRole; label: str
   ],
 }
 
-const PROGRAM_OPTIONS: { value: 'ai' | 'digital_marketing' | 'forex'; label: string }[] = [
+const PROGRAM_OPTIONS: { value: 'ai' | 'digital_marketing' | 'forex' | 'jura'; label: string }[] = [
   { value: 'ai',                label: 'AI' },
   { value: 'digital_marketing', label: 'Digital Marketing' },
   { value: 'forex',             label: 'FOREX Trading' },
+  { value: 'jura',              label: 'JURA' },
 ]
 
-const PROGRAM_TO_CATEGORY: Record<string, '4x-trading' | 'digital-marketing' | 'ai'> = {
+const PROGRAM_TO_CATEGORY: Record<string, '4x-trading' | 'digital-marketing' | 'ai' | 'jura'> = {
   ai:                'ai',
   digital_marketing: 'digital-marketing',
   forex:             '4x-trading',
+  jura:              'jura',
 }
 
 function needsProgram(role: AdminUserRole) {
@@ -150,7 +152,7 @@ export function AddUserModal({ me, open, onClose }: Props) {
   const [password,      setPassword]      = useState('')
   const [showPass,      setShowPass]      = useState(false)
   const [role,          setRole]          = useState<AdminUserRole>(defaultRole)
-  const [program,       setProgram]       = useState<'ai' | 'digital_marketing' | 'forex' | ''>('')
+  const [program,       setProgram]       = useState<'ai' | 'digital_marketing' | 'forex' | 'jura' | ''>('')
   const [avatarFile,    setAvatarFile]    = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [uploading,     setUploading]     = useState(false)

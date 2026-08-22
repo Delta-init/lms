@@ -18,16 +18,18 @@ interface Props {
   label: string
 }
 
-type CategoryFilter = '' | '4x-trading' | 'digital-marketing' | 'ai'
+type CategoryFilter = '' | '4x-trading' | 'digital-marketing' | 'ai' | 'jura' | 'jura'
 
 const CATEGORY_LABELS: Record<string, string> = {
   '4x-trading':        'FOREX',
+  'jura':              'JURA',
   'digital-marketing': 'Digital Marketing',
   'ai':                'AI',
 }
 
 const CATEGORY_STYLE: Record<string, { bg: string; color: string }> = {
   '4x-trading':        { bg: 'rgba(16,185,129,0.12)',  color: '#10B981' },
+  'jura':              { bg: 'rgba(139,92,246,0.12)', color: '#8B5CF6' },
   'digital-marketing': { bg: 'rgba(0,87,184,0.12)',  color: '#0057b8' },
   'ai':                { bg: 'rgba(139,92,246,0.12)',   color: '#8B5CF6' },
 }
@@ -74,7 +76,7 @@ export function UserTable({ role, label }: Props) {
 
         {/* Category filter chips */}
         <div className="flex items-center gap-1.5">
-          {(['', '4x-trading', 'digital-marketing', 'ai'] as CategoryFilter[]).map(cat => {
+          {(['', '4x-trading', 'digital-marketing', 'ai', 'jura'] as CategoryFilter[]).map(cat => {
             const s = cat ? CATEGORY_STYLE[cat] : null
             return (
               <button

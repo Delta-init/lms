@@ -34,7 +34,7 @@ export class UserService {
      Deactivation also revokes all refresh tokens for that user. */
   async adminUpdate(
     id: string,
-    dto: { role?: UserRole; isActive?: boolean; isVerified?: boolean; name?: string; email?: string; category?: '4x-trading' | 'digital-marketing' | 'ai' | null; categories?: ('4x-trading' | 'digital-marketing' | 'ai')[]; avatarUrl?: string; headline?: string; bio?: string; program?: import('@/types/index.ts').ProgramType },
+    dto: { role?: UserRole; isActive?: boolean; isVerified?: boolean; name?: string; email?: string; category?: '4x-trading' | 'digital-marketing' | 'ai' | 'jura' | null; categories?: ('4x-trading' | 'digital-marketing' | 'ai' | 'jura')[]; avatarUrl?: string; headline?: string; bio?: string; program?: import('@/types/index.ts').ProgramType },
   ): Promise<IUser> {
     if (!Types.ObjectId.isValid(id)) {
       throw new UserError('INVALID_ID', 'Invalid user id', 400)
@@ -92,8 +92,8 @@ export class UserService {
     role:            UserRole
     bio?:            string
     headline?:       string
-    category?:       '4x-trading' | 'digital-marketing' | 'ai'
-    categories?:     ('4x-trading' | 'digital-marketing' | 'ai')[]
+    category?:       '4x-trading' | 'digital-marketing' | 'ai' | 'jura'
+    categories?:     ('4x-trading' | 'digital-marketing' | 'ai' | 'jura')[]
     avatarUrl?:      string
     approvedBy?:     string
     organizationId?: string

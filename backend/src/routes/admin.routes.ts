@@ -78,7 +78,7 @@ const courseCreateSchema = z.object({
   tags:         z.union([z.string(), z.array(z.string())]).optional(),
   categoryId:   z.string().optional(),
   instructorId: z.string().optional(),
-  program:      z.enum(['4x-trading', 'digital-marketing', 'ai']).optional(),
+  program:      z.enum(['4x-trading', 'digital-marketing', 'ai', 'jura']).optional(),
 })
 
 const courseUpdateSchema = courseCreateSchema.partial().extend({
@@ -100,7 +100,7 @@ const usersQuerySchema = z.object({
   per_page:          z.coerce.number().int().min(1).max(500).default(20),
   role:              z.enum(['student', 'instructor', 'admin', 'sub_admin', 'support', '4x_admin', 'digital_marketing_admin', 'ai_admin', 'super_admin']).optional(),
   search:            z.string().trim().optional(),
-  category:          z.enum(['4x-trading', 'digital-marketing', 'ai']).optional(),
+  category:          z.enum(['4x-trading', 'digital-marketing', 'ai', 'jura']).optional(),
   status:            z.enum(['active', 'inactive']).optional(),
   exclude_students:  z.coerce.boolean().optional(),
   enrollmentStatus:  z.enum(['pending', 'approved', 'rejected', 'cancelled']).optional(),
@@ -222,8 +222,8 @@ const userUpdateSchema = z.object({
   isVerified: z.boolean().optional(),
   name:       z.string().min(2).max(100).trim().optional(),
   email:      z.string().email().optional(),
-  category:   z.enum(['4x-trading', 'digital-marketing', 'ai']).nullable().optional(),
-  categories: z.array(z.enum(['4x-trading', 'digital-marketing', 'ai'])).optional(),
+  category:   z.enum(['4x-trading', 'digital-marketing', 'ai', 'jura']).nullable().optional(),
+  categories: z.array(z.enum(['4x-trading', 'digital-marketing', 'ai', 'jura'])).optional(),
   avatarUrl:  z.string().url().or(z.literal('')).optional(),
   headline:   z.string().max(255).optional(),
   bio:        z.string().max(2000).optional(),
@@ -236,10 +236,10 @@ const userCreateSchema = z.object({
   role:       z.enum(['student', 'instructor', 'admin', 'sub_admin', 'support', '4x_admin', 'digital_marketing_admin', 'ai_admin', 'super_admin']).default('instructor'),
   bio:        z.string().max(2000).optional(),
   headline:   z.string().max(255).optional(),
-  category:   z.enum(['4x-trading', 'digital-marketing', 'ai']).optional(),
-  categories: z.array(z.enum(['4x-trading', 'digital-marketing', 'ai'])).optional(),
+  category:   z.enum(['4x-trading', 'digital-marketing', 'ai', 'jura']).optional(),
+  categories: z.array(z.enum(['4x-trading', 'digital-marketing', 'ai', 'jura'])).optional(),
   avatarUrl:  z.string().url().or(z.literal('')).optional(),
-  program:    z.enum(['ai', 'digital_marketing', 'forex']).optional(),
+  program:    z.enum(['ai', 'digital_marketing', 'forex', 'jura']).optional(),
   courses:    z.array(z.object({
     courseId:       z.string().min(1),
     blockedLessons: z.array(z.string()).default([]),
@@ -431,13 +431,13 @@ router.post('/impersonation-sessions/revoke-all', requireRole('super_admin'),
 ──────────────────────────────────────────────────────────────────────── */
 const enrollmentRequestQuerySchema = z.object({
   status:   z.enum(['pending', 'approved', 'rejected', 'cancelled', 'all']).default('pending'),
-  category: z.enum(['4x-trading', 'digital-marketing', 'ai']).optional(),
+  category: z.enum(['4x-trading', 'digital-marketing', 'ai', 'jura']).optional(),
   page:     z.coerce.number().min(1).default(1),
   per_page: z.coerce.number().min(1).max(100).default(20),
 })
 
 const approveEnrollmentSchema = z.object({
-  categories: z.array(z.enum(['4x-trading', 'digital-marketing', 'ai'])).optional(),
+  categories: z.array(z.enum(['4x-trading', 'digital-marketing', 'ai', 'jura'])).optional(),
 })
 
 const rejectEnrollmentSchema = z.object({
@@ -455,7 +455,7 @@ router.patch('/enrollment-requests/:userId/cancel',          requireAnyAdmin, re
 router.patch('/enrollment-requests/:userId/revoke-to-viewer', requireAnyAdmin, requireSameOrgUser('userId'), ctrl.revokeToViewer)
 
 const removeCategorySchema = z.object({
-  category: z.enum(['4x-trading', 'digital-marketing', 'ai']),
+  category: z.enum(['4x-trading', 'digital-marketing', 'ai', 'jura']),
 })
 router.patch('/enrollment-requests/:userId/remove-category', requireAnyAdmin, requireSameOrgUser('userId'), validate(removeCategorySchema), ctrl.removeEnrollmentCategory)
 

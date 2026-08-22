@@ -30,11 +30,12 @@ import Spinner from '@/components/ui/Spinner'
 /* ── Constants ─────────────────────────────────────── */
 const CATEGORY_META: Record<ProgramCategory, { label: string; color: string; bg: string; Icon: React.ComponentType<{ size?: number }> }> = {
   '4x-trading':        { label: 'FOREX Trading',     color: '#10B981', bg: 'rgba(16,185,129,0.14)',  Icon: TrendingUp },
+  'jura':              { label: 'JURA',              color: '#8B5CF6', bg: 'rgba(139,92,246,0.14)', Icon: TrendingUp },
   'digital-marketing': { label: 'Digital Marketing', color: '#0057b8', bg: 'rgba(0,87,184,0.14)', Icon: Megaphone  },
   'ai':                { label: 'AI',                 color: '#8B5CF6', bg: 'rgba(139,92,246,0.14)', Icon: Cpu        },
 }
 
-const ALL_CATEGORIES: ProgramCategory[] = ['4x-trading', 'digital-marketing', 'ai']
+const ALL_CATEGORIES: ProgramCategory[] = ['4x-trading', 'digital-marketing', 'ai', 'jura']
 
 const ROLE_LABEL: Record<string, string> = {
   super_admin:             'Super Admin',
@@ -54,6 +55,7 @@ const CATEGORY_SCOPE: Record<string, ProgramCategory> = {
 // (mirrors backend injectCategoryScope in auth.middleware.ts).
 const PROGRAM_TO_CATEGORY: Record<string, ProgramCategory> = {
   forex:              '4x-trading',
+  jura:               'jura',
   digital_marketing:  'digital-marketing',
   ai:                 'ai',
 }

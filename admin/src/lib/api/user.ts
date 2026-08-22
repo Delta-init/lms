@@ -9,7 +9,7 @@ export interface CurrentAdmin {
   avatarUrl?:      string
   role:            'student' | 'instructor' | 'admin' | 'sub_admin' | 'support' | '4x_admin' | 'digital_marketing_admin' | 'ai_admin' | 'super_admin'
   organizationId?: string
-  program?:        'ai' | 'digital_marketing' | 'forex'
+  program?:        'ai' | 'digital_marketing' | 'forex' | 'jura'
   headline?:       string
   bio?:            string
   isVerified:      boolean

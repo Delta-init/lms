@@ -28,7 +28,7 @@ export interface CourseDTO {
   tags?:          string[]
   instructorId:   string
   categoryId?:    string
-  program?:       '4x-trading' | 'digital-marketing' | 'ai'
+  program?:       '4x-trading' | 'digital-marketing' | 'ai' | 'jura'
   enrolledCount:  number
   ratingAvg:      number
   ratingCount:    number
@@ -61,7 +61,7 @@ export function toCourseDTO(course: ICourse, lessonCount?: number): CourseDTO {
     durationMins:  json['durationMins']  as number,
     language:      json['language']      as string,
     tags:          json['tags']          as string[] | undefined,
-    program:       json['program']       as '4x-trading' | 'digital-marketing' | 'ai' | undefined,
+    program:       json['program']       as '4x-trading' | 'digital-marketing' | 'ai' | 'jura' | undefined,
     enrolledCount: json['enrolledCount'] as number,
     ratingAvg:     json['ratingAvg']     as number,
     ratingCount:   json['ratingCount']   as number,

@@ -52,6 +52,7 @@ function ProgramBadge({ program }: { program?: string }) {
   const COLORS: Record<string, { bg: string; color: string }> = {
     'ai':                { bg: 'rgba(192,132,252,0.14)', color: '#c084fc' },
     '4x-trading':        { bg: 'rgba(251,146,60,0.14)',  color: '#fb923c' },
+    'jura':              { bg: 'rgba(139,92,246,0.14)', color: '#8B5CF6' },
     'digital-marketing': { bg: 'rgba(96,165,250,0.14)',  color: '#60a5fa' },
   }
   const c = COLORS[program] ?? { bg: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)' }
@@ -252,6 +253,7 @@ function PerformancePanel() {
   const PROG_COLORS: Record<string, { accent: string; bg: string }> = {
     'ai':                { accent: '#c084fc', bg: 'rgba(192,132,252,0.12)' },
     '4x-trading':        { accent: '#fb923c', bg: 'rgba(251,146,60,0.12)' },
+    'jura':              { accent: '#8B5CF6', bg: 'rgba(139,92,246,0.12)' },
     'digital-marketing': { accent: '#60a5fa', bg: 'rgba(96,165,250,0.12)' },
   }
 
@@ -332,6 +334,7 @@ const PROGRAM_TABS: { id: string; label: string }[] = [
   { id: 'all',                label: 'All' },
   { id: 'ai',                 label: 'AI' },
   { id: '4x-trading',        label: 'FOREX' },
+  { id: 'jura',              label: 'JURA' },
   { id: 'digital-marketing', label: 'Digital Marketing' },
 ]
 

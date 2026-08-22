@@ -25,7 +25,7 @@ export interface Course {
   lessonCount?:  number
   createdAt:     string
   updatedAt:     string
-  program?:    '4x-trading' | 'digital-marketing' | 'ai'
+  program?:    '4x-trading' | 'digital-marketing' | 'ai' | 'jura'
   /* populated */
   instructor?: { id: string; name: string; avatarUrl?: string }
   category?:   { id: string; name: string }
@@ -46,7 +46,7 @@ export interface CourseFormValues {
   language:     string
   tags:         string
   categoryId:   string
-  program:      '4x-trading' | 'digital-marketing' | 'ai' | ''
+  program:      '4x-trading' | 'digital-marketing' | 'ai' | 'jura' | ''
 }
 
 export interface Category { id: string; name: string; slug: string }

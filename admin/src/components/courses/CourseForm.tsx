@@ -40,7 +40,7 @@ const schema = z.object({
   language:     z.string().min(1, 'Language required'),
   tags:         z.string(),
   categoryId:   z.string(),
-  program:      z.enum(['4x-trading', 'digital-marketing', 'ai', '']),
+  program:      z.enum(['4x-trading', 'digital-marketing', 'ai', 'jura', '']),
 })
 
 type Values = z.infer<typeof schema>
@@ -503,6 +503,7 @@ export function CourseForm({ course }: CourseFormProps) {
                   <Select value={field.value} onChange={field.onChange} placeholder="Select program…"
                     options={[
                       { value: '4x-trading',        label: 'FOREX Trading' },
+                      { value: 'jura',              label: 'JURA' },
                       { value: 'digital-marketing', label: 'Digital Marketing' },
                       { value: 'ai',                label: 'AI' },
                     ]} />

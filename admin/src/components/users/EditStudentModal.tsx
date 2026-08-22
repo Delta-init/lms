@@ -364,14 +364,14 @@ export function EditStudentModal({ user, onClose, onSuccess }: Props) {
 
     const promises: Promise<unknown>[] = []
 
-    const dto: { name?: string; email?: string; avatarUrl?: string; categories?: ('4x-trading' | 'digital-marketing' | 'ai')[] } = {}
+    const dto: { name?: string; email?: string; avatarUrl?: string; categories?: ('4x-trading' | 'digital-marketing' | 'ai' | 'jura')[] } = {}
     if (name.trim()  !== user.name)  dto.name  = name.trim()
     if (email.trim() !== user.email) dto.email = email.trim().toLowerCase()
     if (newAvatarUrl)                dto.avatarUrl = newAvatarUrl
     /* Compare categories */
     const origCats: Set<string> = initCats()
     const catsChanged = categories.size !== origCats.size || [...categories].some(c => !origCats.has(c))
-    if (catsChanged) dto.categories = Array.from(categories) as ('4x-trading' | 'digital-marketing' | 'ai')[]
+    if (catsChanged) dto.categories = Array.from(categories) as ('4x-trading' | 'digital-marketing' | 'ai' | 'jura')[]
     if (Object.keys(dto).length > 0) promises.push(update.mutateAsync({ id: user.id, ...dto }))
 
     enrollments?.forEach(e => {
@@ -507,6 +507,7 @@ export function EditStudentModal({ user, onClose, onSuccess }: Props) {
                 <div className="flex flex-wrap gap-2">
                   {([
                     { value: '4x-trading',        label: 'FOREX Trading',     color: '#fb923c', Icon: TrendingUp },
+                    { value: 'jura',              label: 'JURA',              color: '#8B5CF6', Icon: TrendingUp },
                     { value: 'digital-marketing', label: 'Digital Marketing', color: '#60a5fa', Icon: BarChart2 },
                     { value: 'ai',                label: 'AI',                color: '#c084fc', Icon: Cpu },
                   ] as const).map(({ value, label, color, Icon }) => {

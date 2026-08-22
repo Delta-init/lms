@@ -74,6 +74,13 @@ const PROGRAM_FILTERS = [
     ring: 'rgba(16,185,129,0.15)',
   },
   {
+    id: 'jura', label: 'JURA', icon: TrendingUp,
+    color: '#8B5CF6',
+    activeGrad: '#8B5CF6',
+    shadow: 'rgba(139,92,246,0.35)',
+    ring: 'rgba(139,92,246,0.15)',
+  },
+  {
     id: 'digital-marketing', label: 'Digital Marketing', icon: Megaphone,
     color: 'var(--color-primary)',
     activeGrad: '#0057b8',

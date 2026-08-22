@@ -4,7 +4,7 @@ import { api, apiGet, apiPost, apiPatch } from '@/lib/axios'
 
 /* ── Types ─────────────────────────────────────────── */
 
-export type Program = 'forex' | 'digital_marketing' | 'ai'
+export type Program = 'forex' | 'digital_marketing' | 'ai' | 'jura'
 
 export interface Viewer {
   id:        string

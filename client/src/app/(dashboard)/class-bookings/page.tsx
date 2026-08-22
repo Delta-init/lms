@@ -173,7 +173,7 @@ const SC: Record<SlotStatus,{color:string;bg:string;border:string;label:string}>
 /* ── Types ─────────────────────────────────────────────────── */
 type AccessFilter   = 'all'|'mine'
 type DeliveryFilter = 'all'|'online'|'offline'
-type ProgramFilter  = 'all'|'4x-trading'|'digital-marketing'|'ai'
+type ProgramFilter  = 'all'|'4x-trading'|'digital-marketing'|'ai'|'jura'
 type StatusFilter   = 'all'|'live'|'upcoming'|'ended'
 
 interface ClassGroup {
@@ -185,7 +185,7 @@ interface DateSection { dateKey:string; dateLabel:string; isToday:boolean; group
 interface GroupKey { title:string; dateKey:string }
 
 const PROGRAM_LABELS: Record<string,string> = {
-  all:'All', '4x-trading':'FOREX', 'digital-marketing':'Digital Marketing', ai:'AI',
+  all:'All', '4x-trading':'FOREX', 'digital-marketing':'Digital Marketing', ai:'AI', jura:'JURA',
 }
 
 /* ── Panel chip ────────────────────────────────────────────── */
@@ -1189,7 +1189,7 @@ export default function ClassBookingsPage() {
   },[allClasses])
 
   const programCounts = useMemo(()=>{
-    const c:Record<string,number> = {'4x-trading':0,'digital-marketing':0,'ai':0}
+    const c:Record<string,number> = {'4x-trading':0,'digital-marketing':0,'ai':0,'jura':0}
     allClasses.forEach(lc=>{const p=lc.course?.program;if(p&&p in c)c[p]++})
     return c
   },[allClasses])
@@ -1670,7 +1670,7 @@ export default function ClassBookingsPage() {
 
                   <PanelSection label="Program" icon={<GraduationCap size={11}/>}>
                     <PanelChip active={filterProgram==='all'} onClick={()=>setFilterProgram('all')}>All Programs</PanelChip>
-                    {(['4x-trading','digital-marketing','ai'] as ProgramFilter[]).map(key=>(
+                    {(['4x-trading','digital-marketing','ai','jura'] as ProgramFilter[]).map(key=>(
                       <PanelChip key={key} active={filterProgram===key} onClick={()=>setFilterProgram(key)}
                         count={programCounts[key]??0}>
                         {PROGRAM_LABELS[key]}

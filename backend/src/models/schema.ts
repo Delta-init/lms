@@ -169,10 +169,10 @@ const UserSchema = new Schema<IUser>(
     aiUsage:          { day: { type: String }, count: { type: Number, default: 0 } },
     customRoleId:   { type: Schema.Types.ObjectId, ref: 'Role' },
     organizationId: { type: Schema.Types.ObjectId, ref: 'Organization' },
-    program:        { type: String, enum: ['ai', 'digital_marketing', 'forex'] },
+    program:        { type: String, enum: ['ai', 'digital_marketing', 'forex', 'jura'] },
     lastLoginAt:    { type: Date },
-    category:         { type: String, enum: ['4x-trading', 'digital-marketing', 'ai'] },
-    categories:       [{ type: String, enum: ['4x-trading', 'digital-marketing', 'ai'] }],
+    category:         { type: String, enum: ['4x-trading', 'digital-marketing', 'ai', 'jura'] },
+    categories:       [{ type: String, enum: ['4x-trading', 'digital-marketing', 'ai', 'jura'] }],
     signupType:       { type: String, enum: ['express', 'full'], default: 'full' },
     enrollmentStatus: { type: String, enum: ['pending', 'approved', 'rejected', 'cancelled'] },
     approvedBy:       { type: Schema.Types.ObjectId, ref: 'User' },
@@ -1759,7 +1759,10 @@ export type SupportTicketStatus = 'open' | 'pending' | 'resolved' | 'closed'
 export type SupportCategory     = 'technical' | 'billing' | 'course' | 'account' | 'other'
 
 export interface ISupportMessage {
-  senderId:   Types.ObjectId
+  /* Absent on SYSTEM messages (e.g. the automatic welcome reply) — both UIs
+     fall back to a "Support Team" label, and the performance metrics count
+     only sender-bearing admin messages as real first responses. */
+  senderId?:  Types.ObjectId
   senderRole: 'student' | 'admin'
   body:       string
   createdAt:  Date
@@ -1784,7 +1787,9 @@ export interface ISupportTicket extends Document {
 
 const SupportMessageSchema = new Schema<ISupportMessage>(
   {
-    senderId:   { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    /* Optional so SYSTEM messages (auto welcome reply) can omit it — its
+       absence is what marks a message as automated. Human paths always set it. */
+    senderId:   { type: Schema.Types.ObjectId, ref: 'User', required: false },
     senderRole: { type: String, enum: ['student', 'admin'], required: true },
     body:       { type: String, required: true, maxlength: 5000 },
     createdAt:  { type: Date, default: () => new Date() },

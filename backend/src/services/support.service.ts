@@ -27,7 +27,7 @@ export class SupportError extends Error {
 type Requester = {
   id:              string
   role:            'student' | 'instructor' | 'admin' | '4x_admin' | 'digital_marketing_admin' | 'ai_admin' | 'super_admin' | 'sub_admin' | 'support'
-  categoryScope?:  '4x-trading' | 'digital-marketing' | 'ai'
+  categoryScope?:  '4x-trading' | 'digital-marketing' | 'ai' | 'jura'
   organizationId?: string
 }
 
@@ -46,6 +46,17 @@ const orgScope = (r?: Requester): Record<string, unknown> | null => {
   if (!r?.organizationId || !Types.ObjectId.isValid(r.organizationId)) return null
   return { organizationId: new Types.ObjectId(r.organizationId) }
 }
+
+/* Automatic acknowledgement appended to every new ticket, so the student
+   immediately sees a response in the thread. It is a SYSTEM message: no
+   senderId (both UIs label it "Support Team"), and — critically — it must not
+   consume the ticket's new/unread state. The ticket stays `open`,
+   `adminUnread: true` and `lastSenderRole: 'student'`, so the admin side sees
+   the ticket exactly as before this feature existed, and first-response
+   metrics only count sender-bearing (human) admin replies. */
+const AUTO_REPLY_BODY =
+  'Welcome to Student Support. Your concern is currently being reviewed, and ' +
+  'you will receive a response shortly. Thank you for your patience.'
 
 /** Upper bound on a free-text search term before it reaches $regex. */
 const MAX_SEARCH_LEN = 100
@@ -70,6 +81,11 @@ export class SupportService {
         senderId:   new Types.ObjectId(requester.id),
         senderRole: 'student',
         body:       input.message.trim(),
+        createdAt:  new Date(),
+      }, {
+        /* system auto-acknowledgement — no senderId (see AUTO_REPLY_BODY) */
+        senderRole: 'admin',
+        body:       AUTO_REPLY_BODY,
         createdAt:  new Date(),
       }],
       lastMessageAt:  new Date(),
@@ -194,6 +210,7 @@ export class SupportService {
     const programs: { id: string; label: string }[] = [
       { id: 'ai',                 label: 'AI' },
       { id: '4x-trading',        label: 'FOREX' },
+      { id: 'jura',              label: 'JURA' },
       { id: 'digital-marketing', label: 'Digital Marketing' },
     ]
     return Promise.all(programs.map(async prog => {
@@ -206,7 +223,9 @@ export class SupportService {
       const unread   = tickets.filter(t => t.adminUnread).length
       const times = tickets
         .map(t => {
-          const first = (t.messages as any[]).find((m: any) => m.senderRole === 'admin')
+          /* senderId-bearing only: the automatic welcome reply has none and
+             must not count as the team's first response */
+          const first = (t.messages as any[]).find((m: any) => m.senderRole === 'admin' && m.senderId)
           if (!first) return null
           return (new Date(first.createdAt).getTime() - new Date(t.createdAt).getTime()) / 3_600_000
         })

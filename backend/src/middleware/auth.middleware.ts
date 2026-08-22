@@ -491,6 +491,7 @@ export async function injectCategoryScope(req: Request, _res: Response, next: Ne
     if      (req.user.program === 'ai')                 req.user.categoryScope = 'ai'
     else if (req.user.program === 'digital_marketing')  req.user.categoryScope = 'digital-marketing'
     else if (req.user.program === 'forex')              req.user.categoryScope = '4x-trading'
+    else if (req.user.program === 'jura')               req.user.categoryScope = 'jura'
   } else if (req.user.role === '4x_admin')                     req.user.categoryScope = '4x-trading'
   else if (req.user.role === 'digital_marketing_admin') req.user.categoryScope = 'digital-marketing'
   else if (req.user.role === 'ai_admin')                req.user.categoryScope = 'ai'
@@ -498,7 +499,7 @@ export async function injectCategoryScope(req: Request, _res: Response, next: Ne
     const { UserModel } = await import('@/models/schema.ts')
     const user = await UserModel.findById(req.user.id).select('category').lean()
     const cat  = (user as any)?.category as string | undefined
-    if (cat === '4x-trading' || cat === 'digital-marketing' || cat === 'ai') req.user.categoryScope = cat
+    if (cat === '4x-trading' || cat === 'digital-marketing' || cat === 'ai' || cat === 'jura') req.user.categoryScope = cat
   }
   next()
 }

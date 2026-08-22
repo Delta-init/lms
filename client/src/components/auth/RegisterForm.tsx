@@ -43,6 +43,7 @@ const PROGRAMS = [
   { id: 'dm-social',          label: 'Social Media Marketing', group: 'Digital Marketing' },
   { id: 'dm-seo',             label: 'SEO & Content',          group: 'Digital Marketing' },
   { id: 'ai-fundamentals',    label: 'AI Fundamentals',        group: 'AI Academy' },
+  { id: 'jura-core',          label: 'JURA Program',           group: 'JURA Academy' },
   { id: 'ai-trading',         label: 'AI Trading Automation',  group: 'AI Academy' },
 ]
 

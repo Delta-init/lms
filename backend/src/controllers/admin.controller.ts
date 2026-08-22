@@ -123,7 +123,7 @@ export class AdminController {
         tags?:         string[] | string
         categoryId?:   string
         instructorId?: string
-        program?:      '4x-trading' | 'digital-marketing' | 'ai'
+        program?:      '4x-trading' | 'digital-marketing' | 'ai' | 'jura'
       }
 
       const tags = typeof dto.tags === 'string'
@@ -260,8 +260,8 @@ export class AdminController {
         role:       UserRole
         bio?:       string
         headline?:  string
-        category?:  '4x-trading' | 'digital-marketing' | 'ai'
-        program?:   'ai' | 'digital_marketing' | 'forex'
+        category?:  '4x-trading' | 'digital-marketing' | 'ai' | 'jura'
+        program?:   'ai' | 'digital_marketing' | 'forex' | 'jura'
         avatarUrl?: string
       }
       const user = await this.userService.adminCreateUser({ ...dto, organizationId: req.user!.organizationId })
@@ -344,7 +344,7 @@ export class AdminController {
   updateUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const id = String(req.params['id'] ?? '')
-      const dto = req.body as { role?: UserRole; isActive?: boolean; isVerified?: boolean; name?: string; email?: string; category?: '4x-trading' | 'digital-marketing' | 'ai' | null; categories?: ('4x-trading' | 'digital-marketing' | 'ai')[]; headline?: string; bio?: string; avatarUrl?: string; program?: 'ai' | 'digital_marketing' | 'forex' }
+      const dto = req.body as { role?: UserRole; isActive?: boolean; isVerified?: boolean; name?: string; email?: string; category?: '4x-trading' | 'digital-marketing' | 'ai' | 'jura' | null; categories?: ('4x-trading' | 'digital-marketing' | 'ai' | 'jura')[]; headline?: string; bio?: string; avatarUrl?: string; program?: 'ai' | 'digital_marketing' | 'forex' | 'jura' }
       const user = await this.userService.adminUpdate(id, dto)
       sendSuccess(res, user, 'User updated')
     } catch (err) { next(err) }
