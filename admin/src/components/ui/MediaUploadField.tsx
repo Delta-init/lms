@@ -23,10 +23,11 @@
  *   disabled    – disables all interactions
  */
 
-import { useRef, useState, useCallback, type DragEvent, type ChangeEvent } from 'react'
+import { useRef, useState, useEffect, useCallback, type DragEvent, type ChangeEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Link, Upload, Image, Film, X, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useUploadImage, uploadVideo } from '@/lib/api/upload'
+import { probeFileDuration, probeVideoDuration } from '@/lib/videoDuration'
 import Spinner from '@/components/ui/Spinner'
 
 /* ── Shared styling tokens (match admin dark theme) ── */
@@ -93,6 +94,11 @@ export interface MediaUploadFieldProps {
   mode?:       'full' | 'compact'
   placeholder?: string
   disabled?:   boolean
+  /* Video only. Fires with the clip's length in SECONDS as soon as the
+     browser can read its metadata — from the local file the moment it is
+     picked, or from a pasted URL. Lets callers fill a duration field
+     instead of asking the admin to measure the video themselves. */
+  onDurationDetected?: (seconds: number) => void
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -108,6 +114,7 @@ export function MediaUploadField({
   mode = 'full',
   placeholder,
   disabled = false,
+  onDurationDetected,
 }: MediaUploadFieldProps) {
   const [tab,        setTab]        = useState<'url' | 'upload'>('url')
   const [dragging,   setDragging]   = useState(false)
@@ -137,6 +144,12 @@ export function MediaUploadField({
       } else {
         setUploading(true)
         setVidProgress(0)
+        /* Read the length off the local file while the bytes are still
+           uploading — costs nothing and means the duration is known before
+           the upload even finishes. */
+        if (onDurationDetected) {
+          void probeFileDuration(file).then(secs => { if (secs) onDurationDetected(secs) })
+        }
         const controller = new AbortController()
         abortRef.current = controller
         /* Direct to R2 — the public URL is usable the moment this resolves. */
@@ -160,9 +173,25 @@ export function MediaUploadField({
     } finally {
       abortRef.current = null
     }
-  }, [type, uploadImage, onChange])
+  }, [type, uploadImage, onChange, onDurationDetected])
 
   const cancelUpload = useCallback(() => abortRef.current?.abort(), [])
+
+  /* A pasted/typed video URL should fill the duration too, not just an upload.
+     Debounced so it fires once the field settles rather than on every
+     keystroke, and skipped while an upload is in flight (that path already
+     probed the local file, which is faster and works offline). */
+  const lastProbed = useRef<string>('')
+  useEffect(() => {
+    if (type !== 'video' || !onDurationDetected || uploading) return
+    const url = value.trim()
+    if (!/^https?:\/\/\S+$/i.test(url) || url === lastProbed.current) return
+    const t = setTimeout(() => {
+      lastProbed.current = url
+      void probeVideoDuration(url).then(secs => { if (secs) onDurationDetected(secs) })
+    }, 800)
+    return () => clearTimeout(t)
+  }, [value, type, uploading, onDurationDetected])
 
   /* ── Hidden file input ── */
   const { open: openPicker, input: fileInput } = useFilePicker({ accept, onPick: handleFile })

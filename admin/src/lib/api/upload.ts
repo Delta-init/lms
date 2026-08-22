@@ -116,16 +116,130 @@ export async function uploadToR2Direct(
   })
 }
 
-/* ── Video: presigned direct upload to R2 ────────────────────
-   No transcode step. The MP4/WebM is served straight from the CDN and the
-   player streams it with HTTP range requests, so seeking works without an
-   HLS ladder. That removes a blocking server-side FFmpeg job (~13 s for a
-   small file, minutes for a large one, capped at 2 concurrent jobs) from
-   every single upload — the video is ready the instant the PUT returns.
+/* ── Multipart upload — the path large files take ────────────
+   A single PUT of a 500 MB file is one HTTP request held open for many
+   minutes; one blip on the uploader's connection fails the entire transfer
+   with an opaque "network error" and no way to resume. Splitting the file
+   into parts means a blip costs one 8 MB chunk, which is retried on its own.
 
-   Lessons created before this change still hold master.m3u8 URLs; those
-   files remain in the bucket and keep playing, so the change is backward
-   compatible. ── */
+   Parts upload with a small concurrency window: enough to keep the pipe
+   full, few enough that the per-part progress still moves smoothly and a
+   home connection is not saturated by a dozen parallel streams. ── */
+const PART_SIZE       = 8 * 1024 * 1024   // 8 MB — well over S3's 5 MB minimum
+const MULTIPART_ABOVE = 16 * 1024 * 1024  // below this a single PUT is simpler and faster
+const PART_CONCURRENCY = 3
+const PART_ATTEMPTS    = 3
+
+interface MultipartInit { key: string; uploadId: string }
+
+async function putPart(
+  url: string, blob: Blob, signal?: AbortSignal,
+  onDelta?: (bytes: number) => void,
+): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('PUT', url)
+    let counted = 0
+    xhr.upload.addEventListener('progress', (e) => {
+      if (!e.lengthComputable || !onDelta) return
+      onDelta(e.loaded - counted)      // report the delta so the caller can total it
+      counted = e.loaded
+    })
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        /* R2 returns the part's ETag; CompleteMultipartUpload needs it verbatim.
+           Requires `ExposeHeaders: [ETag]` in the bucket CORS policy. */
+        const etag = xhr.getResponseHeader('ETag')
+        if (!etag) { reject(new Error('ETAG_MISSING')); return }
+        resolve(etag)
+      } else reject(new Error(`part failed (HTTP ${xhr.status})`))
+    })
+    xhr.addEventListener('error', () => reject(new Error('part network error')))
+    xhr.addEventListener('abort', () => reject(new DOMException('Upload cancelled', 'AbortError')))
+    if (signal) {
+      if (signal.aborted) { xhr.abort(); return }
+      signal.addEventListener('abort', () => xhr.abort(), { once: true })
+    }
+    xhr.send(blob)
+  })
+}
+
+async function uploadMultipart(
+  file: File, contentType: string,
+  onProgress?: (pct: number) => void,
+  signal?: AbortSignal,
+): Promise<string> {
+  const init = await api.post<{ success: true; data: MultipartInit }>(
+    '/uploads/multipart/create',
+    { filename: file.name, contentType, folder: 'videos' },
+  ).then(r => r.data.data)
+
+  const total      = file.size
+  const partCount  = Math.ceil(total / PART_SIZE)
+  const numbers    = Array.from({ length: partCount }, (_, i) => i + 1)
+
+  try {
+    const signed = await api.post<{ success: true; data: { urls: { partNumber: number; url: string }[] } }>(
+      '/uploads/multipart/sign',
+      { key: init.key, uploadId: init.uploadId, partNumbers: numbers },
+    ).then(r => r.data.data.urls)
+    const urlByPart = new Map(signed.map(s => [s.partNumber, s.url]))
+
+    let sent = 0
+    const bump = (delta: number) => {
+      sent += delta
+      onProgress?.(Math.min(99, Math.round((sent / total) * 100)))
+    }
+
+    const parts: { partNumber: number; eTag: string }[] = []
+    let cursor = 0
+    const worker = async () => {
+      while (cursor < numbers.length) {
+        if (signal?.aborted) throw new DOMException('Upload cancelled', 'AbortError')
+        const n    = numbers[cursor++]!
+        const blob = file.slice((n - 1) * PART_SIZE, Math.min(n * PART_SIZE, total))
+        let lastErr: unknown
+        for (let attempt = 1; attempt <= PART_ATTEMPTS; attempt++) {
+          try {
+            const eTag = await putPart(urlByPart.get(n)!, blob, signal, bump)
+            parts.push({ partNumber: n, eTag })
+            lastErr = null
+            break
+          } catch (err) {
+            if ((err as { name?: string })?.name === 'AbortError') throw err
+            lastErr = err
+            /* the bytes from the failed attempt never landed — don't count them */
+            sent = Math.max(0, sent - blob.size)
+            await new Promise(r => setTimeout(r, 400 * attempt))
+          }
+        }
+        if (lastErr) throw lastErr
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(PART_CONCURRENCY, partCount) }, worker))
+
+    const done = await api.post<{ success: true; data: { publicUrl: string } }>(
+      '/uploads/multipart/complete',
+      { key: init.key, uploadId: init.uploadId, parts },
+    ).then(r => r.data.data)
+    onProgress?.(100)
+    return done.publicUrl
+  } catch (err) {
+    /* Leave no half-finished object behind, then surface the real cause. */
+    void api.post('/uploads/multipart/abort', { key: init.key, uploadId: init.uploadId }).catch(() => {})
+    throw err
+  }
+}
+
+/* ── Video: presigned direct upload to R2 ────────────────────
+   The upload IS the whole pipeline: the MP4/WebM is served straight from the
+   CDN and the player streams it with HTTP range requests, so seeking works
+   without an HLS ladder. Server-side transcoding (a blocking FFmpeg job,
+   ~13 s for a small file and capped at 2 concurrent jobs) has been removed
+   from the product entirely — the video is ready the instant the PUT returns.
+
+   Lessons created before that removal still hold master.m3u8 URLs; those
+   objects remain in the bucket and keep playing, so both forms coexist. ── */
 export async function uploadVideo(
   file:        File,
   onProgress?: (pct: number) => void,
@@ -137,6 +251,13 @@ export async function uploadVideo(
     )
   }
   const contentType = resolveVideoContentType(file)
+
+  /* Anything sizeable goes up in retryable chunks; small clips keep the
+     simpler single request. */
+  if (file.size > MULTIPART_ABOVE) {
+    return uploadMultipart(file, contentType, onProgress, opts?.signal)
+  }
+
   const result = await getPresignedUrl(file.name, contentType, 'videos')
   await uploadToR2Direct(result.presignedUrl, file, onProgress, { contentType, signal: opts?.signal })
   return result.publicUrl

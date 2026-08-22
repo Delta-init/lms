@@ -3,7 +3,7 @@
 /**
  * TranscriptEditor
  * ─────────────────
- * Shown inside the lesson edit form (CourseOutlineEditor).
+ * Shown inside the lesson edit form (ModulesSection).
  * Lets instructors manually write/paste a transcript OR click
  * "Generate with AI" to auto-produce one via Ollama.
  */

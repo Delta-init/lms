@@ -55,8 +55,11 @@ function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: 
   )
 }
 
+/* Hairline separator between sidebar sections. Uses the border token so it
+   stays a whisper in both themes — as a literal light grey it rendered as a
+   bright white rule across the dark sidebar. */
 function Divider() {
-  return <div className="h-px" style={{ background: '#F0F2F5' }} />
+  return <div className="h-px" style={{ background: 'var(--color-border)' }} />
 }
 
 /* ─────────────────────────────────────────────────────
@@ -231,7 +234,7 @@ export function RightSidebar() {
                             </p>
                             {t.kind === 'continue' && (
                               <div className="mt-1 flex items-center gap-1.5">
-                                <div className="h-1 flex-1 rounded-full" style={{ background: '#F0F2F5' }}>
+                                <div className="h-1 flex-1 rounded-full" style={{ background: 'var(--color-border)' }}>
                                   <div className="h-full rounded-full"
                                     style={{ background: 'var(--color-success)', width: `${t.enrollment.progressPercent}%` }} />
                                 </div>
@@ -412,10 +415,15 @@ function LiveRow({ live, index }: { live: LiveClass; index: number }) {
 function QuickTile({ href, label, icon: Icon }: { href: string; label: string; icon: React.ElementType }) {
   return (
     <Link href={href}>
+      {/* Theme tokens, not literals: a hardcoded light grey reads as a near-white
+          1px outline on the dark page (17:1 contrast) while every other border
+          sits near 2:1. Hover steps up to `-strong`, which is the more
+          prominent value in BOTH themes — the literal version inverted in dark,
+          getting *darker* on hover. */}
       <div className="group flex items-center gap-1.5 rounded-xl px-2.5 py-2 transition-all hover:bg-[var(--color-bg-surface)]"
-        style={{ border: '1px solid #F0F2F5' }}
-        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border)' }}
-        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#F0F2F5' }}>
+        style={{ border: '1px solid var(--color-border)' }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border-strong)' }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border)' }}>
         <Icon size={11} className="flex-shrink-0" style={{ color: 'var(--color-text-muted)' }} />
         <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>{label}</span>
       </div>

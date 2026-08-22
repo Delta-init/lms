@@ -19,6 +19,7 @@ import { useToast } from '@/store/ui.store'
 import { QuizEditor } from './QuizEditor'
 import { AssignmentEditor } from './AssignmentEditor'
 import { MediaUploadField } from '@/components/ui/MediaUploadField'
+import { secondsToMinutes } from '@/lib/videoDuration'
 import { TranscriptEditor } from './TranscriptEditor'
 import Spinner from '@/components/ui/Spinner'
 
@@ -254,17 +255,16 @@ function AddLessonForm({ courseId, sectionId, onClose }: { courseId: string; sec
         <FormField label="Lesson type">
           <TypeSelector value={type} onChange={setType} />
         </FormField>
-        <FormField label="Duration (minutes)" hint="Leave 0 if unknown">
-          <input type="number" min={0} value={duration || ''}
-            onChange={e => setDuration(Number(e.target.value))} placeholder="e.g. 15"
-            className={fieldClass} style={fieldStyle} onFocus={onFocusField} onBlur={onBlurField} />
-        </FormField>
+        {/* No duration field — it is read from the video's own metadata. */}
         {(type === 'video' || type === 'article') && (
-          <FormField label={type === 'video' ? 'Video content' : 'Article / resource'}>
+          <FormField
+            label={type === 'video' ? 'Video content' : 'Article / resource'}
+            hint={type === 'video' && duration > 0 ? `Detected length: ${duration} min` : undefined}>
             <MediaUploadField
               mode="compact"
               type={type === 'video' ? 'video' : 'image'}
               value={contentUrl} onChange={setContentUrl}
+              onDurationDetected={secs => setDuration(secondsToMinutes(secs))}
               placeholder={type === 'video' ? 'Video URL or upload file' : 'Article / resource URL'} />
           </FormField>
         )}
@@ -340,14 +340,14 @@ function LessonEditForm({
         <FormField label="Lesson type">
           <TypeSelector value={type} onChange={setType} />
         </FormField>
-        <FormField label="Duration (minutes)">
-          <input type="number" min={0} value={duration || ''} onChange={e => setDuration(Number(e.target.value))}
-            placeholder="e.g. 15" className={fieldClass} style={fieldStyle} onFocus={onFocusField} onBlur={onBlurField} />
-        </FormField>
+        {/* No duration field — read from the video's own metadata. */}
         {(type === 'video' || type === 'article') && (
-          <FormField label={type === 'video' ? 'Video content' : 'Article / resource'}>
+          <FormField
+            label={type === 'video' ? 'Video content' : 'Article / resource'}
+            hint={type === 'video' && duration > 0 ? `Detected length: ${duration} min` : undefined}>
             <MediaUploadField mode="compact" type={type === 'video' ? 'video' : 'image'}
               value={contentUrl} onChange={setContentUrl}
+              onDurationDetected={secs => setDuration(secondsToMinutes(secs))}
               placeholder={type === 'video' ? 'Video URL or upload file' : 'Article / resource URL'} />
           </FormField>
         )}

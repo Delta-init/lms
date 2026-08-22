@@ -697,12 +697,6 @@ export const ENDPOINTS = [
   },
   {
     "app": "admin",
-    "verb": "POST",
-    "path": "/uploads/transcode",
-    "src": "admin/src/lib/api/upload.ts"
-  },
-  {
-    "app": "admin",
     "verb": "PUT",
     "path": "/admin/availability/me",
     "src": "admin/src/lib/api/liveClasses.ts"

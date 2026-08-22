@@ -5,6 +5,10 @@ import {
   DeleteObjectCommand,
   CopyObjectCommand,
   HeadObjectCommand,
+  CreateMultipartUploadCommand,
+  UploadPartCommand,
+  CompleteMultipartUploadCommand,
+  AbortMultipartUploadCommand,
 } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import path from 'path'
@@ -104,6 +108,85 @@ export async function generatePresignedPutUrl(
   })
   const presignedUrl = await getSignedUrl(client, command, { expiresIn })
   return { presignedUrl, publicUrl: getPublicUrl(key), key }
+}
+
+/* ── Multipart upload (large files) ──────────────────────────
+   A single presigned PUT is all-or-nothing: a 500 MB course video is one
+   HTTP request held open for many minutes, and any blip on the uploader's
+   connection fails the whole transfer with an opaque network error. There is
+   no resume — the admin starts again from zero.
+
+   Multipart splits the object into independently-signed parts. A dropped
+   part costs one chunk and is retried on its own, so a flaky connection
+   costs seconds instead of the entire upload. The browser reads each part's
+   ETag from the response (which is why the bucket CORS policy exposes
+   `ETag`) and sends the list back to complete the object.
+
+   The server only ever signs and finalises — the bytes still go straight
+   from the browser to R2 and never touch this process.
+────────────────────────────────────────────────────────────── */
+export async function createMultipartUpload(
+  key: string,
+  contentType: string,
+): Promise<{ uploadId: string; key: string }> {
+  const client = getClient()
+  const res = await client.send(new CreateMultipartUploadCommand({
+    Bucket:      env.R2_BUCKET_NAME,
+    Key:         key,
+    ContentType: contentType,
+  }))
+  if (!res.UploadId) throw new Error('R2 did not return an upload id')
+  return { uploadId: res.UploadId, key }
+}
+
+export async function signUploadParts(
+  key:         string,
+  uploadId:    string,
+  partNumbers: number[],
+  expiresIn = 6 * 3600,   // a big upload on a slow line can run for hours
+): Promise<{ partNumber: number; url: string }[]> {
+  const client = getClient()
+  return Promise.all(partNumbers.map(async (partNumber) => {
+    const url = await getSignedUrl(
+      client,
+      new UploadPartCommand({
+        Bucket:     env.R2_BUCKET_NAME,
+        Key:        key,
+        UploadId:   uploadId,
+        PartNumber: partNumber,
+      }),
+      { expiresIn },
+    )
+    return { partNumber, url }
+  }))
+}
+
+export async function completeMultipartUpload(
+  key:      string,
+  uploadId: string,
+  parts:    { partNumber: number; eTag: string }[],
+): Promise<string> {
+  const client = getClient()
+  await client.send(new CompleteMultipartUploadCommand({
+    Bucket:   env.R2_BUCKET_NAME,
+    Key:      key,
+    UploadId: uploadId,
+    MultipartUpload: {
+      /* S3 requires parts in ascending order, and the ETag exactly as the
+         part response returned it (quotes included). */
+      Parts: [...parts]
+        .sort((a, b) => a.partNumber - b.partNumber)
+        .map(p => ({ PartNumber: p.partNumber, ETag: p.eTag })),
+    },
+  }))
+  return getPublicUrl(key)
+}
+
+export async function abortMultipartUpload(key: string, uploadId: string): Promise<void> {
+  const client = getClient()
+  await client.send(new AbortMultipartUploadCommand({
+    Bucket: env.R2_BUCKET_NAME, Key: key, UploadId: uploadId,
+  }))
 }
 
 /* ── Gated reads (H-11) ──────────────────────────────────────

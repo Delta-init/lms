@@ -21,8 +21,11 @@ import {
   deleteFromR2,
   makeKey,
   isR2Configured,
+  createMultipartUpload,
+  signUploadParts,
+  completeMultipartUpload,
+  abortMultipartUpload,
 } from '@/services/r2.service.ts'
-import { transcodeToHLS }  from '@/services/hls.service.ts'
 
 const router = Router()
 
@@ -372,6 +375,106 @@ router.post('/presign', requireInstructor, async (req: Request, res: Response) =
   }
 })
 
+/* ── Multipart upload (large videos) ─────────────────────────
+   Four small JSON calls that bracket a browser-driven chunked upload:
+
+     create   → mint an uploadId for a new object
+     sign     → presign a batch of part URLs
+     complete → assemble the parts into the final object
+     abort    → discard a cancelled/failed upload so no partial data lingers
+
+   Bytes never pass through this server; only signatures and the part list.
+   Same gate as /presign (P-15): an authoring capability, not a student one.
+────────────────────────────────────────────────────────────── */
+const multipartCreateBody = z.object({
+  filename:    z.string().min(1),
+  contentType: z.string().min(1),
+  folder:      z.enum(UPLOAD_FOLDERS).default('uploads'),
+})
+
+router.post('/multipart/create', requireInstructor, async (req: Request, res: Response) => {
+  if (!isR2Configured()) {
+    res.status(503).json({ success: false, error: { code: 'R2_NOT_CONFIGURED', message: 'Cloud storage is not configured.' } })
+    return
+  }
+  const parsed = multipartCreateBody.safeParse(req.body)
+  if (!parsed.success) {
+    res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Validation error' } })
+    return
+  }
+  const { filename, contentType, folder } = parsed.data
+  if (!isAllowedType(folder, contentType)) {
+    res.status(400).json({ success: false, error: { code: 'INVALID_TYPE', message: `This file type is not allowed in the ${folder} folder` } })
+    return
+  }
+  try {
+    const key = makeKey(filename, folder)
+    const { uploadId } = await createMultipartUpload(key, contentType)
+    sendSuccess(res, { key, uploadId }, undefined, 201)
+  } catch (err) {
+    res.status(500).json({ success: false, error: { code: 'R2_ERROR', message: (err as Error).message } })
+  }
+})
+
+/* Part numbers are capped at S3's 10 000 limit, and a batch is bounded so one
+   request cannot ask the signer for an unbounded amount of work. */
+const multipartSignBody = z.object({
+  key:         z.string().min(1),
+  uploadId:    z.string().min(1),
+  partNumbers: z.array(z.number().int().min(1).max(10_000)).min(1).max(1_000),
+})
+
+router.post('/multipart/sign', requireInstructor, async (req: Request, res: Response) => {
+  const parsed = multipartSignBody.safeParse(req.body)
+  if (!parsed.success) {
+    res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Validation error' } })
+    return
+  }
+  try {
+    const urls = await signUploadParts(parsed.data.key, parsed.data.uploadId, parsed.data.partNumbers)
+    sendSuccess(res, { urls })
+  } catch (err) {
+    res.status(500).json({ success: false, error: { code: 'R2_ERROR', message: (err as Error).message } })
+  }
+})
+
+const multipartCompleteBody = z.object({
+  key:      z.string().min(1),
+  uploadId: z.string().min(1),
+  parts:    z.array(z.object({
+    partNumber: z.number().int().min(1).max(10_000),
+    eTag:       z.string().min(1),
+  })).min(1).max(10_000),
+})
+
+router.post('/multipart/complete', requireInstructor, async (req: Request, res: Response) => {
+  const parsed = multipartCompleteBody.safeParse(req.body)
+  if (!parsed.success) {
+    res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Validation error' } })
+    return
+  }
+  try {
+    const publicUrl = await completeMultipartUpload(parsed.data.key, parsed.data.uploadId, parsed.data.parts)
+    sendSuccess(res, { publicUrl, key: parsed.data.key }, undefined, 201)
+  } catch (err) {
+    res.status(500).json({ success: false, error: { code: 'R2_ERROR', message: (err as Error).message } })
+  }
+})
+
+router.post('/multipart/abort', requireInstructor, async (req: Request, res: Response) => {
+  const parsed = z.object({ key: z.string().min(1), uploadId: z.string().min(1) }).safeParse(req.body)
+  if (!parsed.success) {
+    res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'key and uploadId are required' } })
+    return
+  }
+  try {
+    await abortMultipartUpload(parsed.data.key, parsed.data.uploadId)
+    sendSuccess(res, { aborted: true })
+  } catch (err) {
+    res.status(500).json({ success: false, error: { code: 'R2_ERROR', message: (err as Error).message } })
+  }
+})
+
 /* ── POST /uploads/video (convenience alias) ─────────────────
    Same as /presign with folder=videos.
    Body: { filename: string, contentType: string }
@@ -414,39 +517,14 @@ router.post('/video', requireInstructor, async (req: Request, res: Response) => 
   }
 })
 
-/* ── POST /uploads/transcode ─────────────────────────────────
-   Transcodes a video already on R2 to HLS (360p / 720p / 1080p).
-   Body: { key: string }  — the R2 key of the source MP4
-   Returns: { hlsUrl }    — public URL of master.m3u8
-   Note: This is a long-running operation (30 s – 3 min depending on video length).
-────────────────────────────────────────────────────────────── */
-router.post('/transcode', requireInstructor, async (req: Request, res: Response) => {
-  const parsed = z.object({ key: z.string().min(1) }).safeParse(req.body)
-  if (!parsed.success) {
-    res.status(400).json({
-      success: false,
-      error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Validation error' },
-    })
-    return
-  }
-
-  try {
-    const hlsUrl = await transcodeToHLS(parsed.data.key)
-    sendSuccess(res, { hlsUrl }, undefined, 201)
-  } catch (err) {
-    console.error('[transcode] FFmpeg error:', err)
-    res.status(500).json({
-      success: false,
-      error: { code: 'TRANSCODE_ERROR', message: (err as Error).message },
-    })
-  }
-})
-
 /* ── DELETE /uploads/:key ────────────────────────────────────
    Deletes an object from R2 by its key.
    Param: key — URL-encoded R2 object key (e.g. images/1234-abc.jpg)
    Returns: { deleted: true }
 ────────────────────────────────────────────────────────────── */
+/* `hls/` is retained even though nothing writes there any more: lessons created
+   before video transcoding was removed still point at hls/…/master.m3u8, and
+   those objects must stay deletable when such a lesson is cleaned up. */
 const DELETABLE_PREFIXES = ['images/', 'documents/', 'videos/', 'hls/', 'uploads/']
 
 router.delete('/:key(*)', requireAnyAdmin, async (req: Request, res: Response) => {

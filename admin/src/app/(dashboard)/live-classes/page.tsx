@@ -13,6 +13,7 @@ import {
   ChevronDown, User, Globe,
 } from 'lucide-react'
 import { useAllLiveClasses, useCreateLiveClass, type LiveClass, type LiveClassType } from '@/lib/api/liveClasses'
+import { CLASS_LANGUAGES } from '@/lib/languages'
 import { datetimeLocalToISO } from '@/lib/timezone'
 import { useCourses } from '@/lib/api/courses'
 import { useCourseOutline } from '@/lib/api/outline'
@@ -226,13 +227,9 @@ function CourseDropdown({ value, onChange, courses }: {
   )
 }
 
-/* ── Language dropdown (dark theme) ─────────────────── */
-const LANG_OPTIONS = [
-  { value: 'English',   label: 'English',   flag: '🇬🇧' },
-  { value: 'Malayalam', label: 'Malayalam', flag: '🇮🇳' },
-  { value: 'Hindi',     label: 'Hindi',     flag: '🇮🇳' },
-  { value: 'Tamil',     label: 'Tamil',     flag: '🇮🇳' },
-]
+/* ── Language dropdown (dark theme) ───────────────────
+   Shared with course creation via lib/languages so the two can never drift. */
+const LANG_OPTIONS = CLASS_LANGUAGES
 
 function LanguageDropdown({ value, onChange }: {
   value: string

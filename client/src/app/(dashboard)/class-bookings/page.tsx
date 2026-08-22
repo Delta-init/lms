@@ -206,7 +206,7 @@ function PanelChip({ active, onClick, count, children }: {
       {count !== undefined && (
         <span className="rounded-full px-1.5 min-w-[18px] text-center text-[10px] font-semibold"
           style={{
-            background:active?'rgba(0,87,184,0.15)':'#EEF2F7',
+            background:active?'rgba(0,87,184,0.15)':'var(--color-bg-subtle)',
             color:active?'#EA6010':'var(--color-text-muted)',
           }}>
           {count}
@@ -382,7 +382,7 @@ function ClassCard({group,bookingMap,onClick}: {
       whileTap={{scale:0.985}}
       className="dm flex h-full w-full flex-col rounded-2xl text-left overflow-hidden"
       style={{
-        background: 'var(--color-bg-surface)', border: '1px solid #E8EEF4',
+        background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)',
         borderTop:`3px solid ${accent}`,
         boxShadow:'0 2px 8px rgba(15,23,42,0.05)',
         opacity:allEnded?0.65:1,
@@ -465,7 +465,7 @@ function ClassCard({group,bookingMap,onClick}: {
 
       {/* Footer */}
       <div className="mt-auto flex items-center justify-between px-3.5 py-2.5"
-        style={{borderTop: '1px solid #F1F5F9'}}>
+        style={{borderTop: '1px solid var(--color-border)'}}>
         {nextSlot?(
           <div className="flex items-center gap-1">
             <Clock size={9} style={{color:bookedSlot?'#059669':'var(--color-text-muted)'}}/>
@@ -522,9 +522,9 @@ function SlotModal({group,bookingMap,onBook,onCancel,bookPending,cancelPending,o
         className="dm relative w-full overflow-y-auto bg-[var(--color-bg-surface)] sm:max-w-md"
         style={{borderRadius:'24px 24px 20px 20px',maxHeight:'92vh',boxShadow:'0 -8px 48px rgba(15,23,42,0.20)'}}>
         <div className="flex justify-center pb-1 pt-3 sm:hidden">
-          <div className="h-1 w-10 rounded-full" style={{background: '#E2E8F0'}}/>
+          <div className="h-1 w-10 rounded-full" style={{background: 'var(--color-border-strong)'}}/>
         </div>
-        <div className="px-5 pt-4 pb-4" style={{borderBottom: '1px solid #F1F5F9'}}>
+        <div className="px-5 pt-4 pb-4" style={{borderBottom: '1px solid var(--color-border)'}}>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <h2 className="syne text-[17px] font-700 leading-tight" style={{color: 'var(--color-text-primary)'}}>{group.title}</h2>
@@ -634,7 +634,7 @@ function SlotModal({group,bookingMap,onBook,onCancel,bookPending,cancelPending,o
                         :<><BookOpen size={14}/>Reserve Seat · {fmtShortSlot(sel.scheduledStart)}</>}
                     </motion.button>
                   ):(
-                    <div className="flex items-start gap-3 rounded-2xl px-4 py-3" style={{background: 'var(--color-bg-inset)',border: '1px solid #E8EEF4'}}>
+                    <div className="flex items-start gap-3 rounded-2xl px-4 py-3" style={{background: 'var(--color-bg-inset)',border: '1px solid var(--color-border)'}}>
                       <Lock size={14} style={{color: 'var(--color-text-muted)',flexShrink:0,marginTop:1}}/>
                       <div>
                         <p className="text-[12px] font-semibold" style={{color: 'var(--color-text-secondary)'}}>Enroll to Reserve</p>
@@ -654,7 +654,7 @@ function SlotModal({group,bookingMap,onBook,onCancel,bookPending,cancelPending,o
                         <CheckCircle2 size={14} style={{color:cfg.color}} strokeWidth={3}/>
                         <p className="text-[12px] font-semibold" style={{color:cfg.color}}>Reserved · {fmtSlotLabel(sel.scheduledStart,sel.durationMins)}</p>
                       </div>
-                      <div className="rounded-2xl px-4 py-3 text-[11px] leading-relaxed" style={{background: 'var(--color-bg-inset)',border: '1px solid #E8EEF4',color: 'var(--color-text-secondary)'}}>
+                      <div className="rounded-2xl px-4 py-3 text-[11px] leading-relaxed" style={{background: 'var(--color-bg-inset)',border: '1px solid var(--color-border)',color: 'var(--color-text-secondary)'}}>
                         <Clock size={11} className="mr-1.5 inline" style={{color: 'var(--color-text-muted)'}}/>
                         {mins<=5?'Join link sent. Check your inbox!':<>Your <strong>join link will be emailed 5 min before</strong> class.</>}
                       </div>
@@ -669,7 +669,7 @@ function SlotModal({group,bookingMap,onBook,onCancel,bookPending,cancelPending,o
                   )
                 })()}
                 {selSt==='full'&&(
-                  <div className="flex items-center justify-center gap-2 rounded-2xl py-3 text-sm" style={{background: 'var(--color-bg-inset)',color: 'var(--color-text-muted)',border: '1px solid #E8EEF4'}}>
+                  <div className="flex items-center justify-center gap-2 rounded-2xl py-3 text-sm" style={{background: 'var(--color-bg-inset)',color: 'var(--color-text-muted)',border: '1px solid var(--color-border)'}}>
                     <Users size={14}/>Fully booked
                   </div>
                 )}
@@ -707,12 +707,12 @@ function SlotModal({group,bookingMap,onBook,onCancel,bookPending,cancelPending,o
                   sel.recordingUrl?(
                     <a href={sel.recordingUrl} target="_blank" rel="noreferrer"
                       className="flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-medium"
-                      style={{background: 'var(--color-bg-inset)',color: 'var(--color-text-secondary)',border: '1px solid #E8EEF4'}}>
+                      style={{background: 'var(--color-bg-inset)',color: 'var(--color-text-secondary)',border: '1px solid var(--color-border)'}}>
                       <Video size={13}/>Watch Recording
                     </a>
                   ):(
                     <div className="flex items-center justify-center rounded-2xl py-3 text-xs"
-                      style={{background: 'var(--color-bg-inset)',color: 'var(--color-text-muted)',border: '1px solid #F1F5F9'}}>
+                      style={{background: 'var(--color-bg-inset)',color: 'var(--color-text-muted)',border: '1px solid var(--color-border)'}}>
                       Session ended · no recording
                     </div>
                   )
@@ -824,7 +824,7 @@ function CourseDropdown({ value, onChange, options }: {
                 className="dm flex w-full items-center gap-2.5 px-3 py-2 text-[12px] font-semibold transition-colors hover:bg-[var(--color-hover)]"
                 style={{ color: value === 'all' ? '#0057b8' : '#475569' }}
               >
-                <div className="h-5 w-5 rounded-lg flex-shrink-0 flex items-center justify-center" style={{ background: '#F1F5F9' }}>
+                <div className="h-5 w-5 rounded-lg flex-shrink-0 flex items-center justify-center" style={{ background: 'var(--color-bg-subtle)' }}>
                   <BookOpen size={10} style={{ color: 'var(--color-text-muted)' }} />
                 </div>
                 <span>All Courses</span>
@@ -945,7 +945,7 @@ function LanguageDropdown({ value, onChange }: {
               className="dm flex w-full items-center gap-2.5 px-3 py-2 text-[12px] font-semibold transition-colors hover:bg-[var(--color-hover)]"
               style={{ color: value === 'all' ? '#0057b8' : '#475569' }}
             >
-              <div className="h-5 w-5 rounded-lg flex-shrink-0 flex items-center justify-center" style={{ background: '#F1F5F9' }}>
+              <div className="h-5 w-5 rounded-lg flex-shrink-0 flex items-center justify-center" style={{ background: 'var(--color-bg-subtle)' }}>
                 <Globe size={10} style={{ color: 'var(--color-text-muted)' }} />
               </div>
               <span>All Languages</span>
@@ -1061,7 +1061,7 @@ function InstructorFilterSelect({ value, onChange, instructors }: {
               className="dm flex w-full items-center gap-2.5 px-3 py-2 text-[12px] font-semibold transition-colors hover:bg-[var(--color-hover)]"
               style={{ color: value === 'all' ? '#0057b8' : '#475569' }}
             >
-              <div className="h-6 w-6 rounded-full flex-shrink-0 flex items-center justify-center" style={{ background: '#F1F5F9' }}>
+              <div className="h-6 w-6 rounded-full flex-shrink-0 flex items-center justify-center" style={{ background: 'var(--color-bg-subtle)' }}>
                 <User size={11} style={{ color: 'var(--color-text-muted)' }} />
               </div>
               All Instructors
@@ -1578,7 +1578,7 @@ export default function ClassBookingsPage() {
               {(()=>{const cnt=(isOfflineMode&&tab.key==='live')?statusCounts.today:(statusCounts as Record<string,number>)[tab.key];return cnt>0&&(
                 <span className="ml-1.5 rounded-full px-1.5 text-[10px] font-bold"
                   style={{
-                    background:filterStatus===tab.key?'rgba(255,255,255,0.20)':'#EEF2F7',
+                    background:filterStatus===tab.key?'rgba(255,255,255,0.20)':'var(--color-bg-subtle)',
                     color:filterStatus===tab.key?'currentColor':'var(--color-text-muted)',
                   }}>
                   {cnt}
@@ -1679,7 +1679,7 @@ export default function ClassBookingsPage() {
                   </PanelSection>
 
 
-                  <div className="flex items-center justify-between pt-1" style={{borderTop: '1px solid #F1F5F9'}}>
+                  <div className="flex items-center justify-between pt-1" style={{borderTop: '1px solid var(--color-border)'}}>
                     <span className="dm text-[11px]" style={{color: 'var(--color-text-muted)'}}>
                       {panelFilterCount>0?`${panelFilterCount} filter${panelFilterCount>1?'s':''} active`:'No filters active'}
                     </span>

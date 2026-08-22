@@ -243,6 +243,29 @@ AuditLog, MentorAvailability, ClassBooking (and more).
   classes, which also carry `location` and `room`. Module-blocking applies to both.
 - **File uploads**: served at `/uploads/images/:file` and `/uploads/videos/:file`
   without auth. Filenames are random hex, so URLs are unguessable.
+- **Video uploads are direct-to-R2 with no transcode step** (changed Aug 2026).
+  `uploadVideo` (`admin/src/lib/api/upload.ts`) does presign → XHR `PUT` to R2
+  and stores the resulting **MP4 URL** as `contentUrl`; the player streams it
+  with HTTP range requests, so seeking works without an HLS ladder. This
+  removed a blocking server-side FFmpeg job (~13 s for a small file, capped at
+  2 concurrent jobs) from every upload — a 1.6 MB video now completes in ~2 s.
+  Lessons created earlier still hold `master.m3u8` URLs and keep playing, so
+  both forms coexist. `POST /uploads/transcode` and `hls.service.ts` still
+  exist but are **no longer called by any UI** — keep or delete deliberately.
+- **DevTools guard** (`src/lib/devtoolsGuard.ts`, both apps): every 2.5 s it
+  times a `debugger` statement and checks whether a bait object's getter was
+  read by the Console panel. Two consecutive hits redirect to `/blocked`
+  (`window.close()` is attempted first but browsers ignore it for tabs the
+  user opened). Deterrent only — it is defeated by disabling breakpoints, and
+  anyone reading the API with curl or a proxy never opens DevTools at all;
+  the real controls are the forensic watermark and server-side authorisation.
+  Three things it must keep: the `debugger` is built via `new Function`
+  because **SWC strips literal `debugger` statements from production builds**;
+  `/blocked` is in each middleware's public list or it bounces to `/login`
+  and re-trips; and it is inert unless `NODE_ENV=production` with
+  `NEXT_PUBLIC_DEVTOOLS_GUARD` ≠ `off`, so the team can still debug.
+  It navigates only — it never ends the session, so a false positive costs a
+  student their place on the page, not their login.
 - **R2 bucket CORS is required for video uploads.** Images go
   browser → backend → R2 (same-origin), but videos go browser → R2 **directly**
   via a presigned PUT, which the browser preflights. A bucket with no CORS
@@ -278,6 +301,16 @@ AuditLog, MentorAvailability, ClassBooking (and more).
   - Follow this pattern for every new query key.
 - **API clients** live in `src/lib/api/*` per domain (e.g. `instructors.ts`, `support.ts`).
 - Shared UI primitives in `src/components/ui/` (Spinner, PageLoader, FlickerSpinner, etc.).
+- **Never hardcode a light grey for a border, divider or chip in the client.**
+  The client is themed via CSS variables, so a literal like `#F0F2F5` survives
+  the dark swap and renders as a near-white rule (~17:1 contrast against the
+  `#0B0D14` page, where correct borders sit near 2:1). Use `--color-border`
+  for hairlines/separators, `--color-border-strong` for the hover/emphasis
+  step, and `--color-bg-subtle` / `--color-bg-muted` for chip and track
+  surfaces. Note that hairline separators are often drawn as a 1px-tall `div`
+  with a `background`, so auditing only CSS `border` properties misses them.
+  (Auth pages under `(auth)` are deliberately pinned to the light palette —
+  literals there are intentional.)
 
 ---
 

@@ -44,7 +44,9 @@ export function middleware(req: NextRequest) {
   /* Unauthenticated users visiting any protected route → login.
      Forward ?sso= so SSO auto-login works when Root ERP opens the
      root URL with ?sso=TOKEN (middleware would otherwise drop the param). */
-  if (pathname !== '/login' && !hasToken) {
+  /* `/blocked` (DevTools guard landing) must be reachable without a session —
+     otherwise it bounces to /login, which then trips the guard again. */
+  if (pathname !== '/login' && pathname !== '/blocked' && !hasToken) {
     const loginUrl = new URL('/login', req.url)
     const ssoParam = req.nextUrl.searchParams.get('sso')
     if (ssoParam) loginUrl.searchParams.set('sso', ssoParam)

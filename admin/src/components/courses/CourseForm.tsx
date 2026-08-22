@@ -15,6 +15,7 @@ import { useCreateCourse, useUpdateCourse } from '@/lib/api/courses'
 import { useCategories } from '@/lib/api/categories'
 import { useToast } from '@/store/ui.store'
 import { MediaUploadField } from '@/components/ui/MediaUploadField'
+import { courseLanguageOptions } from '@/lib/languages'
 import type { Course, CourseFormValues } from '@/types/index'
 import Spinner from '@/components/ui/Spinner'
 
@@ -317,14 +318,7 @@ export function CourseForm({ course }: CourseFormProps) {
                 <Field label="Language *" error={errors.language?.message}>
                   <Controller name="language" control={control} render={({ field }) => (
                     <Select value={field.value} onChange={field.onChange}
-                      options={[
-                        { value: 'English', label: 'English' },
-                        { value: 'Spanish', label: 'Spanish' },
-                        { value: 'French', label: 'French' },
-                        { value: 'German', label: 'German' },
-                        { value: 'Arabic', label: 'Arabic' },
-                        { value: 'Japanese', label: 'Japanese' },
-                      ]} />
+                      options={courseLanguageOptions(field.value)} />
                   )} />
                 </Field>
               </div>
