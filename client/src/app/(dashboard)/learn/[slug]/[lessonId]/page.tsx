@@ -26,6 +26,7 @@ import { NotesPanel } from '@/components/learn/NotesPanel'
 import { BookmarksPanel } from '@/components/learn/BookmarksPanel'
 import { Button } from '@/components/ui/button'
 import Spinner from '@/components/ui/Spinner'
+import { WatermarkOverlay } from '@/components/video/WatermarkOverlay'
 
 type SidebarTab = 'curriculum' | 'transcript' | 'qa' | 'notes' | 'bookmarks'
 
@@ -453,6 +454,10 @@ function PlayerArea({
           >
             <MediaProvider />
             <DefaultVideoLayout icons={defaultLayoutIcons} />
+            {/* Inside <MediaPlayer> on purpose: Vidstack fullscreens the
+                player element itself, so a sibling overlay would vanish in
+                fullscreen — a child stays composited over the video. */}
+            <WatermarkOverlay />
           </MediaPlayer>
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-3">

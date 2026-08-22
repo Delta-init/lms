@@ -103,9 +103,9 @@ export class SupportController {
     } catch (err) { next(err) }
   }
 
-  performance = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+  performance = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      sendSuccess(res, await this.service.adminPerformance())
+      sendSuccess(res, await this.service.adminPerformance(await requester(req)))
     } catch (err) { next(err) }
   }
 

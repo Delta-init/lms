@@ -239,6 +239,18 @@ AuditLog, MentorAvailability, ClassBooking (and more).
 - **Form validation**: Backend uses Zod → `validate(schema)` per route. Frontend uses
   React Hook Form + Zod resolver. Direct DOM `input.value = x` does **not** update RHF
   state — always use the registered `onChange` or `setValue`.
+- **Forensic video watermark**: every in-app player (Vidstack lessons, Mux live/
+  recordings) renders `client/src/components/video/WatermarkOverlay.tsx` — a fixed
+  faint company mark plus the viewer's email · phone drifting between edge zones
+  every 7 s (`pointer-events: none`, ~35 % opacity). It must live INSIDE the
+  element that enters fullscreen (Vidstack: a `<MediaPlayer>` child; Mux: the
+  `WatermarkedFrame` wrapper, whose own button drives fullscreen because the
+  player's native one is hidden via `--fullscreen-button: none`). Deters class
+  sharing: any screen-recorded leak carries the leaker's identity.
+  A tamper guard (1.5 s interval + the video's own `timeupdate` events) pauses
+  playback and self-heals whenever the overlay is deleted, hidden, or its text
+  altered — "inspect → delete node" now means the tag reappears and the video
+  stops. Only patching the app's JS itself bypasses it.
 
 ---
 

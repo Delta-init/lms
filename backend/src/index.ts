@@ -69,13 +69,12 @@ async function bootstrap() {
        stops them lingering as permanently unscoped. */
     const { LearningPathModel } = await import('@/models/schema.ts')
 
-    const [users, courses, enrollments, orders, coupons, tickets, paths] = await Promise.all([
+    const [users, courses, enrollments, orders, coupons, paths] = await Promise.all([
       UserModel.updateMany({ ...noOrg, role: { $ne: 'super_admin' } }, setOrg),
       CourseModel.updateMany(noOrg, setOrg),
       EnrollmentModel.updateMany(noOrg, setOrg),
       OrderModel.updateMany(noOrg, setOrg),
       CouponModel.updateMany(noOrg, setOrg),
-      SupportTicketModel.updateMany(noOrg, setOrg),
       LearningPathModel.updateMany(noOrg, setOrg),
     ])
 
@@ -102,9 +101,33 @@ async function bootstrap() {
       classCount = result.modifiedCount
     }
 
+    /* Support tickets are personal, so each one belongs to ITS OWNER's
+       academy — never a blanket Dubai stamp. The blanket version mis-homed
+       Bangalore students' pre-org tickets into the Dubai panel; this sync
+       also REPAIRS those rows (org ≠ owner's org), not just missing ones,
+       and is idempotent. Tickets whose owner is gone or org-less are left
+       untouched (visible only in the super admin's "All Orgs" view). */
+    let ticketCount = 0
+    const mismatched = await SupportTicketModel.aggregate([
+      { $lookup: { from: 'users', localField: 'userId', foreignField: '_id', as: 'owner' } },
+      { $unwind: '$owner' },
+      { $match: {
+        'owner.organizationId': { $exists: true, $ne: null },
+        $expr: { $ne: ['$organizationId', '$owner.organizationId'] },
+      } },
+      { $project: { ownerOrg: '$owner.organizationId' } },
+    ])
+    if (mismatched.length > 0) {
+      const result = await SupportTicketModel.bulkWrite(mismatched.map(t => ({
+        updateOne: { filter: { _id: t._id }, update: { $set: { organizationId: t.ownerOrg } } },
+      })))
+      ticketCount = result.modifiedCount
+      logger.info(`✅  Support tickets re-homed to their owner's academy: ${ticketCount}`)
+    }
+
     const total = users.modifiedCount + courses.modifiedCount + classCount
       + enrollments.modifiedCount + orders.modifiedCount + coupons.modifiedCount
-      + tickets.modifiedCount + paths.modifiedCount
+      + ticketCount + paths.modifiedCount
 
     if (total > 0) {
       logger.info(`✅  Org backfill: assigned ${total} record(s) → Dubai Academy`)

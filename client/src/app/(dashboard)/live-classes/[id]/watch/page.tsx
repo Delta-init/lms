@@ -1,15 +1,16 @@
 'use client'
 
-import { use } from 'react'
+import { use, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import {
   Radio, Clock, AlertCircle, Calendar, ChevronLeft,
-  ExternalLink, BookOpen, Users, Tv2,
+  ExternalLink, BookOpen, Users, Tv2, Maximize2, Minimize2,
 } from 'lucide-react'
 import { useWatchAccess } from '@/lib/api/liveClasses'
 import MuxPlayer from '@mux/mux-player-react'
 import { useCurrentUser } from '@/lib/api/user'
+import { WatermarkOverlay } from '@/components/video/WatermarkOverlay'
 import { SessionHomework } from '@/components/live-classes/SessionHomework'
 import { SessionFeedback } from '@/components/live-classes/SessionFeedback'
 import Spinner from '@/components/ui/Spinner'
@@ -45,6 +46,42 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 /* ── Placeholder while stream hasn't started ─────────── */
+/* Wraps the Mux player so the forensic watermark stays on screen in
+   fullscreen: the browser fullscreens THIS wrapper (player + overlay
+   together) via the toggle button, instead of the player element alone. */
+function WatermarkedFrame({ children }: { children: React.ReactNode }) {
+  const frameRef = useRef<HTMLDivElement>(null)
+  const [isFs, setIsFs] = useState(false)
+
+  useEffect(() => {
+    const onChange = () => setIsFs(document.fullscreenElement === frameRef.current)
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+
+  const toggle = () => {
+    if (document.fullscreenElement) void document.exitFullscreen()
+    else void frameRef.current?.requestFullscreen()
+  }
+
+  return (
+    <div
+      ref={frameRef}
+      className={`relative overflow-hidden bg-black ${isFs ? 'flex h-full w-full items-center justify-center' : 'rounded-2xl'}`}>
+      <div className="w-full">{children}</div>
+      <WatermarkOverlay />
+      <button
+        onClick={toggle}
+        aria-label={isFs ? 'Exit fullscreen' : 'Fullscreen'}
+        title={isFs ? 'Exit fullscreen' : 'Fullscreen'}
+        className="absolute right-2.5 top-2.5 z-50 flex h-8 w-8 items-center justify-center rounded-lg transition-opacity hover:opacity-100"
+        style={{ background: 'rgba(0,0,0,0.55)', color: 'white', opacity: 0.65 }}>
+        {isFs ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+      </button>
+    </div>
+  )
+}
+
 function ScheduledPlaceholder({ thumbnailUrl }: { thumbnailUrl?: string }) {
   return (
     <div className="flex aspect-video w-full flex-col items-center justify-center gap-4 rounded-2xl"
@@ -198,7 +235,7 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
         <div className="space-y-4">
           {/* Player or placeholder */}
           {streamUrl ? (
-            <div className="overflow-hidden rounded-2xl bg-black">
+            <WatermarkedFrame>
               <MuxPlayer
                 streamType={isLiveNow ? 'live' : 'on-demand'}
                 src={streamUrl}
@@ -208,9 +245,13 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
                 }}
                 autoPlay={isLiveNow}
                 muted={false}
-                style={{ width: '100%', aspectRatio: '16/9' }}
+                /* Mux's own fullscreen button is hidden (CSS var below): the
+                   player would fullscreen only its own element, dropping the
+                   watermark. WatermarkedFrame provides the fullscreen toggle
+                   for its wrapper instead, so the overlay rides along. */
+                style={{ width: '100%', aspectRatio: '16/9', ['--fullscreen-button' as never]: 'none' }}
               />
-            </div>
+            </WatermarkedFrame>
           ) : (
             <ScheduledPlaceholder thumbnailUrl={data.thumbnailUrl} />
           )}

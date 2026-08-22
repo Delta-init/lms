@@ -36,21 +36,15 @@ const isStaff = (r: Requester) =>
   || r.role === '4x_admin' || r.role === 'digital_marketing_admin' || r.role === 'ai_admin'
 
 /* ─── Tenant isolation ─────────────────────────────────
-   Returns the org predicate for a caller, or null when no
-   scoping applies:
-     • super_admin sees every organization
-     • a caller with no org context is not scoped
-   Tickets that predate organizationId stay visible to everyone. */
+   List predicate for a caller, or null when no scoping applies. Scoping
+   follows the RESOLVED org context — for a super_admin that is the topbar
+   org switcher (X-Organization-Id → req.user.organizationId), so "Dubai"
+   selected shows only Dubai's tickets and "All Orgs" shows everything.
+   Strict equality: the boot migration re-homes every ticket to its owner's
+   academy, so org-less tickets no longer exist in steady state. */
 const orgScope = (r?: Requester): Record<string, unknown> | null => {
-  if (!r || r.role === 'super_admin')                                   return null
-  if (!r.organizationId || !Types.ObjectId.isValid(r.organizationId))   return null
-  return {
-    $or: [
-      { organizationId: new Types.ObjectId(r.organizationId) },
-      { organizationId: null },
-      { organizationId: { $exists: false } },
-    ],
-  }
+  if (!r?.organizationId || !Types.ObjectId.isValid(r.organizationId)) return null
+  return { organizationId: new Types.ObjectId(r.organizationId) }
 }
 
 /** Upper bound on a free-text search term before it reaches $regex. */
@@ -194,15 +188,16 @@ export class SupportService {
     return this.populate(ticketId)
   }
 
-  /* ── Admin: per-program performance stats ──────────── */
-  async adminPerformance(): Promise<ProgramStat[]> {
+  /* ── Admin: per-program performance stats (org-scoped like the list) ── */
+  async adminPerformance(requester?: Requester): Promise<ProgramStat[]> {
+    const scoped = orgScope(requester) ?? {}
     const programs: { id: string; label: string }[] = [
       { id: 'ai',                 label: 'AI' },
       { id: '4x-trading',        label: 'FOREX' },
       { id: 'digital-marketing', label: 'Digital Marketing' },
     ]
     return Promise.all(programs.map(async prog => {
-      const tickets = await SupportTicketModel.find({ program: prog.id }).lean()
+      const tickets = await SupportTicketModel.find({ program: prog.id, ...scoped }).lean()
       const total    = tickets.length
       const open     = tickets.filter(t => t.status === 'open').length
       const pending  = tickets.filter(t => t.status === 'pending').length
@@ -232,10 +227,14 @@ export class SupportService {
       }
       return
     }
-    // staff are confined to their own organization; tickets with no
-    // organizationId predate the field and stay readable by everyone
-    const scoped = orgScope(requester)
-    if (scoped && ticket.organizationId && String(ticket.organizationId) !== requester.organizationId) {
+    // Staff are confined to their own organization. super_admin opens any
+    // ticket regardless of the org switcher — the switcher filters LISTS,
+    // it is not an access boundary (matches utils/tenancy.ts rule 1).
+    if (
+      requester.role !== 'super_admin' &&
+      requester.organizationId && ticket.organizationId &&
+      String(ticket.organizationId) !== String(requester.organizationId)
+    ) {
       throw new SupportError('FORBIDDEN', 'You do not have access to this ticket', 403)
     }
     // category-scoped admins can only see their program's tickets
