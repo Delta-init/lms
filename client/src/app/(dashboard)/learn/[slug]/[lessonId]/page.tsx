@@ -442,7 +442,7 @@ function PlayerArea({
 
   return (
     <div className="space-y-2">
-      <div className="relative overflow-hidden rounded-2xl bg-black" style={{ aspectRatio: '16 / 9' }}>
+      <div data-protected-content className="relative overflow-hidden rounded-2xl bg-black" style={{ aspectRatio: '16 / 9' }}>
         {lesson.contentUrl ? (
           <MediaPlayer
             ref={playerRef}

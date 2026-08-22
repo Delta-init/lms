@@ -67,6 +67,7 @@ function WatermarkedFrame({ children }: { children: React.ReactNode }) {
   return (
     <div
       ref={frameRef}
+      data-protected-content
       className={`relative overflow-hidden bg-black ${isFs ? 'flex h-full w-full items-center justify-center' : 'rounded-2xl'}`}>
       <div className="w-full">{children}</div>
       <WatermarkOverlay />

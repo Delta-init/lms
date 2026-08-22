@@ -7,6 +7,7 @@ import { useCurrentUser } from '@/lib/api/user'
 import { useMyOrganization } from '@/lib/currency'
 import { useOrgStore } from '@/store/org.store'
 import { DevtoolsGuard } from '@/components/security/DevtoolsGuard'
+import { ContextMenuGuard } from '@/components/security/ContextMenuGuard'
 
 /* Resolves which academy's clock this session runs on and applies it:
    super admin → the org switcher ("All Orgs" → Dubai); everyone else → their
@@ -34,6 +35,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <DevtoolsGuard />
+      <ContextMenuGuard />
       <TimezoneScope>{children}</TimezoneScope>
     </QueryClientProvider>
   )
