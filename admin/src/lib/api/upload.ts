@@ -263,7 +263,7 @@ export async function uploadVideo(
   return result.publicUrl
 }
 
-/* ── React Query hooks ── */
+/* ── React Query hooks ── --*/
 export function useUploadImage() {
   return useMutation({
     mutationFn: (file: File) => uploadImage(file),
