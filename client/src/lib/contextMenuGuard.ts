@@ -1,39 +1,46 @@
 'use client'
 
 /* ─────────────────────────────────────────────────────
-   contextMenuGuard — suppress the browser menu over protected media only.
+   contextMenuGuard — suppress the browser context menu across the app.
 
-   Scoped deliberately. A blanket `contextmenu` block is one line, but it also
-   removes paste and spell-check from every form field — which on this app
-   means the KYC registration form, support tickets and assignment notes — and
-   removes "open in new tab" from every course link. Those cost real users
-   something and protect nothing.
+   Site-wide by request: every page of both portals. The menu is blocked over
+   text, images, links, video and empty space alike, which is what removes
+   "Save image as…", "Save video as…", "View page source" and "Inspect" from
+   the right-click path.
 
-   So the rule is narrow:
-     • BLOCK  over a media element or anything inside [data-protected-content]
-       — this is what removes the player's "Save video as…" entry
-     • ALLOW  everywhere else, and ALWAYS inside editable fields, even if one
-       is nested inside a protected region
+   ONE exemption, deliberate:
+     • ALWAYS allow inside editable fields — input, textarea, select and
+       contenteditable. Blocking there removes right-click → Paste and
+       spell-check, and this app's longest forms are the KYC registration
+       flow, support tickets and assignment notes. Users paste into those
+       constantly; taking that away costs real people something every day and
+       protects nothing, because a form field holds the user's own input.
+
+   Everything else is blocked, including links — so "open in new tab" is gone
+   app-wide. That is a real navigation cost and it is the accepted trade.
 
    Worth being clear about what this is: a speed bump for casual saving, not a
-   control. Ctrl+S, view-source, DevTools, the direct CDN URL and screen
-   recording are all untouched. The forensic watermark remains the thing that
-   actually survives a determined copier.
+   control. Ctrl+S, Ctrl+U, F12, the direct CDN URL, screen recording and
+   simply reading the API with curl are all untouched — none of them go
+   through this menu. The forensic watermark remains the thing that actually
+   survives a determined copier.
 ───────────────────────────────────────────────────── */
 
 const EDITABLE = 'input, textarea, select, [contenteditable=""], [contenteditable="true"]'
-const PROTECTED = '[data-protected-content], video, media-player, mux-player'
 
 let installed = false
 
 function onContextMenu(e: MouseEvent): void {
   const target = e.target as Element | null
-  if (!target || typeof target.closest !== 'function') return
+
+  /* No usable target (or a non-Element, e.g. the bare document) — there is
+     nothing to exempt, so block. */
+  if (!target || typeof target.closest !== 'function') { e.preventDefault(); return }
 
   /* Never interfere with typing, pasting or spell-check. */
   if (target.closest(EDITABLE)) return
 
-  if (target.closest(PROTECTED)) e.preventDefault()
+  e.preventDefault()
 }
 
 export function installContextMenuGuard(): () => void {
