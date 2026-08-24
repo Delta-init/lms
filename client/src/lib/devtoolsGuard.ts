@@ -1,7 +1,7 @@
 'use client'
 
 /* ─────────────────────────────────────────────────────
-   devtoolsGuard — navigate away when DevTools appears to be open.
+   devtoolsGuard — blank the page when DevTools appears to be open.
 
    TWO HEURISTICS, both requested:
 
@@ -13,12 +13,22 @@
       getter only runs if something actually *renders* that object, which in
       practice means the Console panel is painting it.
 
+   WHERE IT SENDS PEOPLE — `about:blank`, not a route of ours.
+   This used to navigate to `/blocked`, a real page on our own origin. That
+   was the weak part: the URL is fixed and guessable, it can be loaded
+   directly without ever tripping the guard, and its own source names the
+   mechanism that sent you there. `about:blank` is a fresh empty document —
+   no markup of ours, no bundle, nothing to read and nothing to work
+   backwards from.
+
    HONEST LIMITS — this deters, it does not protect:
      • `window.close()` is ignored for a tab the user opened themselves, so
-       the action is a redirect, not a close.
+       the action is a navigation, not a close.
      • Both heuristics are defeated by trivial means (disable breakpoints,
        "Never pause here", or just reading the API with curl/a proxy, which
        never opens DevTools at all).
+     • Sources already fetched before the trip may linger in the DevTools
+       Sources panel; a client-side guard cannot evict them.
      • They can false-positive on slow devices, so this waits for
        STRIKES_TO_TRIP consecutive detections and skips hidden tabs, where
        background throttling makes any timing meaningless.
@@ -26,12 +36,11 @@
    SAFETY VALVES — deliberately kept, so this cannot brick the app:
      • never runs outside production
      • NEXT_PUBLIC_DEVTOOLS_GUARD=off disables it entirely
-     • never runs on the landing page itself (that would loop)
      • it navigates only; it does NOT end the session, so a false positive
-       costs a student their place on the page, not their login or progress.
+       costs a place on the page, not a login or progress. Recovery is
+       re-entering the URL — the blank page offers no way back, which is the
+       whole point of it being blank.
 ───────────────────────────────────────────────────── */
-
-export const BLOCKED_PATH = '/blocked'
 
 const CHECK_INTERVAL_MS     = 2_500
 const DEBUGGER_THRESHOLD_MS = 150
@@ -77,10 +86,17 @@ function trip(): void {
   /* Only honoured for script-opened windows; harmless to attempt. */
   try { window.close() } catch { /* ignored */ }
 
-  if (!window.location.pathname.startsWith(BLOCKED_PATH)) {
-    /* replace(), not assign(): Back must not return to the protected page. */
-    window.location.replace(BLOCKED_PATH)
-  }
+  /* replace(), not assign(): Back must not return to the protected page. */
+  try { window.location.replace('about:blank') } catch { /* ignored */ }
+
+  /* The navigation above is queued, not instant. Empty the current document
+     in the meantime so nothing is left on screen — or in the Elements panel —
+     during the gap, and so the page still goes blank if a browser refuses the
+     about:blank navigation outright. */
+  try {
+    document.documentElement.innerHTML = ''
+    document.title = ''
+  } catch { /* ignored */ }
 }
 
 function tick(): void {
@@ -110,8 +126,6 @@ function tick(): void {
 
 export function installDevtoolsGuard(): () => void {
   if (installed || !guardEnabled()) return () => {}
-  /* Never arm on the blocked page itself — it would redirect to itself. */
-  if (window.location.pathname.startsWith(BLOCKED_PATH)) return () => {}
 
   installed = true
   timer = setInterval(tick, CHECK_INTERVAL_MS)

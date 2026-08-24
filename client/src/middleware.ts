@@ -6,10 +6,7 @@ const GUEST_ONLY = ['/login', '/register']
 /* Public: anyone can visit. Used for password reset / email
    verification flows that need to work whether or not the user
    is signed in (links arrive via email). */
-/* `/blocked` is where the DevTools guard sends people. It must be reachable
-   without a session: bouncing it to /login turns a "page closed" notice into
-   an apparent logout, and the guard would then fire again on the login page. */
-const PUBLIC = ['/forgot-password', '/reset-password', '/verify-email', '/blocked']
+const PUBLIC = ['/forgot-password', '/reset-password', '/verify-email']
 
 function isAuthenticated(req: NextRequest): boolean {
   return !!req.cookies.get(ACCESS_COOKIE)?.value
