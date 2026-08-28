@@ -1,15 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 const ACCESS_COOKIE = 'lms_at'
+const IMPERSONATION_COOKIE = 'lms_imp_at'
 /* Guest-only: signed-in users get bounced away from these */
 const GUEST_ONLY = ['/login', '/register']
 /* Public: anyone can visit. Used for password reset / email
    verification flows that need to work whether or not the user
    is signed in (links arrive via email). */
-const PUBLIC = ['/forgot-password', '/reset-password', '/verify-email']
+/* `/imp/enter` redeems an impersonation handoff code. It must be reachable
+   with no session: the super admin arriving from the admin portal has no
+   client cookie yet, and bouncing them to /login would discard the code. */
+const PUBLIC = ['/forgot-password', '/reset-password', '/verify-email', '/imp/enter']
 
+/* A live client-portal impersonation rides its own cookie, so a super admin
+   arriving with only that one is authenticated as far as routing is concerned.
+   The API still decides whether the session means anything. */
 function isAuthenticated(req: NextRequest): boolean {
   return !!req.cookies.get(ACCESS_COOKIE)?.value
+      || !!req.cookies.get(IMPERSONATION_COOKIE)?.value
 }
 
 export function middleware(req: NextRequest) {

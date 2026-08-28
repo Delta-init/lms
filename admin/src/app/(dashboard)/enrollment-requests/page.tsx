@@ -26,6 +26,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useDeleteUser } from '@/lib/api/users'
 import { useDocumentUrl } from '@/lib/api/documents'
 import Spinner from '@/components/ui/Spinner'
+import { programLabel } from '@/lib/programs'
 
 /* ── Constants ─────────────────────────────────────── */
 const CATEGORY_META: Record<ProgramCategory, { label: string; color: string; bg: string; Icon: React.ComponentType<{ size?: number }> }> = {
@@ -701,7 +702,7 @@ function ApplicationDetailModal({ user, scopeCategory, onClose, onApprove, onRej
                       {app.programs.map(p => (
                         <span key={p} className="rounded-lg px-2.5 py-1 text-xs font-medium"
                           style={{ background: 'rgba(0,87,184,0.12)', color: '#0057b8', border: '1px solid rgba(0,87,184,0.25)' }}>
-                          {p}
+                          {programLabel(p)}
                         </span>
                       ))}
                     </div>

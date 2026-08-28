@@ -177,6 +177,31 @@ export function useImpersonateUser() {
   })
 }
 
+/* ─── View a student in the CLIENT portal ─────────────────────
+   Returns a one-time code, not a token. The admin app cannot hold a client
+   session: the portals are separate origins and the cookies are host-only, so
+   the code is redeemed by the client origin itself. `clientUrl` is built by the
+   backend from CLIENT_URL and is the only thing this app needs to open.
+──────────────────────────────────────────────────────────────── */
+export interface ClientImpersonationHandoff {
+  code:            string
+  expiresIn:       number
+  impersonationId: string
+  clientUrl:       string
+  user:            { id: string; name: string; email: string }
+}
+
+export function useImpersonateClient() {
+  return useMutation({
+    mutationFn: async (userId: string): Promise<ClientImpersonationHandoff> => {
+      const res = await api.post<{ success: true; data: ClientImpersonationHandoff }>(
+        `/admin/users/${userId}/impersonate-client`,
+      )
+      return res.data.data
+    },
+  })
+}
+
 /* ─── Delete user (hard delete) ──────────────────────────────── */
 export function useDeleteUser() {
   const qc = useQueryClient()

@@ -81,45 +81,303 @@ class NodemailerEmailSender implements EmailSender {
   }
 }
 
-/* ─── Singleton ──────────────────────────────────────── */
-function buildSender(): EmailSender {
-  const host = process.env['SMTP_HOST']
-  const port = Number(process.env['SMTP_PORT'] ?? 587)
-  const user = process.env['SMTP_USER']
-  const pass = process.env['SMTP_PASS']
-  const from = process.env['EMAIL_FROM']
+/* ─────────────────────────────────────────────────────
+   Failure classification
+   ─────────────────────────────────────────────────────
+   Three outcomes, and conflating them is how mail gets lost or spammed:
 
-  if (host && user && pass && from) {
-    const secure = process.env['SMTP_SECURE']
-      ? process.env['SMTP_SECURE'] === 'true'
-      : port === 465   // 465 = implicit TLS, 587 = STARTTLS, 25 = plain
+     PERMANENT — the address is wrong. No mailbox, no retry and no failover can
+                 fix it, so fail fast and stop.
+     QUOTA     — this mailbox is out of daily allowance. The message is fine;
+                 the SENDER is not. Park this transport and try the next one.
+     TRANSIENT — anything else (network, timeout, 4xx). Worth retrying later.
 
-    const transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure,
-      auth: { user, pass },
-    })
+   550 alone cannot decide: Gmail returns it both for "Daily user sending limit
+   exceeded" and for "No such user". The response text is what separates them.
+─────────────────────────────────────────────────────── */
+type Verdict = 'permanent' | 'quota' | 'transient'
 
-    /* Verify once at startup — failure is non-fatal but logs loudly. */
-    void transporter.verify()
-      .then(() => logger.info({ host, port, secure, from }, '📧  Email backend: SMTP (nodemailer) — connection verified'))
-      .catch(err => logger.error({ err, host, port }, '📧  SMTP verify failed — emails will still be attempted but may fail'))
+function classify(err: unknown): Verdict {
+  const e    = err as { responseCode?: number; response?: string; message?: string }
+  const code = e?.responseCode
+  const text = String(e?.response ?? e?.message ?? '').toLowerCase()
 
-    return new NodemailerEmailSender(transporter, from)
+  if (/daily (user )?sending limit|sending quota|quota exceeded|5\.4\.5|domain policy size per unit time|too many (messages|recipients)|rate limit|try again later/.test(text)) {
+    return 'quota'
+  }
+  if (/no such user|user unknown|mailbox unavailable|does not exist|invalid recipient|address rejected|recipient rejected|5\.1\.1/.test(text)) {
+    return 'permanent'
+  }
+  /* An unqualified 5xx is permanent by definition; 4xx is explicitly temporary. */
+  if (typeof code === 'number' && code >= 500 && code < 600) return 'permanent'
+  return 'transient'
+}
+
+export class PermanentEmailError extends Error {}
+
+/* ─────────────────────────────────────────────────────
+   Transport pool — primary mailbox, then backup
+   ─────────────────────────────────────────────────────
+   Failover is driven by the SMTP RESPONSE, never by a message counter we keep
+   ourselves. Google meters on a rolling 24-hour window and counts recipients
+   rather than messages, so any local tally drifts from the real one: we would
+   switch either too early (wasting paid capacity) or too late (bouncing mail).
+   The server already tells us the moment we are out — that is the signal.
+
+   A transport that reports quota is parked for SMTP_QUOTA_COOLDOWN_MIN and the
+   next one takes over. Because the window is rolling, capacity trickles back,
+   so the cooldown re-probes rather than waiting for a midnight that never
+   really happens.
+─────────────────────────────────────────────────────── */
+export interface PooledTransport {
+  name:          string
+  transporter:   Transporter
+  from:          string
+  cooldownUntil: number
+}
+
+const COOLDOWN_MS = Number(process.env['SMTP_QUOTA_COOLDOWN_MIN'] ?? 60) * 60_000
+
+export class PooledEmailSender implements EmailSender {
+  constructor(private readonly transports: PooledTransport[]) {}
+
+  /** Which mailboxes are usable right now — for diagnostics and tests. */
+  status(): { name: string; cooling: boolean; cooldownUntil: number }[] {
+    const now = Date.now()
+    return this.transports.map(t => ({
+      name: t.name, cooling: t.cooldownUntil > now, cooldownUntil: t.cooldownUntil,
+    }))
   }
 
-  logger.info('📧  Email backend: console (set SMTP_HOST, SMTP_USER, SMTP_PASS, EMAIL_FROM to enable real sending)')
+  async send(msg: EmailMessage): Promise<void> {
+    const now = Date.now()
+    const available = this.transports.filter(t => t.cooldownUntil <= now)
+
+    /* Every mailbox is parked. Throwing keeps the outbox row pending so the
+       drain replays it once a cooldown lapses — the message is late, not lost. */
+    if (available.length === 0) {
+      throw new Error('All email transports are in quota cooldown')
+    }
+
+    let lastErr: unknown
+    for (const t of available) {
+      try {
+        const info = await t.transporter.sendMail({
+          from: t.from, to: msg.to, subject: msg.subject, html: msg.html, text: msg.text,
+        })
+        logger.debug({ messageId: info.messageId, to: msg.to, via: t.name }, 'email sent')
+        return
+      } catch (err) {
+        lastErr = err
+        const verdict = classify(err)
+
+        if (verdict === 'permanent') {
+          logger.warn({ to: msg.to, via: t.name, err }, 'permanent rejection — not retrying')
+          throw new PermanentEmailError(String((err as Error)?.message ?? 'permanent rejection'))
+        }
+        if (verdict === 'quota') {
+          t.cooldownUntil = Date.now() + COOLDOWN_MS
+          logger.warn(
+            { via: t.name, cooldownMin: COOLDOWN_MS / 60_000 },
+            'mailbox hit its sending limit — failing over to the next one',
+          )
+          continue
+        }
+        logger.warn({ via: t.name, err }, 'transient send failure — trying next transport')
+      }
+    }
+    throw lastErr instanceof Error ? lastErr : new Error('All email transports failed')
+  }
+}
+
+/* ─────────────────────────────────────────────────────
+   Mailbox env resolution
+   ─────────────────────────────────────────────────────
+   The two mailboxes do NOT share a key naming scheme — the primary predates
+   the pool, so it uses SMTP_HOST/EMAIL_FROM while the backup uses
+   SMTP_BACKUP_HOST/SMTP_BACKUP_EMAIL_FROM. Deriving the backup's names by
+   gluing a prefix onto the primary's produced SMTP_BACKUP_SMTP_HOST, which
+   matches nothing: the backup silently never loaded and the pool ran with one
+   mailbox. Nothing failed until the primary hit its cap — the one moment the
+   backup exists for.
+
+   So the key names are listed explicitly. Pure and exported, because this is
+   exactly the wiring that needs a regression test.
+─────────────────────────────────────────────────────── */
+export interface MailboxKeys {
+  host: string; port: string; user: string; pass: string; secure: string; from: string
+}
+
+export const PRIMARY_KEYS: MailboxKeys = {
+  host: 'SMTP_HOST', port: 'SMTP_PORT', user: 'SMTP_USER',
+  pass: 'SMTP_PASS', secure: 'SMTP_SECURE', from: 'EMAIL_FROM',
+}
+export const BACKUP_KEYS: MailboxKeys = {
+  host: 'SMTP_BACKUP_HOST', port: 'SMTP_BACKUP_PORT', user: 'SMTP_BACKUP_USER',
+  pass: 'SMTP_BACKUP_PASS', secure: 'SMTP_BACKUP_SECURE', from: 'SMTP_BACKUP_EMAIL_FROM',
+}
+
+export interface MailboxConfig {
+  host: string; port: number; user: string; pass: string; secure: boolean; from: string
+}
+
+/** Resolve one mailbox from env, or null when it is not configured. */
+export function resolveMailbox(
+  keys: MailboxKeys,
+  env: Record<string, string | undefined> = process.env,
+): MailboxConfig | null {
+  const host = env[keys.host]?.trim()
+  const user = env[keys.user]?.trim()
+  const pass = env[keys.pass]
+  /* Gmail rejects a From the authenticated account is not allowed to send as,
+     so each mailbox carries its own; EMAIL_FROM is the last resort. */
+  const from = env[keys.from]?.trim() || env['EMAIL_FROM']?.trim()
+
+  if (!host || !user || !pass || !from) return null
+
+  const port = Number(env[keys.port] ?? 587)
+  const secure = env[keys.secure]
+    ? env[keys.secure] === 'true'
+    : port === 465   // 465 = implicit TLS, 587 = STARTTLS, 25 = plain
+
+  return { host, port, user, pass, secure, from }
+}
+
+/* ─── Singleton ──────────────────────────────────────── */
+function buildTransport(keys: MailboxKeys, name: string): PooledTransport | null {
+  const cfg = resolveMailbox(keys)
+  if (!cfg) return null
+  const { host, port, user, pass, secure, from } = cfg
+
+  const transporter = nodemailer.createTransport({ host, port, secure, auth: { user, pass } })
+
+  void transporter.verify()
+    .then(() => logger.info({ name, host, port, secure, from }, 'mailbox verified'))
+    .catch(err => logger.error({ err, name, host, port }, 'mailbox verify failed — sends will still be attempted'))
+
+  return { name, transporter, from, cooldownUntil: 0 }
+}
+
+export let emailPool: { status(): { name: string; cooling: boolean; cooldownUntil: number }[] } | null = null
+
+function buildSender(): EmailSender {
+  /* A test run must never reach a real mailbox. Suites load the project .env,
+     so SMTP_* arrive fully populated and the pool would happily post to Gmail
+     for every @t.local address a fixture invents — burning real daily quota and
+     generating bounces that damage sender reputation. Three suites already
+     blanked these by hand; relying on every future suite to remember is the
+     kind of guard that fails exactly once and expensively. */
+  if (process.env['NODE_ENV'] === 'test') {
+    logger.info('Email backend: console (NODE_ENV=test — real SMTP is disabled)')
+    return new ConsoleEmailSender()
+  }
+
+  const transports = [
+    buildTransport(PRIMARY_KEYS, 'primary'),
+    buildTransport(BACKUP_KEYS, 'backup'),
+  ].filter((t): t is PooledTransport => t !== null)
+
+  if (transports.length > 0) {
+    const pool = new PooledEmailSender(transports)
+    emailPool = pool
+    logger.info(
+      { mailboxes: transports.map(t => t.name + ' <' + t.from + '>') },
+      'Email backend: SMTP pool of ' + transports.length + ' mailbox(es), failover on quota',
+    )
+    return pool
+  }
+
+  logger.info('Email backend: console (set SMTP_HOST, SMTP_USER, SMTP_PASS, EMAIL_FROM to enable real sending)')
   return new ConsoleEmailSender()
+}
+
+const rawSender = buildSender()
+
+/* ─────────────────────────────────────────────────────
+   Durable outbox
+   ─────────────────────────────────────────────────────
+   The mailbox pool raises the ceiling; this is what makes "no notification is
+   lost" actually true. Every message is PERSISTED before it is attempted, so
+   the row survives a refused send, a crashed process and a redeploy.
+
+   Callers stay fire-and-forget (`void sendX().catch(log)`), which is why the
+   old behaviour lost mail: the catch was the end of the story. Now the failure
+   only leaves the row `pending`, and the drain job retries it with backoff
+   until it goes out.
+
+   Set EMAIL_OUTBOX=off to bypass and send inline — useful in tests and for
+   anyone who would rather have the old behaviour back.
+─────────────────────────────────────────────────────── */
+const OUTBOX_ENABLED = process.env['EMAIL_OUTBOX'] !== 'off'
+
+/* 1m, 5m, 15m, 1h, 4h, 12h, then daily — a quota block clears in hours, not
+   seconds, so the tail is deliberately long rather than a tight retry spin. */
+const BACKOFF_MIN = [1, 5, 15, 60, 240, 720, 1440]
+export const MAX_EMAIL_ATTEMPTS = 10
+
+export function backoffFor(attempts: number): number {
+  const idx = Math.min(attempts, BACKOFF_MIN.length - 1)
+  return BACKOFF_MIN[idx]! * 60_000
+}
+
+/** Attempt one already-persisted row. Exported so the drain job reuses it. */
+export async function deliverOutboxRow(row: {
+  id: string; to: string; subject: string; html: string; text?: string; attempts: number
+}): Promise<'sent' | 'retry' | 'failed'> {
+  const { EmailOutboxModel } = await import('@/models/schema.ts')
+  try {
+    await rawSender.send({ to: row.to, subject: row.subject, html: row.html, text: row.text })
+    await EmailOutboxModel.updateOne({ _id: row.id }, {
+      $set: { status: 'sent', sentAt: new Date() }, $unset: { lastError: 1 },
+    })
+    return 'sent'
+  } catch (err) {
+    const attempts   = row.attempts + 1
+    const permanent  = err instanceof PermanentEmailError
+    const exhausted  = attempts >= MAX_EMAIL_ATTEMPTS
+    const message    = String((err as Error)?.message ?? err).slice(0, 500)
+
+    if (permanent || exhausted) {
+      await EmailOutboxModel.updateOne({ _id: row.id }, {
+        $set: { status: 'failed', attempts, lastError: message },
+      })
+      logger.error({ to: row.to, attempts, permanent }, 'email permanently failed — needs a human')
+      return 'failed'
+    }
+
+    await EmailOutboxModel.updateOne({ _id: row.id }, {
+      $set: { attempts, lastError: message, nextAttemptAt: new Date(Date.now() + backoffFor(attempts)) },
+    })
+    return 'retry'
+  }
 }
 
 /* Subjects embed caller-supplied record fields (class titles, course names).
    Strip CR/LF centrally so no call site can forge extra SMTP headers, and cap
    the length. Wrapping the sender means a new helper cannot forget to do it. */
-const rawSender = buildSender()
-
 const sender: EmailSender = {
-  send: msg => rawSender.send({ ...msg, subject: sanitiseSubject(msg.subject) }),
+  send: async msg => {
+    const clean = { ...msg, subject: sanitiseSubject(msg.subject) }
+
+    if (!OUTBOX_ENABLED) {
+      await rawSender.send(clean)
+      return
+    }
+
+    const { EmailOutboxModel } = await import('@/models/schema.ts')
+    /* Persist FIRST. If the process dies between here and the send, the drain
+       picks it up; if we sent first, the record of it would not exist. */
+    const row = await EmailOutboxModel.create({
+      to: clean.to, subject: clean.subject, html: clean.html, text: clean.text,
+    })
+
+    /* Try immediately so normal mail is not delayed by the drain interval.
+       A failure is already recorded, so it is safe to swallow here. */
+    await deliverOutboxRow({
+      id: String(row._id), to: clean.to, subject: clean.subject,
+      html: clean.html, text: clean.text, attempts: 0,
+    })
+  },
 }
 
 /* ─── Branded HTML wrapper ───────────────────────────── */

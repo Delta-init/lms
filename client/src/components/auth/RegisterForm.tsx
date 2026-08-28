@@ -12,6 +12,7 @@ import { api } from '@/lib/axios'
 import { cn } from '@/lib/utils'
 import { TermsModal } from './TermsModal'
 import Spinner from '@/components/ui/Spinner'
+import { PROGRAMS, PROGRAM_GROUPS, programLabel } from '@/lib/programs'
 
 /* ── Types ─────────────────────────────────────────── */
 interface FormData {
@@ -36,16 +37,6 @@ const INITIAL: FormData = {
   paymentMethod: '', password: '', confirmPassword: '', termsAccepted: false,
 }
 
-const PROGRAMS = [
-  { id: 'forex-beginner',     label: 'Forex: Beginner',      group: 'Forex Academy' },
-  { id: 'forex-intermediate', label: 'Forex: Intermediate',   group: 'Forex Academy' },
-  { id: 'forex-advanced',     label: 'Forex: Advanced',       group: 'Forex Academy' },
-  { id: 'dm-social',          label: 'Social Media Marketing', group: 'Digital Marketing' },
-  { id: 'dm-seo',             label: 'SEO & Content',          group: 'Digital Marketing' },
-  { id: 'ai-fundamentals',    label: 'AI Fundamentals',        group: 'AI Academy' },
-  { id: 'jura-core',          label: 'JURA Program',           group: 'JURA Academy' },
-  { id: 'ai-trading',         label: 'AI Trading Automation',  group: 'AI Academy' },
-]
 
 const STEP_LABELS = ['Personal', 'Address & Docs', 'Program', 'Account']
 const STEP_ICONS  = ['👤', '📄', '🎓', '🔐']
@@ -1572,7 +1563,7 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
         <Field label="Select Programs & Courses *" error={errors.programs}>
           <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-muted)] p-4">
             <div className="flex flex-col gap-4">
-              {['Forex Academy','Digital Marketing','AI Academy'].map(group => (
+              {PROGRAM_GROUPS.map(group => (
                 <div key={group}>
                   <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">{group}</p>
                   <div className="flex flex-wrap gap-2">

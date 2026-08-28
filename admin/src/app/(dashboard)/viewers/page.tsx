@@ -14,6 +14,7 @@ import { useCurrentUser } from '@/lib/api/user'
 import { useToast } from '@/store/ui.store'
 import Spinner from '@/components/ui/Spinner'
 import { useDocumentUrl } from '@/lib/api/documents'
+import { programLabel } from '@/lib/programs'
 
 function fmtDate(d?: string) {
   if (!d) return '—'
@@ -233,7 +234,7 @@ function ViewerDetailModal({ user, onClose }: { user: AdminUser; onClose: () => 
                       {app.programs.map(p => (
                         <span key={p} className="rounded-lg px-2.5 py-1 text-xs font-medium"
                           style={{ background: 'rgba(99,102,241,0.12)', color: '#818CF8', border: '1px solid rgba(99,102,241,0.25)' }}>
-                          {p}
+                          {programLabel(p)}
                         </span>
                       ))}
                     </div>

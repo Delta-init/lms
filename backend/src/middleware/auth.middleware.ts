@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express'
 import { verifyAccessToken } from '@/utils/jwt.ts'
 import { sendError } from '@/utils/response.ts'
-import { ACCESS_COOKIE, ADMIN_ACCESS_COOKIE } from '@/utils/authCookies.ts'
+import { ACCESS_COOKIE, ADMIN_ACCESS_COOKIE, IMPERSONATION_COOKIE } from '@/utils/authCookies.ts'
 import { logger } from '@/utils/logger.ts'
 import type { UserRole, ProgramType } from '@/types/index.ts'
 
@@ -112,6 +112,36 @@ async function applyImpersonation(
   return true
 }
 
+/* ─────────────────────────────────────────────────────
+   Client-portal impersonation is READ-ONLY
+   ─────────────────────────────────────────────────────
+   Anything written while impersonating is attributed to the STUDENT: a booking
+   they did not make, an assignment they did not submit, an order they did not
+   place. None of that is distinguishable from their own activity afterwards,
+   which makes support disputes unresolvable. The feature exists to see what
+   the student sees, so reads are all it grants.
+
+   Enforced here rather than as a route-level middleware so it cannot be
+   forgotten on one of the 260 endpoints.
+
+   Deliberately NOT applied to authenticateAdmin: admin-portal impersonation
+   predates this and staff rely on it to act on an account. Only the client
+   portal is read-only.
+───────────────────────────────────────────────────── */
+const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+
+function denyImpersonatedWrite(req: Request, res: Response): boolean {
+  if (!req.user?.impersonationId) return true
+  if (READ_METHODS.has(req.method)) return true
+  sendError(
+    res,
+    'IMPERSONATION_READ_ONLY',
+    'This impersonation session is read-only. Exit impersonation to make changes.',
+    403,
+  )
+  return false
+}
+
 /** Reject a caller whose account is gone or disabled. Returns false when handled. */
 function denyIfUnusable(res: Response, account: AccountState | null): boolean {
   if (!account) {
@@ -132,17 +162,24 @@ function denyIfUnusable(res: Response, account: AccountState | null): boolean {
    cookie. Falls back to `Authorization: Bearer` for
    non-browser clients (CLI, mobile). Attaches decoded
    user to req.user on success.
+
+   `lms_imp_at` wins when present: a super admin viewing the client portal as a
+   student usually has their OWN student session in the same browser, and both
+   cookies are sent on every request. Impersonation is the deliberate,
+   short-lived, revocable one, so it takes precedence — and because it lives in
+   a separate cookie, exiting restores the real session untouched.
 ───────────────────────────────────────────────────── */
 export async function authenticate(
   req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> {
+  const impersonationToken = req.cookies?.[IMPERSONATION_COOKIE]
   const cookieToken = req.cookies?.[ACCESS_COOKIE]
   const authHeader  = req.headers['authorization']
   const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
 
-  const token = cookieToken ?? bearerToken
+  const token = impersonationToken ?? cookieToken ?? bearerToken
 
   if (!token) {
     sendError(res, 'MISSING_TOKEN', 'Authentication required', 401)
@@ -165,6 +202,7 @@ export async function authenticate(
     if (account!.organizationId) req.user.organizationId = account!.organizationId
     if (account!.customRoleId) req.user.customRoleId = account!.customRoleId
     if (!(await applyImpersonation(req, res, payload))) return
+    if (!denyImpersonatedWrite(req, res)) return
     next()
   } catch (err: any) {
     const isExpired = err?.code === 'ERR_JWT_EXPIRED'
@@ -193,7 +231,21 @@ export async function authenticateAny(
 ): Promise<void> {
   const authHeader  = req.headers['authorization']
   const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
-  const token = req.cookies?.[ADMIN_ACCESS_COOKIE] ?? req.cookies?.[ACCESS_COOKIE] ?? bearerToken
+  /* Impersonation first, for the same reason as in authenticate(): while a
+     client-portal impersonation is live it must win over the super admin's own
+     admin cookie, or a shared endpoint (support tickets) would quietly serve
+     the ADMIN's records instead of the student's. */
+  const token = req.cookies?.[IMPERSONATION_COOKIE]
+             ?? req.cookies?.[ADMIN_ACCESS_COOKIE]
+             ?? req.cookies?.[ACCESS_COOKIE]
+             ?? bearerToken
+
+  /* Whether THIS request is a client-portal impersonation, as opposed to the
+     admin-portal one that arrives as a Bearer. Only the former is read-only,
+     so the flag is taken from where the token came from rather than from the
+     `isn` claim, which both flavours carry. */
+  const viaImpersonationCookie =
+    token !== undefined && token === req.cookies?.[IMPERSONATION_COOKIE]
 
   if (!token) {
     sendError(res, 'MISSING_TOKEN', 'Authentication required', 401)
@@ -215,6 +267,7 @@ export async function authenticateAny(
     if (account!.program)        req.user.program        = account!.program
     if (account!.customRoleId) req.user.customRoleId = account!.customRoleId
     if (!(await applyImpersonation(req, res, payload))) return
+    if (viaImpersonationCookie && !denyImpersonatedWrite(req, res)) return
     next()
   } catch (err: any) {
     const isExpired = err?.code === 'ERR_JWT_EXPIRED'

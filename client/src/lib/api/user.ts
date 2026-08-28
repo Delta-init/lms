@@ -28,6 +28,14 @@ export interface EnrollmentApplication {
   paymentMethod?:     string
 }
 
+/* Present only while a super admin is viewing this account through the
+   client-portal impersonation flow. The cookie behind it is httpOnly, so the
+   server reporting it here is the only way the UI can know. */
+export interface ImpersonationState {
+  actorEmail?: string
+  readOnly:    boolean
+}
+
 export interface CurrentUser {
   id:             string
   name:           string
@@ -49,6 +57,7 @@ export interface CurrentUser {
   enrollmentApplication?:       EnrollmentApplication
   createdAt:      string
   updatedAt:      string
+  impersonation?: ImpersonationState
 }
 
 export const userKeys = {
@@ -60,8 +69,10 @@ export function useCurrentUser() {
   return useQuery({
     queryKey: userKeys.me,
     queryFn:  async () => {
-      const data = await apiGet<{ user: CurrentUser }>('/auth/me')
-      return data.user
+      const data = await apiGet<{ user: CurrentUser; impersonation?: ImpersonationState }>('/auth/me')
+      /* Folded onto the user rather than fetched separately: the banner and
+         every ordinary caller then share one request and one cache entry. */
+      return Object.assign(data.user, { impersonation: data.impersonation })
     },
     retry: false,
     staleTime: 60_000,

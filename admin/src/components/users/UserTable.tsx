@@ -4,9 +4,10 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, Mail, Calendar, CheckCircle2, XCircle,
-  ChevronLeft, ChevronRight, MoreHorizontal, ShieldCheck, ShieldOff, ArrowUp, ArrowDown, Pencil,
+  ChevronLeft, ChevronRight, MoreHorizontal, ShieldCheck, ShieldOff, ArrowUp, ArrowDown, Pencil, Eye,
 } from 'lucide-react'
-import { useUsers, useUpdateUser, type AdminUser } from '@/lib/api/users'
+import { useUsers, useUpdateUser, useImpersonateClient, type AdminUser } from '@/lib/api/users'
+import { useCurrentUser } from '@/lib/api/user'
 import Spinner from '@/components/ui/Spinner'
 import { useToast } from '@/store/ui.store'
 import { EditStudentModal } from '@/components/users/EditStudentModal'
@@ -186,7 +187,38 @@ function UserRow({ user, index, onEdit, onViewHistory }: {
 }) {
   const update    = useUpdateUser()
   const toast     = useToast()
+  const viewAs    = useImpersonateClient()
+  const { data: me } = useCurrentUser()
   const [menuOpen, setMenuOpen] = useState(false)
+
+  /* super_admin only, students only — the same two rules the backend enforces.
+     Hiding it here is a courtesy; the endpoint is the actual control. */
+  const canViewAsStudent = me?.role === 'super_admin' && user.role === 'student'
+
+  const viewAsStudent = async () => {
+    setMenuOpen(false)
+    if (!confirm(
+      `Open the student portal as ${user.name}?
+
+` +
+      'The session is READ-ONLY, lasts 30 minutes, and is recorded against your account. ' +
+      'It opens in a new tab and does not affect your own sessions.',
+    )) return
+    try {
+      const handoff = await viewAs.mutateAsync(user.id)
+      /* Opened immediately in the click handler's own turn — a popup blocker
+         would eat a window opened later from an async continuation. */
+      const opened = window.open(handoff.clientUrl, '_blank', 'noopener,noreferrer')
+      if (!opened) {
+        toast.error('Allow pop-ups to open the student portal',
+          'The link expires in 60 seconds, so try again once pop-ups are allowed.')
+        return
+      }
+      toast.success(`Opening the student portal as ${handoff.user.name}`)
+    } catch (err: any) {
+      toast.error('Could not start the session', err?.response?.data?.error?.message)
+    }
+  }
 
   const setActive = async (active: boolean) => {
     setMenuOpen(false)
@@ -323,6 +355,14 @@ function UserRow({ user, index, onEdit, onViewHistory }: {
                 exit={{ opacity: 0, y: -6, scale: 0.96 }}
                 className="absolute right-2 top-10 z-40 w-52 rounded-2xl p-1.5 z-50"
                 style={{ background: '#13141C', border: '1px solid rgba(255,255,255,0.07)', boxShadow: '0 16px 40px rgba(0,0,0,0.45)' }}>
+                {canViewAsStudent && (
+                  <button onClick={viewAsStudent} disabled={viewAs.isPending}
+                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-colors hover:bg-white/05 disabled:opacity-40"
+                    style={{ color: '#60A5FA' }}>
+                    {viewAs.isPending ? <Spinner size={12} /> : <Eye size={12} />}
+                    View as student
+                  </button>
+                )}
                 <button onClick={() => setActive(!user.isActive)}
                   className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-colors hover:bg-white/05"
                   style={{ color: user.isActive ? '#F87171' : '#4ADE80' }}>

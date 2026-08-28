@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { AuthController } from '@/controllers/auth.controller.ts'
 import { validate } from '@/middleware/validate.middleware.ts'
 import { authenticate } from '@/middleware/auth.middleware.ts'
-import { authRateLimit } from '@/middleware/rateLimit.middleware.ts'
+import { authRateLimit, impersonationRateLimit } from '@/middleware/rateLimit.middleware.ts'
 import { documentRef, requiredDocumentRef } from '@/utils/documentRef.ts'
 import totpRoutes from './totp.routes.ts'
 
@@ -91,6 +91,15 @@ router.post('/logout',           authRateLimit, auth.logout)
 router.post('/forgot-password',  authRateLimit, validate(forgotSchema),   auth.forgotPassword)
 router.post('/reset-password',   authRateLimit, validate(resetSchema),    auth.resetPassword)
 router.post('/verify-email',     authRateLimit, validate(verifySchema),   auth.verifyEmail)
+
+/* ── Client-portal impersonation handoff ──────────────────────────────
+   Both unauthenticated by design — see the controller. On their OWN limiter,
+   not the auth one: sharing it let a few impersonations exhaust the login
+   budget for a whole office IP, and put EXIT behind the same cap, which meant
+   the punishment for going too fast was being stuck inside a student account.
+   See impersonationRateLimit. */
+router.post('/impersonation/redeem', impersonationRateLimit, auth.redeemImpersonation)
+router.post('/impersonation/exit',   impersonationRateLimit, auth.exitImpersonation)
 
 /* ─── Profile update DTO ─────────────────────────── */
 const updateMeSchema = z.object({

@@ -13,6 +13,10 @@ import { toCourseDTO } from '@/utils/courseDTO.ts'
 import { signAccessToken, toSeconds } from '@/utils/jwt.ts'
 import type { UserRole } from '@/types/index.ts'
 
+/* Long enough to open a tab, far too short to pass around. The impersonation
+   session itself still runs for IMPERSONATION_EXPIRES_IN. */
+const HANDOFF_TTL_MS = 60_000
+
 export class AdminController {
   private readonly courseService   = new CourseService()
   private readonly categoryService = new CategoryService()
@@ -338,6 +342,88 @@ export class AdminController {
         impersonationId: String(session._id),
         user: { id: String(target._id), name: target.name, email: target.email, role: target.role, avatarUrl: target.avatarUrl },
       }, 'Impersonation token issued')
+    } catch (err) { next(err) }
+  }
+
+  /* ─────────────────────────────────────────────────────
+     POST /admin/users/:id/impersonate-client
+     ─────────────────────────────────────────────────────
+     Client-portal impersonation. Unlike impersonateUser above, the caller does
+     NOT receive a token: the admin and client portals are separate origins and
+     the auth cookies are host-only (M-21), so the admin app cannot set the
+     client's cookie — and giving it one would be handing the browser a live
+     student session in JS-reachable storage.
+
+     Instead it gets a one-time CODE, opens the client app with it, and the
+     client origin redeems it for its own httpOnly cookie. The code is a
+     60-second, single-use pointer to the session row; the token itself is
+     minted at redemption, so nothing that grants access is ever at rest.
+
+     Students only. Impersonating staff through the client portal would be a
+     category error — they have no student view — and the admin-side flow
+     already covers that case.
+  ───────────────────────────────────────────────────── */
+  impersonateClient = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const targetId = String(req.params['id'] ?? '')
+      if (targetId === req.user!.id) {
+        sendSuccess(res, null, 'Cannot impersonate yourself', 400)
+        return
+      }
+
+      const target = await this.userService.findById(targetId)
+      if (!target) { sendSuccess(res, null, 'User not found', 404); return }
+      if (target.role !== 'student') {
+        sendSuccess(res, null, 'Only student accounts can be viewed in the client portal', 400)
+        return
+      }
+      /* Redemption refuses a disabled account anyway, but failing here means
+         the admin is told now instead of being handed a link that dies when
+         they click it. */
+      if (target.isActive === false) {
+        sendSuccess(res, null, 'This account is disabled and cannot be viewed', 400)
+        return
+      }
+
+      const ttl = process.env['IMPERSONATION_EXPIRES_IN']?.trim() || '30m'
+
+      const { ImpersonationSessionModel, ImpersonationHandoffModel } =
+        await import('@/models/schema.ts')
+
+      /* Same revocable session row as the admin-side flow, so the existing
+         list / revoke / revoke-all screens govern these sessions too. */
+      const session = await ImpersonationSessionModel.create({
+        actorId:        req.user!.id,
+        actorEmail:     req.user!.email,
+        targetId:       String(target._id),
+        targetEmail:    target.email,
+        organizationId: req.user!.organizationId,
+        expiresAt:      new Date(Date.now() + toSeconds(ttl) * 1000),
+        ip:             (req.ip ?? req.socket?.remoteAddress) || undefined,
+        userAgent:      req.headers['user-agent'] || undefined,
+      })
+
+      /* Hashed at rest: the raw code is a bearer secret for its 60 seconds, and
+         a database read should not yield one. */
+      const { randomBytes, createHash } = await import('node:crypto')
+      const code     = randomBytes(32).toString('hex')
+      const codeHash = createHash('sha256').update(code).digest('hex')
+
+      await ImpersonationHandoffModel.create({
+        codeHash,
+        sessionId: session._id,
+        expiresAt: new Date(Date.now() + HANDOFF_TTL_MS),
+      })
+
+      const clientBase = (process.env['CLIENT_URL'] ?? '').replace(/\/+$/, '')
+      sendSuccess(res, {
+        code,
+        expiresIn:       HANDOFF_TTL_MS / 1000,
+        impersonationId: String(session._id),
+        /* The admin app opens this; the code never touches the admin's storage. */
+        clientUrl:       `${clientBase}/imp/enter?code=${code}`,
+        user: { id: String(target._id), name: target.name, email: target.email },
+      }, 'Impersonation handoff created')
     } catch (err) { next(err) }
   }
 
@@ -723,9 +809,9 @@ export class AdminController {
   createSection = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const courseId = String(req.params['courseId'] ?? '')
-      const { title } = req.body as { title: string }
+      const { title, description } = req.body as { title: string; description?: string }
       await this.sectionService.assertCourseEditable(courseId, req.user!.id, req.user!.role, req.user!.categoryScope)
-      const section = await this.sectionService.create({ courseId, title })
+      const section = await this.sectionService.create({ courseId, title, description })
       sendSuccess(res, section, 'Section created', 201)
     } catch (err) { next(err) }
   }
@@ -733,7 +819,7 @@ export class AdminController {
   updateSection = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const id = String(req.params['id'] ?? '')
-      const dto = req.body as { title?: string; order?: number }
+      const dto = req.body as { title?: string; description?: string; order?: number }
       /* Look up course to verify edit permission. */
       const section = await this.sectionRepo.findById(id)
       if (section) {

@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express'
 import { AuthService, AuthError } from '@/services/auth.service.ts'
 import { sendSuccess } from '@/utils/response.ts'
-import { verifyAccessToken } from '@/utils/jwt.ts'
+import { verifyAccessToken, signAccessToken, toSeconds } from '@/utils/jwt.ts'
 import {
   setAuthCookies,
   clearAuthCookies,
@@ -11,6 +11,8 @@ import {
   clearAdminAuthCookies,
   ADMIN_REFRESH_COOKIE,
   ADMIN_ACCESS_COOKIE,
+  setImpersonationCookie,
+  clearImpersonationCookie,
 } from '@/utils/authCookies.ts'
 
 /* ─────────────────────────────────────────────────────
@@ -275,7 +277,20 @@ export class AuthController {
   me = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const user = await this.service.getMe(req.user!.id)
-      sendSuccess(res, { user })
+
+      /* The impersonation cookie is httpOnly, so the client cannot see for
+         itself that it is inside someone else's account. Reporting it here is
+         what lets the banner exist at all — and the banner is the only thing
+         stopping an admin forgetting whose screen they are looking at.
+         Absent for ordinary sessions, so nothing changes for students. */
+      const impersonation = req.user!.impersonationId
+        ? {
+            actorEmail: req.user!.impersonatorEmail,
+            readOnly:   true,
+          }
+        : undefined
+
+      sendSuccess(res, { user, ...(impersonation && { impersonation }) })
     } catch (err) {
       next(err)
     }
@@ -416,5 +431,90 @@ export class AuthController {
     } catch (err) {
       next(err)
     }
+  }
+
+  /* ── POST /auth/impersonation/redeem ─────────────────────────────────
+     Runs on the CLIENT origin, which is the whole point: only this origin can
+     set the client's host-only cookie. Unauthenticated by design — the code IS
+     the credential, and the caller is a super admin who has no client session
+     yet (and may never have had one).
+  ─────────────────────────────────────────────────────────────────────── */
+  redeemImpersonation = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { code } = req.body as { code?: string }
+      if (typeof code !== 'string' || code.length !== 64) {
+        sendSuccess(res, null, 'This link is not valid.', 400)
+        return
+      }
+
+      const { createHash } = await import('node:crypto')
+      const codeHash = createHash('sha256').update(code).digest('hex')
+
+      const { ImpersonationHandoffModel, ImpersonationSessionModel, UserModel } =
+        await import('@/models/schema.ts')
+
+      /* Single use, enforced atomically: the same filter that finds the row
+         marks it spent, so two simultaneous redemptions cannot both win. A
+         findOne-then-update would leave exactly that race. */
+      const handoff = await ImpersonationHandoffModel.findOneAndUpdate(
+        { codeHash, usedAt: { $exists: false }, expiresAt: { $gt: new Date() } },
+        { $set: { usedAt: new Date() } },
+        { new: true },
+      ).lean()
+
+      if (!handoff) {
+        sendSuccess(res, null, 'This link has expired or has already been used.', 410)
+        return
+      }
+
+      const session = await ImpersonationSessionModel.findById(handoff.sessionId)
+        .select('targetId actorId actorEmail expiresAt revokedAt').lean()
+
+      if (!session || session.revokedAt || session.expiresAt.getTime() <= Date.now()) {
+        sendSuccess(res, null, 'This impersonation session is no longer active.', 410)
+        return
+      }
+
+      const target = await UserModel.findById(session.targetId)
+        .select('email role isActive').lean()
+      if (!target || target.isActive === false) {
+        sendSuccess(res, null, 'This account is no longer available.', 410)
+        return
+      }
+
+      /* Minted here, not at handoff time — so no token granting student access
+         ever sits in the database. Audience 'client' is what lets it pass
+         authenticate(); the admin-side token is 'admin' and is rejected there. */
+      const remainingMs = session.expiresAt.getTime() - Date.now()
+      const token = await signAccessToken(
+        { id: String(session.targetId), email: target.email, role: target.role },
+        `${Math.max(1, Math.floor(remainingMs / 1000))}s`,
+        'client',
+        {
+          actorId:    String(session.actorId),
+          actorEmail: session.actorEmail,
+          sessionId:  String(handoff.sessionId),
+        },
+      )
+
+      setImpersonationCookie(res, token, remainingMs)
+      sendSuccess(res, {
+        expiresAt: session.expiresAt,
+        actorEmail: session.actorEmail,
+      }, 'Impersonation session started')
+    } catch (err) { next(err) }
+  }
+
+  /* ── POST /auth/impersonation/exit ───────────────────────────────────
+     Unauthenticated on purpose: clearing your own cookie needs no authority,
+     and requiring auth here would mean a revoked or expired session could not
+     be cleared — leaving a dead cookie that shadows the real one on every
+     subsequent request.
+  ─────────────────────────────────────────────────────────────────────── */
+  exitImpersonation = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      clearImpersonationCookie(res)
+      sendSuccess(res, null, 'Impersonation ended')
+    } catch (err) { next(err) }
   }
 }

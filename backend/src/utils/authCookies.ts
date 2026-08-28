@@ -17,6 +17,18 @@ export const REFRESH_COOKIE = 'lms_rt'
 export const ADMIN_ACCESS_COOKIE  = 'lms_admin_at'
 export const ADMIN_REFRESH_COOKIE = 'lms_admin_rt'
 
+/* Client-portal impersonation rides its OWN cookie rather than overwriting
+   `lms_at`. A super admin usually has a real student session in the same
+   browser; replacing it would destroy a session they cannot restore, because
+   it is httpOnly and nothing else holds a copy. Keeping them apart also makes
+   "exit impersonation" a single clear, with the real session still underneath,
+   and lets the client render its banner off the cookie's presence alone.
+
+   There is no refresh twin on purpose — impersonation stops dead at its TTL. */
+export const IMPERSONATION_COOKIE = 'lms_imp_at'
+/* Non-httpOnly, value '1', no secret — see setImpersonationCookie(). */
+export const IMPERSONATION_FLAG_COOKIE = 'lms_imp'
+
 const REFRESH_PATH       = '/api/v1/auth'
 const ADMIN_REFRESH_PATH = '/api/v1/admin/auth'
 
@@ -146,4 +158,39 @@ export function clearAdminAuthCookies(res: Response): void {
   res.clearCookie(ADMIN_REFRESH_COOKIE, { path: ADMIN_REFRESH_PATH, domain: cookieDomain() })
   evictLegacyCookie(res, ADMIN_ACCESS_COOKIE,  '/')
   evictLegacyCookie(res, ADMIN_REFRESH_COOKIE, ADMIN_REFRESH_PATH)
+}
+
+/* ── Client-portal impersonation cookie ────────────────────────────────
+   No legacy eviction: this name has never been issued under any other scope,
+   so there is no stale twin to displace.
+──────────────────────────────────────────────────────────────────────── */
+export function setImpersonationCookie(res: Response, token: string, maxAgeMs: number): void {
+  res.cookie(IMPERSONATION_COOKIE, token, {
+    httpOnly: true,
+    secure:   isProd(),
+    sameSite: 'lax',
+    domain:   cookieDomain(),
+    path:     '/',
+    maxAge:   maxAgeMs,
+  })
+  /* Readable companion flag — carries no token and grants nothing. The banner
+     needs to know an impersonation is running WITHOUT asking the server: it is
+     mounted app-wide, so a probe request would fire on public pages too, where
+     the 401 trips the global "session expired" redirect and bounces a visitor
+     off the login page. The flag lets it stay silent unless there is something
+     to show. Forging it does nothing — the httpOnly cookie above is the only
+     thing that authenticates. */
+  res.cookie(IMPERSONATION_FLAG_COOKIE, '1', {
+    httpOnly: false,
+    secure:   isProd(),
+    sameSite: 'lax',
+    domain:   cookieDomain(),
+    path:     '/',
+    maxAge:   maxAgeMs,
+  })
+}
+
+export function clearImpersonationCookie(res: Response): void {
+  res.clearCookie(IMPERSONATION_COOKIE,      { path: '/', domain: cookieDomain() })
+  res.clearCookie(IMPERSONATION_FLAG_COOKIE, { path: '/', domain: cookieDomain() })
 }

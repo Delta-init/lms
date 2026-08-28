@@ -352,6 +352,11 @@ router.post('/users/:id/reset-2fa', requireAdmin, requireSameOrgUser('id'),
   })
 router.post  ('/users/:id/impersonate', requirePermission('users','impersonate'), requireRole('super_admin'), audit('user.impersonate', 'User', r => String(r.params['id'] ?? '')), ctrl.impersonateUser)
 
+/* Client-portal impersonation — same guards as above, separate action so the
+   audit trail distinguishes "acted inside the admin panel as them" from
+   "browsed the student app as them". */
+router.post  ('/users/:id/impersonate-client', requirePermission('users','impersonate'), requireRole('super_admin'), audit('user.impersonate.client', 'User', r => String(r.params['id'] ?? '')), ctrl.impersonateClient)
+
 /* ── Impersonation sessions (M-04) ────────────────────────────────────
    Impersonation is a session record now, not a bare token, so it can be
    listed and stopped. Reading the trail is deliberately broader than

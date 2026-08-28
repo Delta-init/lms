@@ -1515,12 +1515,54 @@ ImpersonationSessionSchema.index({ targetId: 1, createdAt: -1 })
 export const ImpersonationSessionModel =
   mongoose.model<IImpersonationSession>('ImpersonationSession', ImpersonationSessionSchema)
 
+/* ─────────────────────────────────────────────────────
+   IMPERSONATION HANDOFF  (client-portal impersonation)
+   ─────────────────────────────────────────────────────
+   The admin and client portals are separate origins, and since M-21 the auth
+   cookies are host-only — so the admin app cannot set the client's cookie and
+   must not be given a way to. Instead it receives a one-time CODE and opens
+   the client app with it; the client origin redeems the code for its own
+   cookie.
+
+   The row stores the code's HASH and the session id — never a token. The
+   client token is minted at redemption, so nothing that grants access is ever
+   at rest here, and a database read yields nothing usable.
+───────────────────────────────────────────────────── */
+export interface IImpersonationHandoff extends Document {
+  id:        string
+  codeHash:  string             // sha256 of the one-time code
+  sessionId: Types.ObjectId     // -> ImpersonationSession
+  expiresAt: Date
+  usedAt?:   Date
+  createdAt: Date
+  updatedAt: Date
+}
+
+const ImpersonationHandoffSchema = new Schema<IImpersonationHandoff>(
+  {
+    codeHash:  { type: String, required: true, unique: true },
+    sessionId: { type: Schema.Types.ObjectId, ref: 'ImpersonationSession', required: true },
+    expiresAt: { type: Date, required: true },
+    usedAt:    { type: Date },
+  },
+  baseSchemaOptions,
+)
+
+/* TTL sweeps spent codes. Mongo's monitor only runs about once a minute, so a
+   row can outlive its expiry by a little — redemption therefore checks
+   expiresAt itself rather than trusting the row's absence. */
+ImpersonationHandoffSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 })
+
+export const ImpersonationHandoffModel =
+  mongoose.model<IImpersonationHandoff>('ImpersonationHandoff', ImpersonationHandoffSchema)
+
 export type AuditAction =
   | 'course.create'   | 'course.update'   | 'course.delete'
   | 'course.publish'  | 'course.archive'
   | 'user.create'     | 'user.ban'        | 'user.unban'      | 'user.roleChange'
   | 'user.delete'     | 'user.impersonate' | 'user.reset2fa'
   | 'user.impersonate.revoke'
+  | 'user.impersonate.client'
   | 'review.delete'
   | 'coupon.create'   | 'coupon.delete'
   | 'order.refund'
@@ -1570,6 +1612,66 @@ AuditLogSchema.index({ createdAt: -1 })
 AuditLogSchema.index({ entity: 1, entityId: 1 })
 
 export const AuditLogModel = mongoose.model<IAuditLog>('AuditLog', AuditLogSchema)
+
+/* ─────────────────────────────────────────────────────
+   EMAIL OUTBOX
+   ─────────────────────────────────────────────────────
+   Every outbound email is written here BEFORE it is attempted, and only marked
+   sent once a transport accepts it. That ordering is the whole point: sends
+   used to be fire-and-forget, so a transient SMTP failure — or the daily
+   sending cap — silently destroyed the message. A password reset that Gmail
+   refused at 2,001 emails was simply gone.
+
+   Rows stay `pending` until delivered, so when the cap resets or the network
+   recovers the drain job replays them. Nothing is lost, it is only late.
+
+   `failed` is reserved for permanent rejections (no such mailbox) and for
+   giving up after MAX_ATTEMPTS — both worth a human looking at.
+───────────────────────────────────────────────────── */
+export type EmailOutboxStatus = 'pending' | 'sent' | 'failed'
+
+export interface IEmailOutbox extends Document {
+  id:            string
+  to:            string
+  subject:       string
+  html:          string
+  text?:         string
+  status:        EmailOutboxStatus
+  attempts:      number
+  nextAttemptAt: Date
+  lastError?:    string
+  sentVia?:      string        // which mailbox accepted it
+  sentAt?:       Date
+  createdAt:     Date
+  updatedAt:     Date
+}
+
+const EmailOutboxSchema = new Schema<IEmailOutbox>(
+  {
+    to:            { type: String, required: true, trim: true },
+    subject:       { type: String, required: true },
+    html:          { type: String, required: true },
+    text:          { type: String },
+    status:        { type: String, enum: ['pending', 'sent', 'failed'], default: 'pending', index: true },
+    attempts:      { type: Number, default: 0 },
+    nextAttemptAt: { type: Date, default: () => new Date() },
+    lastError:     { type: String, maxlength: 500 },
+    sentVia:       { type: String },
+    sentAt:        { type: Date },
+  },
+  baseSchemaOptions,
+)
+
+/* The drain query: oldest due work first. */
+EmailOutboxSchema.index({ status: 1, nextAttemptAt: 1 })
+
+/* Delivered mail is kept 30 days as a send log, then swept. Pending and failed
+   rows are NEVER auto-removed — losing them is the failure this exists to
+   prevent — so the TTL is on sentAt, which only a delivered row carries. */
+EmailOutboxSchema.index({ sentAt: 1 }, { expireAfterSeconds: 30 * 24 * 60 * 60 })
+
+export const EmailOutboxModel =
+  mongoose.model<IEmailOutbox>('EmailOutbox', EmailOutboxSchema)
 
 
 /* ─────────────────────────────────────────────────────

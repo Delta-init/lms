@@ -184,3 +184,30 @@ export const searchRateLimit = rateLimit({
     sendError(res, 'RATE_LIMITED', 'Search rate limit exceeded.', 429)
   },
 })
+
+/* ─── Impersonation handoff ─────────────────────────
+   Its OWN bucket, deliberately not authRateLimit's.
+
+   Sharing the auth bucket was wrong in both directions. A super admin opening
+   several student portals would eat the login budget for their whole IP — in
+   an office that is one NAT address shared with everyone signing in. And the
+   EXIT call sat on the same limiter, so the failure mode was an admin locked
+   inside a student account with no way out and no way to log back in. Being
+   unable to leave is worse than anything the limit prevents.
+
+   Brute force is not the threat this guards: a code is 256 bits of randomness,
+   single-use, and dead in 60 seconds. The cap is here so a loop cannot spin,
+   not because guessing is plausible.
+   Override: RATE_LIMIT_IMPERSONATION_MAX.
+───────────────────────────────────────────────────── */
+export const impersonationRateLimit = rateLimit({
+  windowMs:        15 * 60 * 1000,
+  max:             envInt('RATE_LIMIT_IMPERSONATION_MAX', isDev ? 500 : 60),
+  standardHeaders: true,
+  legacyHeaders:   false,
+  keyGenerator:    clientKey,
+  skip:            rateLimitDisabled,
+  handler: (_req, res) => {
+    sendError(res, 'RATE_LIMITED', 'Too many impersonation attempts. Please try again shortly.', 429)
+  },
+})

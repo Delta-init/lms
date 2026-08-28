@@ -57,6 +57,21 @@ api.interceptors.response.use(
   async err => {
     const original = err.config
 
+    /* An impersonation session that has been revoked or has run out cannot be
+       refreshed — it has no refresh counterpart, and /auth/refresh renews the
+       STUDENT's cookie, not this one. Retrying would loop on a dead token and,
+       worse, the dead lms_imp_at shadows the admin's own lms_at on every
+       request, so the browser looks signed out until it is cleared.
+       Clearing it and reloading returns them to their real session. */
+    const impersonationDead = ['IMPERSONATION_REVOKED', 'IMPERSONATION_EXPIRED', 'IMPERSONATION_INVALID']
+      .includes(err.response?.data?.error?.code)
+    if (impersonationDead && typeof window !== 'undefined') {
+      void axios.post('/api/v1/auth/impersonation/exit', null, { withCredentials: true })
+        .catch(() => {})
+        .finally(() => { window.location.href = '/login?impersonation=ended' })
+      return Promise.reject(err)
+    }
+
     // Only intercept 401s that haven't already been retried
     if (err.response?.status !== 401 || original?._retry) {
       return Promise.reject(err)
@@ -66,7 +81,12 @@ api.interceptors.response.use(
 
     // Skip auth pages to avoid loops
     const path = window.location.pathname
-    if (path === '/login' || path === '/register') return Promise.reject(err)
+    /* `/imp/enter` establishes a session rather than consuming one, so a 401
+       there is the normal starting state, not an expired session. Redirecting
+       would throw away the handoff code before it can be redeemed. */
+    if (path === '/login' || path === '/register' || path.startsWith('/imp/')) {
+      return Promise.reject(err)
+    }
 
     original._retry = true
 

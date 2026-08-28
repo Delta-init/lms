@@ -11,6 +11,7 @@ import { api } from '@/lib/axios'
 import { useCurrentUser, useCompleteRegistration } from '@/lib/api/user'
 import Spinner from '@/components/ui/Spinner'
 import { useDocumentUrl } from '@/lib/api/documents'
+import { PROGRAMS, PROGRAM_GROUPS, programLabel } from '@/lib/programs'
 
 /* ── Constants ─────────────────────────────────────── */
 const COUNTRY_NAMES = [
@@ -35,16 +36,6 @@ const COUNTRY_NAMES = [
   'Vietnam','Yemen','Zambia','Zimbabwe',
 ]
 
-const PROGRAMS = [
-  { id: 'forex-beginner',     label: 'Forex: Beginner',       group: 'Forex Academy' },
-  { id: 'forex-intermediate', label: 'Forex: Intermediate',    group: 'Forex Academy' },
-  { id: 'forex-advanced',     label: 'Forex: Advanced',        group: 'Forex Academy' },
-  { id: 'dm-social',          label: 'Social Media Marketing', group: 'Digital Marketing' },
-  { id: 'dm-seo',             label: 'SEO & Content',          group: 'Digital Marketing' },
-  { id: 'ai-fundamentals',    label: 'AI Fundamentals',        group: 'AI Academy' },
-  { id: 'jura-core',          label: 'JURA Program',           group: 'JURA Academy' },
-  { id: 'ai-trading',         label: 'AI Trading Automation',  group: 'AI Academy' },
-]
 
 const GENDER_OPTIONS    = ['Male','Female','Prefer not to say']
 const ID_TYPE_OPTIONS   = ['Emirates ID','Passport','Aadhaar Card','Other']
@@ -1111,7 +1102,7 @@ export function RequestSection() {
               </Field>
 
               <Field label="Select Program(s)" required error={errors['programs']}>
-                {['Forex Academy','Digital Marketing','AI Academy'].map(group => (
+                {PROGRAM_GROUPS.map(group => (
                   <div key={group} className="mb-3">
                     <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>{group}</p>
                     <div className="flex flex-wrap gap-2">
@@ -1180,7 +1171,7 @@ export function RequestSection() {
                   <div className="flex gap-2"><span style={{ color: 'var(--color-text-muted)', minWidth: 120 }}>Name</span><span>{form.name}</span></div>
                   <div className="flex gap-2"><span style={{ color: 'var(--color-text-muted)', minWidth: 120 }}>Country</span><span>{form.homeCountry}</span></div>
                   <div className="flex gap-2"><span style={{ color: 'var(--color-text-muted)', minWidth: 120 }}>Experience</span><span>{form.experienceLevel}</span></div>
-                  <div className="flex gap-2"><span style={{ color: 'var(--color-text-muted)', minWidth: 120 }}>Programs</span><span>{form.programs.map(id => PROGRAMS.find(p => p.id === id)?.label ?? id).join(', ')}</span></div>
+                  <div className="flex gap-2"><span style={{ color: 'var(--color-text-muted)', minWidth: 120 }}>Programs</span><span>{form.programs.map(programLabel).join(', ')}</span></div>
                 </div>
               </div>
 

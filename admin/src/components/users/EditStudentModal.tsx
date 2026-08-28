@@ -20,6 +20,7 @@ import { useCourses } from '@/lib/api/courses'
 import { useToast } from '@/store/ui.store'
 import { Button, MotionButton } from '@/components/ui/button'
 import { useDocumentUrl } from '@/lib/api/documents'
+import { programLabel } from '@/lib/programs'
 
 /* ── Custom dark course picker (avoids native white dropdown) ── */
 function CourseSelect({
@@ -638,7 +639,7 @@ export function EditStudentModal({ user, onClose, onSuccess }: Props) {
                                       {app.programs.map(p => (
                                         <span key={p} className="rounded px-1.5 py-0.5 text-[10px] font-medium"
                                           style={{ background: 'rgba(0,87,184,0.12)', color: '#0057b8' }}>
-                                          {p}
+                                          {programLabel(p)}
                                         </span>
                                       ))}
                                     </div>

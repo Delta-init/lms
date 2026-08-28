@@ -189,11 +189,41 @@ try {
       const p = await call('PATCH', `/admin/courses/${courseId}`, { jar: adminJar, body: { title: 'Smoke Course v2' } })
       check('PATCH /admin/courses/:id', ok(p), why(p))
 
-      const s = await call('POST', `/admin/courses/${courseId}/sections`, { jar: adminJar, body: { title: 'Module 1' } })
+      const s = await call('POST', `/admin/courses/${courseId}/sections`, { jar: adminJar, body: {
+        title: 'Module 1', description: 'What this module covers',
+      } })
       check('POST /admin/courses/:id/sections', ok(s), why(s))
       sectionId = s.body?.data?.id ?? s.body?.data?._id ?? ''
 
+      /* The description used to be validated, accepted, and then dropped by the
+         controller — every module came back with '' and the admin card read
+         "No description". Assert it round-trips on create, edit and re-read. */
+      check('a module description is PERSISTED on create',
+        s.body?.data?.description === 'What this module covers',
+        `got ${JSON.stringify(s.body?.data?.description)}`)
+
       if (sectionId) {
+        const listed = await call('GET', `/admin/courses/${courseId}/sections`, { jar: adminJar })
+        const mine = (listed.body?.data ?? []).find((x: any) => (x.id ?? x._id) === sectionId)
+        check('and it comes back when the modules are listed',
+          mine?.description === 'What this module covers', `got ${JSON.stringify(mine?.description)}`)
+
+        const edited = await call('PATCH', `/admin/sections/${sectionId}`, { jar: adminJar, body: {
+          description: 'Edited description',
+        } })
+        check('PATCH /admin/sections/:id persists a new description',
+          edited.body?.data?.description === 'Edited description',
+          `got ${JSON.stringify(edited.body?.data?.description)}`)
+
+        const cleared = await call('PATCH', `/admin/sections/${sectionId}`, { jar: adminJar, body: { description: '' } })
+        check('and an empty string CLEARS it rather than being ignored',
+          cleared.body?.data?.description === '', `got ${JSON.stringify(cleared.body?.data?.description)}`)
+
+        const titleOnly = await call('PATCH', `/admin/sections/${sectionId}`, { jar: adminJar, body: { title: 'Module 1 renamed' } })
+        check('a title-only edit leaves the description alone',
+          titleOnly.body?.data?.description === '' && titleOnly.body?.data?.title === 'Module 1 renamed',
+          `got ${JSON.stringify(titleOnly.body?.data)}`)
+
         const l = await call('POST', '/admin/lessons', { jar: adminJar, body: {
           courseId, sectionId, title: 'Lesson 1', type: 'quiz', content: 'Body text', order: 1,
         } })

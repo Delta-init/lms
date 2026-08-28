@@ -17,13 +17,15 @@ export class OutlineError extends Error {
 }
 
 interface CreateInput {
-  courseId: string
-  title:    string
+  courseId:     string
+  title:        string
+  description?: string
 }
 
 interface UpdateInput {
-  title?: string
-  order?: number
+  title?:       string
+  description?: string
+  order?:       number
 }
 
 export class SectionService {
@@ -129,9 +131,10 @@ export class SectionService {
     }
     const existingCount = await this.repo.countByCourse(input.courseId)
     return this.repo.create({
-      courseId: new Types.ObjectId(input.courseId) as unknown as ISection['courseId'],
-      title:    input.title.trim(),
-      order:    existingCount,
+      courseId:    new Types.ObjectId(input.courseId) as unknown as ISection['courseId'],
+      title:       input.title.trim(),
+      description: input.description?.trim() ?? '',
+      order:       existingCount,
     } as Partial<ISection>)
   }
 
@@ -141,6 +144,9 @@ export class SectionService {
     }
     const update: Partial<ISection> = {}
     if (input.title !== undefined) update.title = input.title.trim()
+    /* Checked against undefined, not truthiness: '' is how the form clears a
+       description, and treating it as "no change" would make it unclearable. */
+    if (input.description !== undefined) update.description = input.description.trim()
     if (input.order !== undefined) update.order = input.order
     const doc = await this.repo.updateById(id, update)
     if (!doc) throw new OutlineError('SECTION_NOT_FOUND', 'Section not found.', 404)
