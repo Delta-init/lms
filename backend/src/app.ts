@@ -70,6 +70,7 @@ app.options('*', cors(corsOptions))
    middleware runs for every other route. */
 app.use('/api/v1/webhooks/stripe',    express.raw({ type: 'application/json' }))
 app.use('/api/v1/webhooks/razorpay', express.raw({ type: 'application/json' }))
+app.use('/api/v1/webhooks/clt',      express.raw({ type: 'application/json' }))
 
 /* ─── Body + cookie parsers ──────────────────────── */
 app.use(express.json({ limit: '10mb' }))
@@ -115,6 +116,22 @@ if (process.env.NODE_ENV === 'development') {
     next()
   })
 }
+
+/* ─── Public key discovery (LMS ↔ CLT Connect) ─────
+   Deliberately OUTSIDE /api/v1: JWKS is a well-known URI by RFC 8615, and
+   versioning it would defeat the point — CLT is configured with one URL and
+   must keep resolving it across API versions.
+
+   Unauthenticated and cacheable by design: it publishes only public keys,
+   which is what makes rotation possible without redeploying the other side. */
+app.get('/.well-known/jwks.json', async (_req, res) => {
+  const { publicJwks } = await import('@/utils/integrationKeys.ts')
+  const jwks = await publicJwks()
+  /* Short cache: long enough to spare the round trip, short enough that a
+     rotation propagates within the hour CLT also caches for. */
+  res.set('Cache-Control', 'public, max-age=300')
+  res.json(jwks)
+})
 
 /* ─── API routes ─────────────────────────────────── */
 app.use('/api/v1', apiRouter)

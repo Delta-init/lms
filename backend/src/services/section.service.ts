@@ -59,11 +59,26 @@ export class SectionService {
     // Org admins — full rights inside their own academy
     if (role === 'admin') return
 
-    // Category-scoped admins — can only edit their program's courses
-    if ((role === '4x_admin' || role === 'digital_marketing_admin') && categoryScope) {
-      if ((course as any).program === categoryScope) return
-      throw new OutlineError('FORBIDDEN', 'You can only edit courses in your program.', 403)
-    }
+    /* Programme-scoped course editing is currently granted to NOBODY.
+       
+       This branch used to name 4x_admin and digital_marketing_admin, which
+       have been folded into sub_admin + `program`. Rewriting it as
+       `role === 'sub_admin' && categoryScope` would have been the obvious
+       move — and would have handed course editing to every sub_admin, none of
+       whom has ever had it. Widening permissions is not a side effect a
+       consolidation gets to have, so the branch is gone instead.
+
+       The cost is real and small: the two migrated accounts (4x_admin and
+       digital_marketing_admin) lose course editing. To give it back — to them
+       and to every other sub_admin — restore exactly this, and add
+       'sub_admin' to requireCourseAuthor so they can create what they may
+       then edit:
+
+         if (role === 'sub_admin' && categoryScope) {
+           if ((course as any).program === categoryScope) return
+           throw new OutlineError('FORBIDDEN', 'You can only edit courses in your program.', 403)
+         }
+    */
 
     // Teaching staff — only own courses
     if (role === 'instructor' && String((course as any).instructorId?._id ?? course.instructorId) === userId) return

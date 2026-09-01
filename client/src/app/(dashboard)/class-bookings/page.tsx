@@ -602,11 +602,47 @@ function SlotModal({group,bookingMap,onBook,onCancel,bookPending,cancelPending,o
                         <p className="syne text-[13px] font-700" style={{color:cfg.color}}>Class is Live Now</p>
                       </div>
                       {booked?(
-                        <div className="rounded-xl px-3 py-2.5 text-[11px] leading-relaxed"
-                          style={{background:'rgba(5,150,105,0.08)',color: '#064E3B',border:'1px solid rgba(5,150,105,0.18)'}}>
-                          <CheckCircle2 size={11} className="mr-1.5 inline" style={{color: 'var(--color-success)'}} strokeWidth={3}/>
-                          You reserved a seat. Your <strong>join link was emailed 5 min before</strong> class. Check your inbox!
-                        </div>
+                        /* How a booked student actually gets in, which depends
+                           entirely on where the class runs:
+
+                             in-app   — the room lives at /watch on this site
+                             external — a Google Meet link we already hold
+                             in-person — there is nothing to join; go to the room
+
+                           Until this branch existed, every one of those cases
+                           was told to check their inbox for a join link. For an
+                           in-app class no such email is sent (the scheduled-class
+                           mail carries the COURSE url, not a join link), so the
+                           one instruction on screen led nowhere. */
+                        isOff?(
+                          <div className="rounded-xl px-3 py-2.5 text-[11px] leading-relaxed"
+                            style={{background:'rgba(5,150,105,0.08)',color: '#064E3B',border:'1px solid rgba(5,150,105,0.18)'}}>
+                            <MapPin size={11} className="mr-1.5 inline" style={{color: 'var(--color-success)'}} strokeWidth={3}/>
+                            Your seat is reserved. This class is in person
+                            {sAny?.location?<> at <strong>{sAny.location}</strong></>:null}
+                            {sAny?.room?<> · {sAny.room}</>:null}.
+                          </div>
+                        ):sel.type==='internal'?(
+                          <Link href={`/live-classes/${sel.id}/watch`}
+                            className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white"
+                            style={{background:cfg.color}}>
+                            <Radio size={14}/>Join the Class
+                          </Link>
+                        ):sAny?.meetingUrl?(
+                          <a href={sAny.meetingUrl} target="_blank" rel="noopener noreferrer"
+                            className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white"
+                            style={{background:cfg.color}}>
+                            <Video size={14}/>Join Google Meet
+                          </a>
+                        ):(
+                          /* External, but no link on the record yet — the email
+                             is genuinely the only way in, so say so. */
+                          <div className="rounded-xl px-3 py-2.5 text-[11px] leading-relaxed"
+                            style={{background:'rgba(5,150,105,0.08)',color: '#064E3B',border:'1px solid rgba(5,150,105,0.18)'}}>
+                            <CheckCircle2 size={11} className="mr-1.5 inline" style={{color: 'var(--color-success)'}} strokeWidth={3}/>
+                            You reserved a seat. Your <strong>join link was emailed 5 min before</strong> class. Check your inbox!
+                          </div>
+                        )
                       ):(
                         <p className="text-[11px] leading-relaxed" style={{color: 'var(--color-text-secondary)'}}>
                           Booking is closed. Only students who reserved beforehand receive an email join link.

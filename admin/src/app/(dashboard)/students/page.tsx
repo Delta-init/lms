@@ -14,7 +14,7 @@ export default function StudentsPage() {
   const router = useRouter()
   const [modalOpen, setModalOpen] = useState(() => searchParams.get('add') === '1')
   const { data: me } = useCurrentUser()
-  const canAddStudent = ['super_admin', 'admin', '4x_admin', 'digital_marketing_admin', 'ai_admin', 'instructor'].includes(me?.role ?? '')
+  const canAddStudent = ['super_admin', 'admin', 'instructor'].includes(me?.role ?? '')
 
   const handleClose = () => {
     setModalOpen(false)

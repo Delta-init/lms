@@ -40,12 +40,8 @@ export type UserRole =
   | 'instructor'
   | 'admin'
   | 'super_admin'
-  | 'sub_admin'   // replaces 4x_admin / digital_marketing_admin / ai_admin
+  | 'sub_admin'   // programme-scoped admin; the programme lives in `program`
   | 'support'
-  // legacy — kept until Phase 3 migration removes them from the DB
-  | '4x_admin'
-  | 'digital_marketing_admin'
-  | 'ai_admin'
 
 export type OrgSlug    = 'dubai' | 'bangalore'
 export type ProgramType = 'ai' | 'digital_marketing' | 'forex' | 'jura'

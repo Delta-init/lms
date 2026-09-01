@@ -37,6 +37,11 @@ function toDTO(doc: any, entitled = true) {
 
     /* Type + status */
     type:           j.type   ?? 'external',
+    /* WHICH in-app engine. Absent from this DTO meant the admin studio could
+       not tell a LiveKit class from a Mux one and fell through to the Mux
+       broadcaster — an interactive class showed an OBS stream key and
+       "No Mux stream ID found". Older rows have no value and are Mux. */
+    provider:       j.provider ?? 'mux',
     status:         j.status ?? 'scheduled',
 
     /* External-only */
@@ -51,6 +56,11 @@ function toDTO(doc: any, entitled = true) {
                       ? `https://image.mux.com/${j.muxPlaybackId}/thumbnail.jpg?time=0`
                       : undefined,
     recordingUrl:   entitled ? (j.recordingUrl ?? undefined) : undefined,
+    /* LiveKit linkage — the room name is not a secret (a ticket is still
+       required to enter it) and the studio shows it while live. */
+    cltRoomName:    j.cltRoomName ?? undefined,
+    cltRecordingId: j.cltRecordingId ?? undefined,
+    recordingDurationSecs: j.recordingDurationSecs ?? undefined,
     viewerCount:    j.viewerCount   ?? 0,
     startedAt:      j.startedAt,
     endedAt:        j.endedAt,
@@ -390,8 +400,28 @@ export class LiveClassController {
     try {
       const id    = String(req.params['id'] ?? '')
       if (!(await this.#canManage(req, res, id))) return
-      const scope = req.user?.categoryScope as string | undefined
       const live  = await this.service.getById(id)
+
+      /* Programme scope keeps a scoped ADMIN out of another programme's
+         classes. It must not be turned on the instructor ASSIGNED to teach
+         this one.
+
+         Instructors carry a categoryScope too, derived from their own
+         `category`, and an instructor's category does not have to match the
+         programme of every course they are booked to teach — a JURA-tagged
+         instructor assigned to a 4x-trading session is an ordinary staffing
+         decision, not a mistake. Applying the scope here locked such an
+         instructor out of their own class: the list showed it, host-ticket
+         granted them a room, and this endpoint answered 403, so the studio
+         page rendered "Live class not found" and the class could never be
+         started.
+
+         #canManage has already proved ownership for the instructor role —
+         reaching this line as an instructor means this is their session — so
+         the check simply does not apply to them. */
+      const scope = req.user?.role === 'instructor'
+        ? undefined
+        : (req.user?.categoryScope as string | undefined)
       if (scope) {
         const { CourseModel } = await import('@/models/schema.ts')
         const courseIdStr = isPopulated(live.courseId as any) ? (live.courseId as any).id : String(live.courseId)
@@ -453,7 +483,7 @@ export class LiveClassController {
     req: Request,
     seriesId?: string,
   ): Promise<{ live: Awaited<ReturnType<LiveClassService['create']>>; meetingUrl?: string }> => {
-    /* Category scope check — 4x_admin / digital_marketing_admin can only create for their program */
+    /* Category scope check — a programme-scoped sub_admin can only create for their program */
     const scope = req.user?.categoryScope as string | undefined
     if (scope) {
       const { CourseModel } = await import('@/models/schema.ts')
@@ -521,6 +551,7 @@ export class LiveClassController {
       scheduledStart:  new Date(dto.scheduledStart),
       durationMins:    dto.durationMins,
       type:            sessionType,
+      provider:        (dto as { provider?: 'mux' | 'livekit' }).provider,
       meetingUrl,
       googleMeetCode,
       sectionId:       dto.sectionId,

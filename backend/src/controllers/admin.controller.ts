@@ -136,7 +136,7 @@ export class AdminController {
 
       /* Instructors can only author their own courses; admins may assign
          the course to any instructor (or default to themselves). */
-      const isAdmin = ['super_admin', 'admin', 'sub_admin', 'support', '4x_admin', 'digital_marketing_admin', 'ai_admin'].includes(req.user!.role)
+      const isAdmin = ['super_admin', 'admin', 'sub_admin', 'support'].includes(req.user!.role)
       const instructorId = isAdmin
         ? (dto.instructorId ?? req.user!.id)
         : req.user!.id
@@ -177,7 +177,7 @@ export class AdminController {
       await this.sectionService.assertCourseEditable(id, req.user!.id, req.user!.role, req.user!.categoryScope)
       const dto = req.body as Record<string, unknown>
       /* Instructors cannot reassign their course to a different author. */
-      const isAdmin = ['super_admin', 'admin', 'sub_admin', 'support', '4x_admin', 'digital_marketing_admin', 'ai_admin'].includes(req.user!.role)
+      const isAdmin = ['super_admin', 'admin', 'sub_admin', 'support'].includes(req.user!.role)
       if (!isAdmin) delete dto['instructorId']
       else if (typeof dto['instructorId'] === 'string') {
         await this.assertAssignableInstructor(req, dto['instructorId'])
@@ -650,9 +650,16 @@ export class AdminController {
       const existing = await UserModel.findById(userId).select('email name approvedBy').lean()
       if (!existing) { res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'User not found' } }); return }
 
-      // Category admins can only revoke approved students in exactly their own program.
-      // Pending / rejected users have no categories yet — any admin level can reject them.
-      const isCategoryAdmin = role === '4x_admin' || role === 'digital_marketing_admin' || role === 'ai_admin'
+      // A programme-scoped admin can only revoke approved students in exactly
+      // their own program. Pending / rejected users have no categories yet, so
+      // any admin level can reject those.
+      //
+      // Gated on the RESOLVED scope rather than on role names. The three
+      // legacy roles this used to name were sub_admin with the programme baked
+      // into the role; reading the scope covers them and every sub_admin whose
+      // programme is set, which is the same rule the comment above always
+      // described.
+      const isCategoryAdmin = !!(admin as { categoryScope?: string }).categoryScope
       if (isCategoryAdmin) {
         const studentCats: string[] = (existing as any).categories?.length
           ? (existing as any).categories

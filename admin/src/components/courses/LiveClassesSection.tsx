@@ -12,6 +12,7 @@ import {
 import {
   useLiveClassesForCourse, useCreateLiveClass, useDeleteLiveClass,
   useUpdateLiveClass, useStartLiveStream, useEndLiveStream, useStreamCredentials,
+  isInteractiveRoom,
   type LiveClass, type LiveClassType, type LiveClassStatus,
 } from '@/lib/api/liveClasses'
 import { useCourseOutline } from '@/lib/api/outline'
@@ -149,6 +150,11 @@ function LiveRow({
   const deleteMutation  = useDeleteLiveClass(courseId)
 
   const isInternal  = live.type === 'internal'
+  /* A CLT room has no stream key and no OBS endpoint, so the Mux-only controls
+     below must not be offered for one. Same two-signal test the studio, monitor
+     and watch pages use, so every surface agrees about what a class is. */
+  const isRoom      = isInteractiveRoom(live)
+  const isMuxStream = isInternal && !isRoom
   const isLiveNow   = live.status === 'live'
   const isScheduled = live.status === 'scheduled'
   const isEnded     = live.status === 'ended'
@@ -226,8 +232,9 @@ function LiveRow({
 
         {/* Actions */}
         <div className="flex items-center gap-1 flex-shrink-0">
-          {/* Internal: Start stream → go to monitor page (OBS) */}
-          {isInternal && isScheduled && (
+          {/* Internal Mux only: Start stream → monitor page (OBS).
+              A CLT room is started by walking into it, not by an encoder. */}
+          {isMuxStream && isScheduled && (
             <button
               onClick={async () => {
                 setStartError(null)
@@ -289,8 +296,8 @@ function LiveRow({
             )
           )}
 
-          {/* Internal: Show credentials */}
-          {isInternal && (isScheduled || isLiveNow) && (
+          {/* Internal Mux only: OBS credentials — a CLT room has none */}
+          {isMuxStream && (isScheduled || isLiveNow) && (
             <button
               onClick={() => setShowCreds(v => !v)}
               className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-semibold transition-colors hover:bg-white/10"

@@ -7,9 +7,10 @@ import {
   LayoutDashboard, BookOpen, Users, GraduationCap,
   Tag, Star, Settings, ChevronLeft, ChevronRight, LogOut, X,
   ShoppingBag, Ticket, Map, ClipboardList, Video, CalendarDays, BarChart3, ShieldCheck, UserCog, LifeBuoy,
-  ClipboardCheck,
+  ClipboardCheck, Film,
 } from 'lucide-react'
 import { useUIStore } from '@/store/ui.store'
+import { mayReachClassroom } from '@/lib/classroomAccess'
 import { useAllLiveClasses } from '@/lib/api/liveClasses'
 import { useCurrentUser, logout } from '@/lib/api/user'
 import { useEnrollmentRequests } from '@/lib/api/enrollmentRequests'
@@ -24,6 +25,7 @@ const adminNavItems = [
   { label: 'Courses',        href: '/courses',                icon: BookOpen },
   { label: 'Learning Paths', href: '/learning-paths',   icon: Map },
   { label: 'Live Classes',   href: '/live-classes',     icon: Video },
+  { label: 'Recordings',     href: '/recordings',        icon: Film },
   { label: 'Bookings',       href: '/bookings',          icon: CalendarDays },
   { label: 'Assignments',    href: '/assignments',       icon: ClipboardCheck },
   { label: 'Students',       href: '/students',          icon: Users },
@@ -37,13 +39,14 @@ const adminNavItems = [
   { label: 'Audit Logs',     href: '/audit-logs',        icon: ClipboardList },
 ]
 
-/* ── Scoped-admin nav (4x_admin, digital_marketing_admin) ─ */
+/* ── Scoped-admin nav (sub_admin, scoped by `program`) ─ */
 const scopedAdminNavItems = [
   { label: 'Dashboard',        href: '/',                       icon: LayoutDashboard },
   { label: 'Requests',   href: '/enrollment-requests',    icon: ClipboardCheck },
   { label: 'Users',      href: '/users',                  icon: UserCog },
   { label: 'Courses',          href: '/courses',                icon: BookOpen },
   { label: 'Live Classes',     href: '/live-classes',           icon: Video },
+  { label: 'Recordings',       href: '/recordings',             icon: Film },
   { label: 'Bookings',         href: '/bookings',               icon: CalendarDays },
   { label: 'Assignments',      href: '/assignments',            icon: ClipboardCheck },
   { label: 'Support',          href: '/support',                icon: LifeBuoy },
@@ -78,18 +81,23 @@ function SidebarContent({ collapsed, onClose }: SidebarContentProps) {
   const liveNowCount = allLive?.length ?? 0
 
   const isInstructor  = user?.role === 'instructor'
-  const isManager     = user?.role === '4x_admin' || user?.role === 'digital_marketing_admin' || user?.role === 'ai_admin'
+  const isManager     = user?.role === 'sub_admin'
   const canSeeRequests = !isInstructor
 
   const { data: pendingData } = useEnrollmentRequests('pending', undefined)
   const pendingCount = canSeeRequests ? (pendingData?.meta?.total_count ?? 0) : 0
   const { data: unreadSupport = 0 } = useUnreadSupportCount()
   const baseNavItems = isInstructor ? instructorNavItems : isManager ? scopedAdminNavItems : adminNavItems
+  /* Support sits in the admin nav but may not reach a classroom, live or
+     recorded. Offering the link anyway would just hand them a 403. */
+  const withClassroom = mayReachClassroom(user?.role)
+    ? baseNavItems
+    : baseNavItems.filter(i => i.href !== '/recordings')
   // Role/permission management is platform-wide (spans every organization) —
   // only super_admin manages it, so the link is hidden for org-scoped admins.
   const navItems  = user?.role === 'super_admin'
-    ? [...baseNavItems, { label: 'Roles', href: '/roles', icon: ShieldCheck }]
-    : baseNavItems
+    ? [...withClassroom, { label: 'Roles', href: '/roles', icon: ShieldCheck }]
+    : withClassroom
   const roleLabel = isInstructor ? 'Instructor' : isManager ? 'Manager' : 'Admin'
 
   const isActive = (href: string) =>

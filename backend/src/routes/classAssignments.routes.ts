@@ -91,7 +91,7 @@ router.post('/:id/resubmit', authenticate, validate(resubmitSchema), async (req:
 router.get(
   '/review',
   authenticateAny,
-  requireRole('super_admin', 'admin', 'sub_admin', 'support', '4x_admin', 'digital_marketing_admin', 'ai_admin', 'instructor'),
+  requireRole('super_admin', 'admin', 'sub_admin', 'support', 'instructor'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const status = typeof req.query['status'] === 'string' ? req.query['status'] : undefined
@@ -103,7 +103,7 @@ router.get(
 router.patch(
   '/:id/review',
   authenticateAny,
-  requireRole('super_admin', 'admin', 'sub_admin', 'support', '4x_admin', 'digital_marketing_admin', 'ai_admin', 'instructor'),
+  requireRole('super_admin', 'admin', 'sub_admin', 'support', 'instructor'),
   validate(reviewSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {

@@ -5,6 +5,36 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown, ChevronLeft, ChevronRight, Check, Calendar, Clock } from 'lucide-react'
 
 /* ─────────────────────────────────────────────────────────────
+   PillToggle — one pill in a mutually-exclusive row
+───────────────────────────────────────────────────────────── */
+/* The accent arrives as an "r,g,b" triple so idle, hover and selected are three
+   tints of ONE colour instead of three unrelated ones. Hover has to live in
+   state rather than a `hover:` class: the idle look is an inline style, and an
+   inline background beats any class. */
+export function PillToggle({ active, onClick, rgb, small, children }: {
+  active: boolean
+  onClick: () => void
+  rgb: string
+  small?: boolean
+  children: React.ReactNode
+}) {
+  const [hover, setHover] = useState(false)
+  const style = active
+    ? { background: `rgba(${rgb},0.18)`, color: `rgb(${rgb})`, border: `1px solid rgba(${rgb},0.35)` }
+    : hover
+      ? { background: `rgba(${rgb},0.10)`, color: `rgb(${rgb})`, border: `1px solid rgba(${rgb},0.22)` }
+      : { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.45)', border: '1px solid rgba(255,255,255,0.08)' }
+  return (
+    <button type="button" onClick={onClick}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+      className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl font-semibold transition-all ${small ? 'py-1.5 text-[11px]' : 'py-2 text-xs'}`}
+      style={style}>
+      {children}
+    </button>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────────
    DarkSelect — custom animated dropdown for dark modal forms
 ───────────────────────────────────────────────────────────── */
 export interface SelectOption { value: string; label: string }

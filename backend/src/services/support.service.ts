@@ -26,14 +26,13 @@ export class SupportError extends Error {
 
 type Requester = {
   id:              string
-  role:            'student' | 'instructor' | 'admin' | '4x_admin' | 'digital_marketing_admin' | 'ai_admin' | 'super_admin' | 'sub_admin' | 'support'
+  role:            'student' | 'instructor' | 'admin' | 'super_admin' | 'sub_admin' | 'support'
   categoryScope?:  '4x-trading' | 'digital-marketing' | 'ai' | 'jura'
   organizationId?: string
 }
 
 const isStaff = (r: Requester) =>
   r.role === 'admin' || r.role === 'super_admin' || r.role === 'sub_admin' || r.role === 'support'
-  || r.role === '4x_admin' || r.role === 'digital_marketing_admin' || r.role === 'ai_admin'
 
 /* ─── Tenant isolation ─────────────────────────────────
    List predicate for a caller, or null when no scoping applies. Scoping

@@ -43,9 +43,6 @@ export type AdminUserRole =
   | 'sub_admin'
   | 'support'
   | 'admin'
-  | '4x_admin'
-  | 'digital_marketing_admin'
-  | 'ai_admin'
   | 'super_admin'
 
 export interface AdminUser {

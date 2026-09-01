@@ -963,7 +963,7 @@ export class AuthService {
   async #notifyAllAdmins(studentName: string, studentEmail: string): Promise<void> {
     const { UserModel } = await import('@/models/schema.ts')
     const admins = await UserModel.find({
-      role: { $in: ['super_admin', 'admin', '4x_admin', 'digital_marketing_admin', 'ai_admin'] },
+      role: { $in: ['super_admin', 'admin'] },
       isActive: true,
     }).select('name email').lean()
     await Promise.allSettled(

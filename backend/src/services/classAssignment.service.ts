@@ -21,7 +21,7 @@ const MAX_FILES = 10
 const notifications = new NotificationService()
 
 /** Roles that may review anyone's submission within their own reach. */
-const STAFF = new Set(['super_admin', 'admin', 'sub_admin', 'support', '4x_admin', 'digital_marketing_admin', 'ai_admin'])
+const STAFF = new Set(['super_admin', 'admin', 'sub_admin', 'support'])
 
 export interface Caller {
   id:             string

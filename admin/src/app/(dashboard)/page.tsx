@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   BookOpen, Users, GraduationCap, DollarSign,
@@ -16,12 +17,36 @@ import { useCurrentUser } from '@/lib/api/user'
 import Link from 'next/link'
 import Spinner from '@/components/ui/Spinner'
 import { useOrgCurrency, formatCoursePrice } from '@/lib/currency'
+import { getActiveTimeZone } from '@/lib/timezone'
 
-function timeGreeting() {
-  const h = new Date().getHours()
+/* The hour this greeting reads must come from the ACADEMY's clock, not the
+   machine's. Two reasons, and the second is the one that bites:
+
+     * the rest of this dashboard is shown in the active academy's zone
+       (TimezoneScope in app/providers.tsx), so a greeting on the viewer's
+       own clock could contradict every timestamp beside it; and
+     * `new Date().getHours()` during render is evaluated once on the server,
+       which runs in Asia/Dubai, and again in the browser. Land either side
+       of a bucket boundary and the two disagree, React reports a hydration
+       mismatch and throws the server HTML away.
+
+   Reading it through the academy zone makes the value deterministic, and
+   `useGreeting` below keeps it out of the first client render entirely. */
+function timeGreeting(): string {
+  const h = Number(new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit', hour12: false, timeZone: getActiveTimeZone(),
+  }).format(new Date()))
   if (h < 12) return 'Good morning'
   if (h < 18) return 'Good afternoon'
   return 'Good evening'
+}
+
+/** Empty on the server and on the first client render, so there is nothing
+    for hydration to disagree about; filled immediately afterwards. */
+function useGreeting(): string {
+  const [greeting, setGreeting] = useState('')
+  useEffect(() => { setGreeting(timeGreeting()) }, [])
+  return greeting
 }
 
 export default function DashboardPage() {
@@ -30,6 +55,7 @@ export default function DashboardPage() {
   const { data: stats, isLoading: statsLoading } = useAdminStats()
   const { data: currentUser } = useCurrentUser()
   const firstName = currentUser?.name?.split(' ')[0] ?? 'Admin'
+  const greeting = useGreeting()
 
   /* Split a money value into a display number + suffix so StatCard's
      prefix/suffix props work (it expects `value: number`). */
@@ -55,7 +81,7 @@ export default function DashboardPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 260, damping: 24 }}>
         <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Bricolage Grotesque, sans-serif' }}>
-          {timeGreeting()}, {firstName} 👋
+          {greeting ? `${greeting}, ` : ''}{firstName} 👋
         </h1>
         <p className="mt-1 text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
           Here&apos;s what&apos;s happening with Delta Institutions today.

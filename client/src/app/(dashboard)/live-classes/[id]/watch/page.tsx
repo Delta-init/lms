@@ -7,13 +7,14 @@ import {
   Radio, Clock, AlertCircle, Calendar, ChevronLeft,
   ExternalLink, BookOpen, Users, Tv2, Maximize2, Minimize2,
 } from 'lucide-react'
-import { useWatchAccess } from '@/lib/api/liveClasses'
+import { useWatchAccess, isInteractiveRoom } from '@/lib/api/liveClasses'
 import MuxPlayer from '@mux/mux-player-react'
 import { useCurrentUser } from '@/lib/api/user'
 import { WatermarkOverlay } from '@/components/video/WatermarkOverlay'
 import { SessionHomework } from '@/components/live-classes/SessionHomework'
 import { SessionFeedback } from '@/components/live-classes/SessionFeedback'
 import Spinner from '@/components/ui/Spinner'
+import { ClassEntryPanel } from '@/components/live-classes/ClassEntryPanel'
 
 /* ── Helpers ─────────────────────────────────────────── */
 function StatusBadge({ status }: { status: string }) {
@@ -234,8 +235,17 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
       <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
         {/* ── Left: player ── */}
         <div className="space-y-4">
-          {/* Player or placeholder */}
-          {streamUrl ? (
+          {/* Player or placeholder.
+              An interactive room is a different engine: two-way WebRTC rather
+              than a one-way stream, so it takes the LiveKit path and never
+              touches Mux. It stays inside WatermarkedFrame, which is the whole
+              reason the plan chose a native embed over an iframe — the
+              forensic watermark has to ride over live video too. */}
+          {isInteractiveRoom(data) ? (
+            <WatermarkedFrame>
+              <ClassEntryPanel liveClassId={id} />
+            </WatermarkedFrame>
+          ) : streamUrl ? (
             <WatermarkedFrame>
               <MuxPlayer
                 streamType={isLiveNow ? 'live' : 'on-demand'}

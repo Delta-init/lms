@@ -22,9 +22,16 @@ import { useCurrentUser } from '@/lib/api/user'
 import { EditLiveClassModal } from '@/components/live-classes/EditLiveClassModal'
 import { CreateOfflineClassModal } from '@/components/live-classes/CreateOfflineClassModal'
 import { BookForStudentModal } from '@/components/live-classes/BookForStudentModal'
-import { DarkSelect, DarkDateTimePicker } from '@/components/live-classes/FormWidgets'
+import { DarkSelect, DarkDateTimePicker, PillToggle } from '@/components/live-classes/FormWidgets'
 import { Button, MotionButton } from '@/components/ui/button'
 import Spinner from '@/components/ui/Spinner'
+import { categoryScopeOf } from '@/lib/programScope'
+import {
+  IN_APP_RGB, MEET_RGB, ROOM_RGB, BROADCAST_RGB,
+  LIVEKIT_MAX_SEATS, OPEN_SEATS_DEFAULT,
+} from '@/lib/liveClassTheme'
+
+
 
 /* ── Instructor dropdown (dark theme) ───────────────────── */
 function InstructorDropdown({ value, onChange, instructors }: {
@@ -1027,8 +1034,31 @@ function QuickCreateModal({ onClose, onSuccess, categoryProgram }: { onClose: ()
   const [title,           setTitle]           = useState('')
   const [start,           setStart]           = useState('')
   const [durationMins,    setDurationMins]    = useState(60)
-  const [sessionCapacity, setSessionCapacity] = useState<number | ''>(500)
-  const [type,            setType]            = useState<LiveClassType>('external')
+  /* The interactive room is the house default, so the form opens on it and the
+     seat count opens at its cap rather than at a number the API would refuse. */
+  const [sessionCapacity, setSessionCapacity] = useState<number | ''>(LIVEKIT_MAX_SEATS)
+  const [type,            setType]            = useState<LiveClassType>('internal')
+  /* Which in-app engine backs an internal class. Mux is a one-way broadcast
+     that scales to hundreds; LiveKit is an interactive room capped at
+     LIVEKIT_MAX_SEATS by the meeting platform. */
+  const [provider,        setProvider]        = useState<'mux' | 'livekit'>('livekit')
+
+  /* Seats follow the mode, because the sensible number differs by an order of
+     magnitude. Refilled only when a mode is CLICKED — never on re-render — so a
+     hand-typed count survives everything except deliberately switching mode. */
+  const seatsFor = (t: LiveClassType, p: 'mux' | 'livekit') =>
+    t === 'internal' && p === 'livekit' ? LIVEKIT_MAX_SEATS : OPEN_SEATS_DEFAULT
+  const chooseType = (t: LiveClassType) => {
+    setType(t); setSessionCapacity(seatsFor(t, provider))
+  }
+  const chooseProvider = (p: 'mux' | 'livekit') => {
+    setProvider(p); setSessionCapacity(seatsFor(type, p))
+  }
+
+  /* Only an interactive room is capped; broadcast and Google Meet are not. */
+  const overCapacity =
+    type === 'internal' && provider === 'livekit'
+    && sessionCapacity !== '' && Number(sessionCapacity) > LIVEKIT_MAX_SEATS
   const [sectionId,       setSectionId]       = useState('')
   const [instructorId,    setInstructorId]    = useState('')
   const [language,        setLanguage]        = useState('English')
@@ -1052,6 +1082,8 @@ function QuickCreateModal({ onClose, onSuccess, categoryProgram }: { onClose: ()
         scheduledStart:  datetimeLocalToISO(start),
         durationMins,
         sessionCapacity: sessionCapacity !== '' ? sessionCapacity : undefined,
+        /* Only meaningful for an in-app class; the API defaults it to 'mux'. */
+        ...(type === 'internal' ? { provider } : {}),
         type,
         sectionId:       sectionId || undefined,
         instructorId:    instructorId || undefined,
@@ -1110,27 +1142,43 @@ function QuickCreateModal({ onClose, onSuccess, categoryProgram }: { onClose: ()
           <div>
             <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest"
               style={{ color: 'rgba(255,255,255,0.35)' }}>Type</label>
+            {/* In-app first: it is what the platform actually runs. Green is
+                now its colour — Google Meet moves to amber, because two
+                controls in one row must not read as the same signal. */}
             <div className="flex gap-2">
-              <button type="button" onClick={() => setType('external')}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold transition-all"
-                style={type === 'external'
-                  ? { background: 'rgba(34,197,94,0.15)', color: '#4ADE80', border: '1px solid rgba(34,197,94,0.30)' }
-                  : { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.45)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <Video size={11} />Google Meet
-              </button>
-              <button type="button" onClick={() => setType('internal')}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold transition-all"
-                style={type === 'internal'
-                  ? { background: 'rgba(0,87,184,0.20)', color: '#0057b8', border: '1px solid rgba(0,87,184,0.35)' }
-                  : { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.45)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <PillToggle active={type === 'internal'} onClick={() => chooseType('internal')} rgb={IN_APP_RGB}>
                 <Radio size={11} />In-App Stream
-              </button>
+              </PillToggle>
+              <PillToggle active={type === 'external'} onClick={() => chooseType('external')} rgb={MEET_RGB}>
+                <Video size={11} />Google Meet
+              </PillToggle>
             </div>
             {type === 'external' && (
-              <p className="mt-1.5 flex items-center gap-1 text-[10px]" style={{ color: 'rgba(74,222,128,0.65)' }}>
-                <span className="h-1.5 w-1.5 rounded-full bg-green-400 inline-block" />
+              <p className="mt-1.5 flex items-center gap-1 text-[10px]" style={{ color: `rgba(${MEET_RGB},0.7)` }}>
+                <span className="h-1.5 w-1.5 rounded-full inline-block" style={{ background: `rgb(${MEET_RGB})` }} />
                 Google Meet link will be auto-generated
               </p>
+            )}
+
+            {/* Engine picker — only meaningful for an in-app class. Broadcast
+                scales to hundreds one-way; an interactive room lets students
+                speak but the meeting platform caps it. */}
+            {type === 'internal' && (
+              <div className="mt-2">
+                <div className="flex gap-2">
+                  <PillToggle small active={provider === 'livekit'} onClick={() => chooseProvider('livekit')} rgb={ROOM_RGB}>
+                    Interactive room
+                  </PillToggle>
+                  <PillToggle small active={provider === 'mux'} onClick={() => chooseProvider('mux')} rgb={BROADCAST_RGB}>
+                    Broadcast
+                  </PillToggle>
+                </div>
+                <p className="mt-1.5 text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                  {provider === 'mux'
+                    ? 'One-way stream. Students watch; no seat limit.'
+                    : `Two-way room — students can speak and share. Up to ${LIVEKIT_MAX_SEATS} seats.`}
+                </p>
+              </div>
             )}
           </div>
 
@@ -1159,10 +1207,20 @@ function QuickCreateModal({ onClose, onSuccess, categoryProgram }: { onClose: ()
               <input type="number" min={1} max={10000} step={1}
                 value={sessionCapacity}
                 onChange={e => setSessionCapacity(e.target.value === '' ? '' : Number(e.target.value))}
-                placeholder="1000"
+                placeholder={String(seatsFor(type, provider))}
                 className={base} style={iStyle} />
             </div>
           </div>
+
+          {/* Caught here as well as server-side: the API refuses it either way,
+              but an admin should learn the limit while choosing the number, not
+              after submitting the form. */}
+          {overCapacity && (
+            <p className="-mt-1 flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: '#FCA5A5' }}>
+              <span className="h-1.5 w-1.5 rounded-full inline-block" style={{ background: '#FCA5A5' }} />
+              An interactive room holds {LIVEKIT_MAX_SEATS} seats. Reduce the count, or switch to Broadcast for a larger session.
+            </p>
+          )}
 
           {/* Module */}
           <div>
@@ -1890,11 +1948,7 @@ export default function LiveClassesPage() {
           <QuickCreateModal
             onClose={() => setCreateOpen(false)}
             onSuccess={() => setCreateOpen(false)}
-            categoryProgram={
-              me?.role === '4x_admin' ? '4x-trading'
-              : me?.role === 'digital_marketing_admin' ? 'digital-marketing'
-              : undefined
-            }
+            categoryProgram={categoryScopeOf(me)}
           />
         )}
       </AnimatePresence>
@@ -1905,11 +1959,7 @@ export default function LiveClassesPage() {
           <CreateOfflineClassModal
             onClose={() => setOfflineCreateOpen(false)}
             onSuccess={() => setOfflineCreateOpen(false)}
-            categoryProgram={
-              me?.role === '4x_admin' ? '4x-trading'
-              : me?.role === 'digital_marketing_admin' ? 'digital-marketing'
-              : undefined
-            }
+            categoryProgram={categoryScopeOf(me)}
           />
         )}
       </AnimatePresence>

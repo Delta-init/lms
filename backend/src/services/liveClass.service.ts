@@ -7,7 +7,13 @@ import * as muxSvc from '@/services/mux.service.ts'
 import { fetchMeetRecordingUrl } from '@/services/googleMeet.service.ts'
 import { logger } from '@/utils/logger.ts'
 import { env } from '@/config/env.ts'
-import { EnrollmentModel, LiveClassModel, type ILiveClass, type LiveClassType } from '@/models/schema.ts'
+import { EnrollmentModel, LiveClassModel, type ILiveClass, type LiveClassType, type LiveClassProvider } from '@/models/schema.ts'
+import { roomNameFor } from '@/services/integrationTicket.service.ts'
+import { tryEnsureRoom } from '@/services/clt.service.ts'
+
+/* CLT caps a LiveKit room at 50 participants and 8 concurrent rooms. Kept here
+   as a named constant so the admin UI and the tests quote the same number. */
+export const LIVEKIT_MAX_PARTICIPANTS = Number(process.env['LIVEKIT_MAX_PARTICIPANTS'] ?? 50)
 
 export class LiveClassError extends Error {
   constructor(
@@ -145,6 +151,7 @@ export class LiveClassService {
     scheduledStart:   Date
     durationMins:     number
     type:             LiveClassType
+    provider?:        LiveClassProvider
     meetingUrl?:      string
     googleMeetCode?:  string
     sectionId?:       string
@@ -169,10 +176,34 @@ export class LiveClassService {
       }
     }
 
+    /* Which in-app engine backs this class. Absent means Mux, which is what
+       every existing row is — the provider was added without a migration. */
+    const provider: LiveClassProvider = input.provider ?? 'mux'
+    const isInAppLive = input.type === 'internal' && input.isOnline !== false
+
+    /* CAPACITY (plan §9). LiveKit rooms are SFU-backed and CLT caps them at
+       LIVEKIT_MAX_PARTICIPANTS; the LMS schema allows up to 500 because a Mux
+       stream genuinely scales that far. Refusing here — rather than at join
+       time — means the mismatch surfaces to the person creating the class,
+       not to the 51st student who cannot get in. */
+    if (isInAppLive && provider === 'livekit') {
+      const capacity = input.sessionCapacity ?? 30
+      if (capacity > LIVEKIT_MAX_PARTICIPANTS) {
+        throw new LiveClassError(
+          'LIVEKIT_CAPACITY_EXCEEDED',
+          `Interactive rooms hold up to ${LIVEKIT_MAX_PARTICIPANTS} participants. `
+          + `Reduce the seat count, or use a Mux stream for a larger session.`,
+          400,
+        )
+      }
+    }
+
     let muxData: { streamId: string; streamKey: string; playbackId: string } | null = null
 
-    /* Create Mux stream for online internal sessions */
-    if (input.type === 'internal' && input.isOnline !== false) {
+    /* Create Mux stream for online internal sessions — LiveKit classes get a
+       CLT room instead, provisioned after the document exists because the room
+       name is derived from its id. */
+    if (isInAppLive && provider === 'mux') {
       if (!env.MUX_TOKEN_ID || !env.MUX_TOKEN_SECRET) {
         throw new LiveClassError(
           'MUX_NOT_CONFIGURED',
@@ -191,6 +222,7 @@ export class LiveClassService {
       scheduledStart:  input.scheduledStart,
       durationMins:    input.durationMins,
       type:            input.type,
+      provider,
       status:          'scheduled',
       sessionCapacity: input.sessionCapacity ?? 30,
       bookedCount:     0,
@@ -229,6 +261,35 @@ export class LiveClassService {
     }
 
     const created = await this.liveRepo.createOne(doc)
+
+    /* Provision the CLT room AFTER the insert: the room name is derived from
+       the class id, so it cannot be known before one exists. Best-effort by
+       design — tryEnsureRoom never throws, because a meeting-platform outage
+       must not stop an instructor scheduling a class. An unprovisioned room is
+       created on demand the first time somebody hosts. */
+    if (isInAppLive && provider === 'livekit') {
+      const roomName = roomNameFor(created.id)
+      await this.liveRepo.updateOne({ _id: created._id }, { $set: { cltRoomName: roomName } })
+      created.cltRoomName = roomName
+
+      const room = await tryEnsureRoom({
+        liveClassId:    created.id,
+        roomName,
+        title:          created.title,
+        /* ISO-8601 WITH offset. The LMS runs Asia/Dubai and CLT computes in
+           UTC; a naive local timestamp would land four hours out. */
+        scheduledStart: created.scheduledStart.toISOString(),
+        durationMins:   created.durationMins,
+        capacity:       created.sessionCapacity,
+        ...(course as { organizationId?: unknown }).organizationId
+          ? { orgSlug: String((course as { organizationId?: unknown }).organizationId) }
+          : {},
+      })
+      if (room?.courseId) {
+        await this.liveRepo.updateOne({ _id: created._id }, { $set: { cltCourseId: room.courseId } })
+        created.cltCourseId = room.courseId
+      }
+    }
 
     /* Fire-and-forget notification to enrolled students */
     void this.#notifyEnrolledStudents(created, course.title, course.slug).catch(err =>
@@ -342,6 +403,10 @@ export class LiveClassService {
   /* ── Student watch access ─────────────────────────── */
   async getWatchAccess(id: string, userId: string): Promise<{
     type:          'external' | 'internal'
+    provider?:     LiveClassProvider
+    /* Second signal for "this is an interactive room". Sent so the client can
+       branch on evidence rather than on one field that has gone missing before. */
+    cltRoomName?:  string
     title:         string
     status:        string
     meetingUrl?:   string
@@ -392,9 +457,13 @@ export class LiveClassService {
       }
     }
 
-    /* Internal (Mux) */
+    /* Internal — Mux or LiveKit. The client branches on `provider`: a LiveKit
+       class has no playback URL at all, because the media only exists inside
+       the room. */
     return {
       type:        'internal',
+      provider:    (live as { provider?: LiveClassProvider }).provider ?? 'mux',
+      cltRoomName: (live as { cltRoomName?: string }).cltRoomName ?? undefined,
       title:       live.title,
       status:      live.status,
       playbackUrl: live.muxPlaybackId

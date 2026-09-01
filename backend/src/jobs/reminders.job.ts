@@ -31,16 +31,54 @@ import {
 const notifSvc = new NotificationService()
 
 /* ── Types ──────────────────────────────────────────── */
+/* Bookings whose class starts inside [from, to].
+ *
+ * The guard is the point. A booking whose live class has been deleted
+ * populates to null, and reading `.scheduledStart` off it threw — inside a
+ * .filter(), so the exception escaped the entire job rather than one row. Four
+ * stale bookings were therefore stopping EVERY reminder for EVERY class, once
+ * a minute, in silence: no pre-session mail, no five-minute mail, no at-time
+ * mail, for anybody.
+ *
+ * All five schedules shared the same unguarded line; only three were visibly
+ * failing, because the other two's date windows happened not to reach a broken
+ * row yet. One selector now, so the next one cannot drift.
+ *
+ * A booking with no class has nobody to remind and nothing to remind them
+ * about, so it is skipped rather than repaired here — clearing the dangling
+ * rows is separate work, and this job must not depend on it having happened.
+ */
+type BookingWithClass = BookingWithRefs & {
+  liveClassId: NonNullable<BookingWithRefs['liveClassId']>
+}
+
+function dueBetween(bookings: BookingWithRefs[], from: Date, to: Date): BookingWithClass[] {
+  /* A type predicate rather than a cast: every caller loops over the result
+     and reads the class directly, and this is what lets the compiler PROVE
+     those reads are safe instead of being told to trust them. Make the
+     reference nullable without it and tsc lights up twelve real dereferences —
+     which is the bug, written out. */
+  return bookings.filter((b): b is BookingWithClass => {
+    const at = b.liveClassId?.scheduledStart
+    if (!at) return false
+    const s = new Date(at)
+    return s >= from && s <= to
+  })
+}
+
 interface BookingWithRefs {
   _id:    any
   userId: { _id: any; id: string; name: string; email: string }
+  /* NULL when the class was deleted after the booking was made. Mongoose
+     populates a dangling reference as null; typing it as always-present is
+     what let the crash below through in the first place. */
   liveClassId: {
     id:             string
     title:          string
     scheduledStart: Date
     meetingUrl?:    string
     muxPlaybackId?: string
-  }
+  } | null
   reminderDayBeforeSent:  boolean
   reminderDayOfSent:      boolean
   reminderPreSessionSent: boolean
@@ -49,7 +87,7 @@ interface BookingWithRefs {
 }
 
 /* ── Helpers ─────────────────────────────────────────── */
-function getJoinUrl(lc: BookingWithRefs['liveClassId']): string {
+function getJoinUrl(lc: NonNullable<BookingWithRefs['liveClassId']>): string {
   return lc.meetingUrl
     ?? `${process.env['CLIENT_URL'] ?? 'http://localhost:3000'}/live-classes/${lc.id}/watch`
 }
@@ -132,10 +170,7 @@ async function runDayBeforeReminders(): Promise<void> {
       .populate<{ liveClassId: BookingWithRefs['liveClassId'] }>('liveClassId', 'id title scheduledStart meetingUrl muxPlaybackId')
       .lean({ virtuals: true }) as unknown as BookingWithRefs[]
 
-    const due = bookings.filter(b => {
-      const s = new Date(b.liveClassId.scheduledStart)
-      return s >= from && s <= to
-    })
+    const due = dueBetween(bookings, from, to)
 
     for (const b of due) {
       const userId   = b.userId.id ?? b.userId._id?.toString()
@@ -171,10 +206,7 @@ async function runDayOfReminders(): Promise<void> {
       .populate<{ liveClassId: BookingWithRefs['liveClassId'] }>('liveClassId', 'id title scheduledStart meetingUrl muxPlaybackId')
       .lean({ virtuals: true }) as unknown as BookingWithRefs[]
 
-    const due = bookings.filter(b => {
-      const s = new Date(b.liveClassId.scheduledStart)
-      return s >= start && s <= end
-    })
+    const due = dueBetween(bookings, start, end)
 
     for (const b of due) {
       const userId  = b.userId.id ?? b.userId._id?.toString()
@@ -210,10 +242,7 @@ async function runPreSessionReminders(): Promise<void> {
       .populate<{ liveClassId: BookingWithRefs['liveClassId'] }>('liveClassId', 'id title scheduledStart meetingUrl muxPlaybackId')
       .lean({ virtuals: true }) as unknown as BookingWithRefs[]
 
-    const due = bookings.filter(b => {
-      const s = new Date(b.liveClassId.scheduledStart)
-      return s >= from && s <= to
-    })
+    const due = dueBetween(bookings, from, to)
 
     for (const b of due) {
       const userId  = b.userId.id ?? b.userId._id?.toString()
@@ -248,10 +277,7 @@ async function runFiveMinReminders(): Promise<void> {
       .populate<{ liveClassId: BookingWithRefs['liveClassId'] }>('liveClassId', 'id title scheduledStart meetingUrl muxPlaybackId')
       .lean({ virtuals: true }) as unknown as BookingWithRefs[]
 
-    const due = bookings.filter(b => {
-      const s = new Date(b.liveClassId.scheduledStart)
-      return s >= from && s <= to
-    })
+    const due = dueBetween(bookings, from, to)
 
     for (const b of due) {
       const userId  = b.userId.id ?? b.userId._id?.toString()
@@ -287,10 +313,7 @@ async function runAtTimeReminders(): Promise<void> {
       .populate<{ liveClassId: BookingWithRefs['liveClassId'] }>('liveClassId', 'id title scheduledStart meetingUrl muxPlaybackId')
       .lean({ virtuals: true }) as unknown as BookingWithRefs[]
 
-    const due = bookings.filter(b => {
-      const s = new Date(b.liveClassId.scheduledStart)
-      return s >= from && s <= to
-    })
+    const due = dueBetween(bookings, from, to)
 
     for (const b of due) {
       const userId  = b.userId.id ?? b.userId._id?.toString()

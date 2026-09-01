@@ -88,7 +88,7 @@ async function run() {
   // Staff/admins with no org → Dubai
   const staffRes = await UserModel.updateMany(
     {
-      role: { $in: ['admin', 'sub_admin', 'support', '4x_admin', 'digital_marketing_admin', 'ai_admin', 'instructor'] },
+      role: { $in: ['admin', 'sub_admin', 'support', 'instructor'] },
       organizationId: { $exists: false },
     },
     { $set: { organizationId: dubaiId } },

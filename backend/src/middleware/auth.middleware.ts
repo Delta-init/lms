@@ -231,14 +231,29 @@ export async function authenticateAny(
 ): Promise<void> {
   const authHeader  = req.headers['authorization']
   const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
-  /* Impersonation first, for the same reason as in authenticate(): while a
-     client-portal impersonation is live it must win over the super admin's own
-     admin cookie, or a shared endpoint (support tickets) would quietly serve
-     the ADMIN's records instead of the student's. */
+  /* Impersonation first, for the same reason as in authenticate(): while an
+     impersonation is live it must win over the super admin's own admin cookie,
+     or a shared endpoint (support tickets) would quietly serve the ADMIN's
+     records instead of the student's.
+
+     BOTH flavours of impersonation have to outrank that cookie, and they
+     arrive by different routes: the client-portal one as its own cookie, the
+     admin-portal one as a Bearer. The Bearer used to sit LAST in this chain,
+     below the admin cookie — and since the impersonator is by definition still
+     signed in, their cookie always won. Admin-portal impersonation was
+     therefore ignored on every route mounted here, silently, and the request
+     was served as the impersonator.
+
+     It surfaced on /live-classes/:id/host-ticket: an impersonated instructor
+     was judged to be the super admin, so they were not "the assigned
+     instructor", so the LMS minted an ADMIN observer ticket, so CLT refused it
+     with "this class has not started yet" — a host who could not start their
+     own room. authenticateAdmin already ordered these correctly
+     (`bearerToken ?? cookieToken`); this now matches it. */
   const token = req.cookies?.[IMPERSONATION_COOKIE]
+             ?? bearerToken
              ?? req.cookies?.[ADMIN_ACCESS_COOKIE]
              ?? req.cookies?.[ACCESS_COOKIE]
-             ?? bearerToken
 
   /* Whether THIS request is a client-portal impersonation, as opposed to the
      admin-portal one that arrives as a Bearer. Only the former is read-only,
@@ -393,10 +408,10 @@ export const requireSuperAdmin = requireRole('super_admin')
 export const requireAdmin      = requireRole('super_admin', 'admin')
 
 /** Category-scoped admins + above (sub_admin replaces legacy *_admin roles) */
-export const requireAnyAdmin   = requireRole('super_admin', 'admin', 'sub_admin', 'support', '4x_admin', 'digital_marketing_admin', 'ai_admin')
+export const requireAnyAdmin   = requireRole('super_admin', 'admin', 'sub_admin', 'support')
 
 /** Teaching staff + above */
-export const requireInstructor = requireRole('super_admin', 'admin', 'sub_admin', 'support', '4x_admin', 'digital_marketing_admin', 'ai_admin', 'instructor')
+export const requireInstructor = requireRole('super_admin', 'admin', 'sub_admin', 'support', 'instructor')
 
 /* Roles that may AUTHOR a course (B-07).
    ─────────────────────────────────────────────────────────────────────────
@@ -409,16 +424,16 @@ export const requireInstructor = requireRole('super_admin', 'admin', 'sub_admin'
    publish to the marketing site and be unable to take it back down.
 
    This list is deliberately the same set assertCourseEditable can authorise:
-   you may only create a course you could afterwards manage. If sub_admin or
-   ai_admin are meant to author courses, the fix is to add them to
-   assertCourseEditable — one line in section.service.ts — rather than to
-   reopen creation to roles that cannot maintain what they create. */
+   you may only create a course you could afterwards manage. If sub_admin is
+   meant to author courses, the fix is to add it to assertCourseEditable — one
+   line in section.service.ts — AND here, rather than to reopen creation to a
+   role that cannot maintain what it creates. */
 export const requireCourseAuthor = requireRole(
-  'super_admin', 'admin', '4x_admin', 'digital_marketing_admin', 'instructor',
+  'super_admin', 'admin', 'instructor',
 )
 
 /** Any authenticated user */
-export const requireStudent    = requireRole('super_admin', 'admin', 'sub_admin', 'support', '4x_admin', 'digital_marketing_admin', 'ai_admin', 'instructor', 'student')
+export const requireStudent    = requireRole('super_admin', 'admin', 'sub_admin', 'support', 'instructor', 'student')
 
 /** Require caller's organization matches the given org slug */
 export function requireOrgAccess(slug: import('@/types/index.ts').OrgSlug) {
@@ -545,10 +560,7 @@ export async function injectCategoryScope(req: Request, _res: Response, next: Ne
     else if (req.user.program === 'digital_marketing')  req.user.categoryScope = 'digital-marketing'
     else if (req.user.program === 'forex')              req.user.categoryScope = '4x-trading'
     else if (req.user.program === 'jura')               req.user.categoryScope = 'jura'
-  } else if (req.user.role === '4x_admin')                     req.user.categoryScope = '4x-trading'
-  else if (req.user.role === 'digital_marketing_admin') req.user.categoryScope = 'digital-marketing'
-  else if (req.user.role === 'ai_admin')                req.user.categoryScope = 'ai'
-  else if (req.user.role === 'instructor') {
+  } else if (req.user.role === 'instructor') {
     const { UserModel } = await import('@/models/schema.ts')
     const user = await UserModel.findById(req.user.id).select('category').lean()
     const cat  = (user as any)?.category as string | undefined

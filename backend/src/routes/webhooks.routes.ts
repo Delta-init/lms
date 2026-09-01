@@ -398,4 +398,74 @@ router.post('/tamara', async (req: Request, res: Response) => {
   res.status(200).json({ received: true })
 })
 
+/* ─── CLT Connect events (Phase 5) ────────────────────────────────────────
+   Facts flowing back from the meeting platform: a recording finished, a class
+   ended, somebody turned up. Signed with the same shared secret as the
+   outbound commands plane, in reverse.
+
+   Requires express.raw() (see app.ts) — the signature covers the exact bytes,
+   so re-serialising a parsed body would break every one.
+──────────────────────────────────────────────────────────────────────────── */
+router.post('/clt', async (req: Request, res: Response) => {
+  try {
+    const raw = req.body as Buffer
+    if (!Buffer.isBuffer(raw)) {
+      logger.error('CLT webhook: body is not a Buffer — express.raw() must run before express.json()')
+      res.status(500).json({ success: false, error: { code: 'RAW_BODY_MISSING', message: 'Server misconfigured' } })
+      return
+    }
+
+    const secret = process.env['CLT_S2S_SECRET'] ?? ''
+    if (!secret) {
+      res.status(503).json({ success: false, error: { code: 'INTEGRATION_DISABLED', message: 'CLT integration is not configured' } })
+      return
+    }
+
+    const timestamp = String(req.headers['x-clt-timestamp'] ?? '')
+    const nonce     = String(req.headers['x-clt-nonce'] ?? '')
+    const signature = String(req.headers['x-clt-signature'] ?? '')
+    if (!timestamp || !nonce || !signature) {
+      res.status(401).json({ success: false, error: { code: 'MISSING_SIGNATURE', message: 'Missing CLT signature headers' } })
+      return
+    }
+
+    /* Freshness first — the cheap check, and the one that stops a captured
+       request being replayed tomorrow with a still-valid signature. */
+    const skewMs = Math.abs(Date.now() - Number(timestamp))
+    if (!Number.isFinite(skewMs) || skewMs > 5 * 60_000) {
+      res.status(401).json({ success: false, error: { code: 'STALE_TIMESTAMP', message: 'Request timestamp is out of date' } })
+      return
+    }
+
+    const { createHmac, timingSafeEqual } = await import('node:crypto')
+    const expected = createHmac('sha256', secret)
+      .update(Buffer.concat([Buffer.from(`${timestamp}.${nonce}.`), raw]))
+      .digest('hex')
+
+    const a = Buffer.from(expected, 'utf8'), b = Buffer.from(signature, 'utf8')
+    if (a.length !== b.length || !timingSafeEqual(a, b)) {
+      logger.warn({ path: '/webhooks/clt' }, 'CLT webhook signature mismatch')
+      res.status(401).json({ success: false, error: { code: 'BAD_SIGNATURE', message: 'Bad signature' } })
+      return
+    }
+
+    const { handleCltEvent, CltWebhookError } = await import('@/services/cltWebhook.service.ts')
+    try {
+      const outcome = await handleCltEvent(JSON.parse(raw.toString('utf8')))
+      res.json({ success: true, data: { outcome } })
+    } catch (err: any) {
+      if (err instanceof CltWebhookError) {
+        res.status(err.status).json({ success: false, error: { code: 'EVENT_REJECTED', message: err.message } })
+        return
+      }
+      throw err
+    }
+  } catch (err) {
+    logger.error({ err }, 'CLT webhook failed')
+    /* 500 so CLT retries — a lost event is worse than a duplicate, and every
+       handler is idempotent. */
+    res.status(500).json({ success: false, error: { code: 'WEBHOOK_ERROR', message: 'Could not process event' } })
+  }
+})
+
 export default router

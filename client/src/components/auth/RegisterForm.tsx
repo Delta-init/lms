@@ -1706,10 +1706,19 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
               ? 'bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] shadow-sm'
               : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
           )}>
-          <Zap size={14} className={mode === 'express' ? 'text-blue-600' : 'text-[var(--color-text-muted)]'} />
-          Express Account
+          <Zap size={14} className={cn('shrink-0', mode === 'express' ? 'text-blue-600' : 'text-[var(--color-text-muted)]')} />
+          {/* The label is the one thing here that must never wrap: with the
+              badge alongside it, "Express Account" would otherwise break
+              across two lines and make this tab taller than its neighbour. */}
+          <span className="whitespace-nowrap">Express Account</span>
+          {/* Dropped on phones. With neither label wrapping, the two tabs plus
+              this badge need ~373px; a 375px screen gives the row 306, so
+              keeping it would trade the fixed line-break for a horizontal
+              scrollbar. From `sm` up the column is 400px and it fits with room
+              to spare. A badge on the tab that is already visibly selected is
+              the right thing to lose first. */}
           {mode === 'express' && (
-            <span className="rounded-full px-1.5 py-0.5 text-[10px] font-bold tracking-wide"
+            <span className="hidden shrink-0 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-bold tracking-wide sm:inline-block"
               style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary)' }}>
               Recommended
             </span>
@@ -1724,8 +1733,8 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
               ? 'bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] shadow-sm'
               : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
           )}>
-          <FileText size={14} className={mode === 'full' ? 'text-blue-600' : 'text-[var(--color-text-muted)]'} />
-          Full Registration
+          <FileText size={14} className={cn('shrink-0', mode === 'full' ? 'text-blue-600' : 'text-[var(--color-text-muted)]')} />
+          <span className="whitespace-nowrap">Full Registration</span>
         </button>
       </div>
 

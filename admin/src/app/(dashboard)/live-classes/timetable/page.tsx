@@ -19,6 +19,8 @@ import { EditLiveClassModal } from '@/components/live-classes/EditLiveClassModal
 import { CreateOfflineClassModal } from '@/components/live-classes/CreateOfflineClassModal'
 import { Button } from '@/components/ui/button'
 import Spinner from '@/components/ui/Spinner'
+import { IN_APP_RGB, MEET_RGB } from '@/lib/liveClassTheme'
+import { categoryScopeOf } from '@/lib/programScope'
 
 /* ── Helpers ─────────────────────────────────────────── */
 function sameDay(a: Date, b: Date): boolean {
@@ -338,24 +340,27 @@ function QuickCreateModal({
             <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest"
               style={{ color: 'rgba(255,255,255,0.35)' }}>Type</label>
             <div className="flex gap-2">
+              {/* Same accents as the New Session modal — green is in-app,
+                  amber is the external link. This form has no engine picker,
+                  so its order and default are deliberately left alone. */}
               <button type="button" onClick={() => setType('external')}
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold transition-all"
                 style={type === 'external'
-                  ? { background: 'rgba(34,197,94,0.15)', color: '#4ADE80', border: '1px solid rgba(34,197,94,0.30)' }
+                  ? { background: `rgba(${MEET_RGB},0.18)`, color: `rgb(${MEET_RGB})`, border: `1px solid rgba(${MEET_RGB},0.35)` }
                   : { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.45)', border: '1px solid rgba(255,255,255,0.08)' }}>
                 <Video size={11} />Google Meet
               </button>
               <button type="button" onClick={() => setType('internal')}
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold transition-all"
                 style={type === 'internal'
-                  ? { background: 'rgba(0,87,184,0.20)', color: '#0057b8', border: '1px solid rgba(0,87,184,0.35)' }
+                  ? { background: `rgba(${IN_APP_RGB},0.18)`, color: `rgb(${IN_APP_RGB})`, border: `1px solid rgba(${IN_APP_RGB},0.35)` }
                   : { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.45)', border: '1px solid rgba(255,255,255,0.08)' }}>
                 <Radio size={11} />In-App Stream
               </button>
             </div>
             {type === 'external' && (
-              <p className="mt-1.5 flex items-center gap-1 text-[10px]" style={{ color: 'rgba(74,222,128,0.65)' }}>
-                <span className="h-1.5 w-1.5 rounded-full bg-green-400 inline-block" />
+              <p className="mt-1.5 flex items-center gap-1 text-[10px]" style={{ color: `rgba(${MEET_RGB},0.7)` }}>
+                <span className="h-1.5 w-1.5 rounded-full inline-block" style={{ background: `rgb(${MEET_RGB})` }} />
                 Google Meet link will be auto-generated
               </p>
             )}
@@ -420,11 +425,7 @@ export default function TimetablePage() {
   const [offlinePrefill,    setOfflinePrefill]    = useState<string | undefined>(undefined)
 
   const { data: me } = useCurrentUser()
-  const categoryProgram =
-    me?.role === '4x_admin' ? '4x-trading'
-    : me?.role === 'digital_marketing_admin' ? 'digital-marketing'
-    : me?.role === 'ai_admin' ? 'ai'
-    : undefined
+  const categoryProgram = categoryScopeOf(me)
 
   const year  = monthDate.getFullYear()
   const month = monthDate.getMonth()

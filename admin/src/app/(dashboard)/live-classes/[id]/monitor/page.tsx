@@ -13,8 +13,9 @@ import MuxPlayer from '@mux/mux-player-react'
 import Spinner from '@/components/ui/Spinner'
 import {
   useLiveClassById, useStartLiveStreamById, useEndLiveStreamById,
-  useStreamCredentials, useRecreateLiveStream,
+  useStreamCredentials, useRecreateLiveStream, isInteractiveRoom,
 } from '@/lib/api/liveClasses'
+import { ClassEntryPanel } from '@/components/live-classes/ClassEntryPanel'
 
 /* ── Inline OBS credentials panel ─────────────────────── */
 function ObsCredsInline({ liveId }: { liveId: string }) {
@@ -209,6 +210,27 @@ export default function MonitorPage({ params }: { params: Promise<{ id: string }
   const isCancelled = live.status === 'cancelled'
 
   const courseHref = live.course?.id ? `/courses/${live.course.id}/edit` : '/courses'
+
+  /* ── Interactive room (LiveKit) ──────────────────────────────────────
+     Everything below this line is Mux: a stream key, an OBS server address,
+     "Go Live Now". A CLT room has none of those — its media exists only
+     inside the room — so this page was offering an instructor an OBS setup
+     and an error, for a class that needed neither.
+
+     Branched AFTER the ended/cancelled state on purpose: a finished class is
+     better served by the recording screen below than by a join button that
+     can only refuse. */
+  if (!isEnded && !isCancelled && isInteractiveRoom(live)) {
+    return (
+      <div className="mx-auto max-w-6xl">
+        <Link href={courseHref} className="mb-4 inline-flex items-center gap-1.5 text-xs font-semibold"
+          style={{ color: 'rgba(255,255,255,0.45)' }}>
+          <ChevronLeft size={14} />Back to course
+        </Link>
+        <ClassEntryPanel liveClassId={id} title={live.title} instructorId={live.instructorId} />
+      </div>
+    )
+  }
 
   /* ── Session ended state ── */
   if (isEnded || isCancelled) {

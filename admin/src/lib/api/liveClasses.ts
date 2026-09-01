@@ -24,6 +24,14 @@ export interface LiveClass {
 
   /* Internal-only (Mux) */
   muxPlaybackId?: string
+  /* Which in-app engine backs an `internal` class. Absent on older rows,
+     which are all Mux. */
+  provider?:      'mux' | 'livekit'
+  /* Present only when a CLT room exists — see isInteractiveRoom below. */
+  cltRoomName?:   string
+  /* 'embed' renders the room inside the admin panel; 'redirect' hands the
+     browser to the meeting platform. Server-decided, so both apps agree. */
+  joinMode?:      'embed' | 'redirect'
   playbackUrl?:   string
   thumbnailUrl?:  string
   recordingUrl?:  string
@@ -391,4 +399,23 @@ export function useUpdateAttendance() {
       qc.invalidateQueries({ queryKey: ['admin', 'bookings'] })
     },
   })
+}
+
+/* Is this the CLT/LiveKit interactive room, rather than a Mux broadcast?
+ *
+ * TWO signals on purpose. `provider` is the intended answer, but it is a field
+ * that can go missing — it was once absent from a DTO entirely, and any stale
+ * or partial payload drops it too. When it is absent the reader falls back to
+ * 'mux', so a LiveKit class silently renders the Mux surface: an OBS stream
+ * key for the instructor, a dead video player for the student.
+ *
+ * `cltRoomName` is only ever written when a CLT room is provisioned, so its
+ * presence is proof on its own — and a genuine legacy Mux class never has one,
+ * so it cannot produce a false positive. Either signal is enough.
+ */
+export function isInteractiveRoom(
+  l: { provider?: string; cltRoomName?: string } | null | undefined,
+): boolean {
+  if (!l) return false
+  return l.provider === 'livekit' || !!l.cltRoomName
 }

@@ -2,10 +2,11 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import express from 'express'
 import { z } from 'zod'
 import { LiveClassController } from '@/controllers/liveClass.controller.ts'
-import { authenticate } from '@/middleware/auth.middleware.ts'
+import { authenticate, authenticateAny, injectCategoryScope } from '@/middleware/auth.middleware.ts'
 import { validate } from '@/middleware/validate.middleware.ts'
 import { resolveLiveStatus } from '@/utils/liveStatus.ts'
 import type { PaginationMeta } from '@/types/index.ts'
+import { issueClassHandoff } from '@/controllers/classHandoff.controller.ts'
 
 const router = Router()
 const ctrl   = new LiveClassController()
@@ -122,6 +123,117 @@ router.get('/upcoming', authenticate, ctrl.upcomingForMe)
 /* Student watch access — checks enrollment, returns playback URL or meeting URL */
 router.get('/:id/watch', authenticate, ctrl.watchAccess)
 
+/* ── LMS ↔ CLT Connect join tickets (Phase 3) ─────────────────────────────
+   The browser posts the returned ticket to CLT, which exchanges it for a
+   LiveKit token. The LMS never holds a LiveKit token and CLT never asks the
+   LMS a second question: every authorisation decision is baked into the
+   ticket at mint time.
+
+   `authenticateAny` because this endpoint is genuinely shared: the studio page
+   lives in the ADMIN app (cookie `lms_admin_at`) while instructors may also
+   arrive from the client portal (`lms_at`). Using the client guard alone made
+   every admin-panel role — super_admin through support — fail with 401
+   MISSING_TOKEN, because their cookie is the other one.
+
+   Authorisation is unchanged and still lives in the service: being able to
+   authenticate says nothing about being allowed into this class.
+──────────────────────────────────────────────────────────────────────────── */
+router.post('/:id/host-ticket', authenticateAny, injectCategoryScope, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { mintHostTicket, JoinError } = await import('@/services/liveClassJoin.service.ts')
+    const { IntegrationDisabledError } = await import('@/services/integrationTicket.service.ts')
+    try {
+      /* An admin may opt to be SEEN. Default is hidden, so nobody becomes
+         visible by forgetting the flag; the instructor path ignores it. */
+      const visible = (req.body as { visible?: boolean } | undefined)?.visible === true
+
+      const minted = await mintHostTicket(String(req.params['id'] ?? ''), {
+        userId: req.user!.id,
+        name:   req.user!.email.split('@')[0] ?? 'Instructor',
+        email:  req.user!.email,
+        role:   req.user!.role,
+        ...(req.user!.organizationId ? { organizationId: req.user!.organizationId } : {}),
+        /* Set by injectCategoryScope above. Without it the programme gate in
+           the service has nothing to compare and lets every class through. */
+        ...(req.user!.categoryScope ? { categoryScope: req.user!.categoryScope } : {}),
+      }, { visible })
+      sendSuccess(res, {
+        ticket:    minted.ticket,
+        expiresIn: minted.expiresIn,
+        roomName:  minted.roomName,
+        hidden:    minted.hidden,
+        /* Where the browser redeems it. Sent by the server so the frontend
+           carries no hard-coded meeting-platform address. */
+        joinUrl:   `${(process.env['CLT_BASE_URL'] ?? '').replace(/\/+$/, '')}/api/lms/join`,
+      }, 'Host ticket issued')
+    } catch (err: any) {
+      if (err instanceof IntegrationDisabledError) {
+        res.status(503).json({ success: false, error: { code: 'INTEGRATION_DISABLED', message: err.message } })
+        return
+      }
+      if (err instanceof JoinError) {
+        if (err.retryAfter) res.set('Retry-After', String(err.retryAfter))
+        res.status(err.status).json({
+          success: false,
+          error: { code: err.code, message: err.message, ...(err.retryAfter ? { retryAfter: err.retryAfter } : {}) },
+        })
+        return
+      }
+      throw err
+    }
+  } catch (err) { next(err) }
+})
+
+/* Student join ticket. Same shape as /host-ticket, but every entitlement rule
+   in §7 of the plan runs first: booking, enrolment, module access, academy and
+   the time window. A refusal here is the ONLY thing standing between a student
+   and a classroom they have not paid for — CLT trusts the ticket completely. */
+router.post('/:id/join-ticket', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { mintStudentTicket, JoinError } = await import('@/services/liveClassJoin.service.ts')
+    const { IntegrationDisabledError } = await import('@/services/integrationTicket.service.ts')
+    try {
+      const { UserModel } = await import('@/models/schema.ts')
+      /* enrollmentStatus and isActive are not on the token — they change while
+         a session is live, so they are read fresh on every mint. */
+      const me = await UserModel.findById(req.user!.id)
+        .select('name email enrollmentStatus isActive organizationId').lean() as any
+
+      const minted = await mintStudentTicket(String(req.params['id'] ?? ''), {
+        userId: req.user!.id,
+        name:   me?.name ?? req.user!.email.split('@')[0] ?? 'Student',
+        email:  req.user!.email,
+        role:   req.user!.role,
+        ...(me?.organizationId ? { organizationId: String(me.organizationId) } : {}),
+        ...(me?.enrollmentStatus ? { enrollmentStatus: me.enrollmentStatus } : {}),
+        isActive: me?.isActive !== false,
+      })
+      sendSuccess(res, {
+        ticket:    minted.ticket,
+        expiresIn: minted.expiresIn,
+        roomName:  minted.roomName,
+        joinUrl:   `${(process.env['CLT_BASE_URL'] ?? '').replace(/\/+$/, '')}/api/lms/join`,
+      }, 'Join ticket issued')
+    } catch (err: any) {
+      if (err instanceof IntegrationDisabledError) {
+        res.status(503).json({ success: false, error: { code: 'INTEGRATION_DISABLED', message: err.message } })
+        return
+      }
+      if (err instanceof JoinError) {
+        /* 425 carries Retry-After so the page can count down instead of
+           showing a dead error to somebody who is simply early. */
+        if (err.retryAfter) res.set('Retry-After', String(err.retryAfter))
+        res.status(err.status).json({
+          success: false,
+          error: { code: err.code, message: err.message, ...(err.retryAfter ? { retryAfter: err.retryAfter } : {}) },
+        })
+        return
+      }
+      throw err
+    }
+  } catch (err) { next(err) }
+})
+
 /* Mux webhook — must use raw body parser BEFORE json parser for signature verification */
 router.post(
   '/mux-webhook',
@@ -208,5 +320,13 @@ router.post('/homework/:id/submit', authenticate, validate(submitHomeworkSchema)
     sendSuccess(res, sub, 'Homework submitted', 201)
   } catch (err) { next(err) }
 })
+
+/* HANDOFF — send this browser to CLT Connect to enter the class.
+
+   `authenticate`, not `authenticateAny`: this router must resolve the STUDENT
+   session and nothing else. The admin portal mounts the very same handler
+   behind its own guard, so the identity follows the portal the click came
+   from. The handler explains why that matters. */
+router.post('/:id/handoff', authenticate, injectCategoryScope, issueClassHandoff)
 
 export default router

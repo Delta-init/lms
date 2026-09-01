@@ -7,7 +7,7 @@ export interface CurrentAdmin {
   name:            string
   email:           string
   avatarUrl?:      string
-  role:            'student' | 'instructor' | 'admin' | 'sub_admin' | 'support' | '4x_admin' | 'digital_marketing_admin' | 'ai_admin' | 'super_admin'
+  role:            'student' | 'instructor' | 'admin' | 'sub_admin' | 'support' | 'super_admin'
   organizationId?: string
   program?:        'ai' | 'digital_marketing' | 'forex' | 'jura'
   headline?:       string

@@ -8,7 +8,7 @@ const repo   = new AuditLogRepository()
 
 /* GET /audit-logs — super_admin + admin only.
    The trail exposes actorEmail / ip / userAgent / meta platform-wide, so it stays
-   off requireAnyAdmin (support, sub_admin, 4x_admin, digital_marketing_admin, ai_admin).
+   off requireAnyAdmin (support, sub_admin).
    Tenant-scoped (H-12): an org admin sees only their own academy's trail plus
    entries that predate the field. super_admin is unscoped. */
 router.get(

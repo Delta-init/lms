@@ -6,8 +6,9 @@
    and 4 of the 9 roles. This suite answers the harder question — **what can
    each role actually do in each section, and does anything break for anyone?**
 
-   Five roles had never been exercised at all: sub_admin, support, 4x_admin,
-   digital_marketing_admin and ai_admin. Those are precisely the roles most
+   Two roles had never been exercised at all: sub_admin and support (along
+   with the three programme-admin roles since folded into sub_admin). Those
+   are precisely the roles most
    likely to hit a guard nobody tried, because the codebase treats them
    inconsistently — some route lists name them explicitly, some rely on
    `isFullAdmin`, some forget them entirely (that was P-21).
@@ -89,8 +90,7 @@ const PW = 'CorrectHorse1'
 
 /* Every staff role the admin router admits, plus student as the negative. */
 const ROLES = [
-  'super_admin', 'admin', 'sub_admin', 'support', 'instructor',
-  '4x_admin', 'digital_marketing_admin', 'ai_admin', 'student',
+  'super_admin', 'admin', 'sub_admin', 'support', 'instructor', 'student',
 ] as const
 type Role = typeof ROLES[number]
 
@@ -240,9 +240,6 @@ try {
       /* role, must be REFUSED these targets, may CREATE these */
       ['support',                 ['super_admin', 'admin', 'sub_admin'], ['student', 'instructor']],
       ['sub_admin',               ['super_admin', 'admin'],              ['instructor']],
-      ['4x_admin',                ['super_admin', 'admin'],              ['instructor']],
-      ['digital_marketing_admin', ['super_admin', 'admin'],              ['instructor']],
-      ['ai_admin',                ['super_admin', 'admin'],              ['instructor']],
       ['admin',                   ['super_admin'],                       ['instructor', 'admin']],
       ['instructor',              ['super_admin', 'admin', 'instructor'], []],
     ]
@@ -275,10 +272,14 @@ try {
        programme admins all get 201. The question that matters is not whether
        they can create a row, but whether it reaches the PUBLIC catalogue. */
     /* Roles that must NOT be able to author a course, because they cannot
-       manage one afterwards (assertCourseEditable refuses them). 4x_admin and
-       digital_marketing_admin are deliberately absent — they CAN edit courses
-       in their own programme, so authoring is legitimate for them. */
-    const mayNotAuthor = ['support', 'sub_admin', 'ai_admin'] as const
+       manage one afterwards (assertCourseEditable refuses them).
+
+       sub_admin is on this list, and after the legacy programme-admin roles
+       were folded into it that list is now EVERY non-super staff role below
+       `admin`. If sub_admin is ever granted programme-scoped course editing,
+       it must move out of here and into requireCourseAuthor at the same time —
+       the two must never disagree, which is what the block below checks. */
+    const mayNotAuthor = ['support', 'sub_admin'] as const
     for (const role of mayNotAuthor) {
       const jar = jars[role]
       if (!jar) continue
@@ -315,19 +316,24 @@ try {
         `got ${direct.status}`)
     }
 
-    /* The other half of the rule: the roles that CAN manage courses must still
-       be able to create them. A guard that over-refuses breaks the product. */
-    for (const role of ['4x_admin', 'digital_marketing_admin'] as const) {
-      const jar = jars[role]
-      if (!jar) continue
-      const slug = `ok-${role.replace(/_/g, '-')}-${Date.now()}`.toLowerCase()
-      const r = await call('POST', '/admin/courses', { jar, body: {
-        title: `Authored by ${role}`, slug,
-        description: 'A programme admin authoring a course in its own programme.',
-        price: 0, isFree: true, status: 'draft', language: 'English',
-      } })
-      check(`${role} may still author a course`, r.status !== 403,
-        `got ${r.status} ${r.body?.error?.code ?? ''}`)
+    /* The other half of the rule: whoever CAN manage a course must still be
+       able to create one. A guard that over-refuses breaks the product.
+
+       Below super_admin that is now `admin` alone — the two programme-admin
+       roles that used to appear here were folded into sub_admin, which has
+       never been able to edit a course. */
+    {
+      const jar = jars['admin']
+      if (jar) {
+        const slug = `ok-admin-${Date.now()}`.toLowerCase()
+        const r = await call('POST', '/admin/courses', { jar, body: {
+          title: 'Authored by admin', slug,
+          description: 'An academy admin authoring a course, which it may also edit.',
+          price: 0, isFree: true, status: 'draft', language: 'English',
+        } })
+        check('admin may still author a course', r.status !== 403,
+          `got ${r.status} ${r.body?.error?.code ?? ''}`)
+      }
     }
   }
 

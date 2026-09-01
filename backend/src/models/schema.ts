@@ -154,7 +154,7 @@ const UserSchema = new Schema<IUser>(
     email:        { type: String, required: true, unique: true, lowercase: true, trim: true },
     passwordHash: { type: String, select: false },   // excluded from queries by default
     avatarUrl:    { type: String },
-    role:         { type: String, enum: ['student', 'instructor', 'admin', 'super_admin', 'sub_admin', 'support', '4x_admin', 'digital_marketing_admin', 'ai_admin'], default: 'student' },
+    role:         { type: String, enum: ['student', 'instructor', 'admin', 'super_admin', 'sub_admin', 'support'], default: 'student' },
     isVerified:   { type: Boolean, default: false },
     isActive:     { type: Boolean, default: true },
     provider:     { type: String },
@@ -711,6 +711,8 @@ export const FavoriteModel = mongoose.model<IFavorite>('Favorite', FavoriteSchem
 export type LiveClassStatus = 'scheduled' | 'live' | 'ended' | 'cancelled'
 export type LiveClassType   = 'external' | 'internal'
 
+export type LiveClassProvider = 'mux' | 'livekit'
+
 export interface ILiveClass extends Document {
   id:             string
   courseId:       Types.ObjectId
@@ -726,6 +728,23 @@ export interface ILiveClass extends Document {
   /* External-only */
   meetingUrl?:    string           // required when type=external
   googleMeetCode?: string          // e.g. "abc-def-ghij"
+
+  /* Which engine backs an `internal` class.
+     `type` says external-vs-in-app; `provider` says WHICH in-app engine, so
+     LiveKit can be added without touching a single existing row. Everything
+     already in the database is Mux, which is exactly what the default says. */
+  provider?:         LiveClassProvider   // 'mux' | 'livekit'
+
+  /* Internal + provider='livekit' — the CLT Connect side of the link.
+     roomName is derived from the class id, never chosen by a caller. */
+  cltRoomName?:      string       // "lms-<liveClassId>"
+  cltCourseId?:      number       // CLT courses.id, set when the room is provisioned
+  cltMeetingId?:     number       // CLT meetings.id, set when a host starts it
+  /* CLT recordings.id. Stored instead of a URL: the stream endpoint needs a
+     CLT admin token an LMS admin does not have, and a presigned link would go
+     stale sitting here. Exchanged for a short-lived URL on play. */
+  cltRecordingId?:   number
+  recordingDurationSecs?: number
 
   /* Internal-only (Mux) */
   muxLiveStreamId?:  string       // Mux live stream ID
@@ -788,6 +807,16 @@ const LiveClassSchema = new Schema<ILiveClass>(
 
     meetingUrl:        { type: String, maxlength: 2048 },
     googleMeetCode:    { type: String, maxlength: 20 },
+    /* Defaults to 'mux' so every existing row keeps its current behaviour
+       without a migration — the whole point of adding a provider rather than
+       repurposing `type`. */
+    provider:          { type: String, enum: ['mux', 'livekit'], default: 'mux' },
+    cltRoomName:       { type: String, maxlength: 64 },
+    cltCourseId:       { type: Number },
+    cltMeetingId:      { type: Number },
+    cltRecordingId:    { type: Number },
+    recordingDurationSecs: { type: Number },
+
     muxLiveStreamId:   { type: String },
     muxStreamKey:      { type: String, select: false },   // never returned in standard queries
     muxPlaybackId:     { type: String },
@@ -816,6 +845,8 @@ const LiveClassSchema = new Schema<ILiveClass>(
 LiveClassSchema.index({ courseId: 1, scheduledStart: 1 })
 LiveClassSchema.index({ scheduledStart: 1 })
 LiveClassSchema.index({ muxLiveStreamId: 1 }, { sparse: true })
+/* CLT webhooks and the join path both arrive holding only the room name. */
+LiveClassSchema.index({ cltRoomName: 1 }, { sparse: true })
 LiveClassSchema.index({ organizationId: 1 })
 LiveClassSchema.index({ seriesId: 1 }, { sparse: true })
 
@@ -1556,6 +1587,62 @@ ImpersonationHandoffSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 })
 export const ImpersonationHandoffModel =
   mongoose.model<IImpersonationHandoff>('ImpersonationHandoff', ImpersonationHandoffSchema)
 
+/* ─────────────────────────────────────────────────────
+   ClassHandoff — one-time code for entering a class on CLT
+   ─────────────────────────────────────────────────────
+   The redirect flow needs to carry an identity across an origin boundary, and
+   a signed ticket is a bearer credential: in a URL it lands in history, the
+   Referer header, proxy logs and any shared screen. So the URL carries a
+   meaningless code instead, and CLT exchanges it server-to-server.
+
+   TWO deliberate choices about what is stored:
+
+   1. The code is stored HASHED, like ImpersonationHandoff. A database read
+      yields nothing that can be redeemed.
+
+   2. The TICKET IS NOT STORED AT ALL. Only the intent is — who, which class,
+      as host or student, visible or hidden — and the ticket is minted when CLT
+      exchanges the code. That keeps a bearer credential out of the database
+      entirely, re-runs the authorisation check at the moment of use rather
+      than trusting one made a minute earlier, and starts the ticket's 90-second
+      life when it is actually needed instead of burning it on a page load.
+───────────────────────────────────────────────────── */
+export type ClassHandoffKind = 'host' | 'student'
+
+export interface IClassHandoff extends Document {
+  id:          string
+  codeHash:    string             // sha256 of the one-time code
+  liveClassId: Types.ObjectId
+  userId:      Types.ObjectId
+  kind:        ClassHandoffKind
+  visible?:    boolean            // host only; admins choose per entry
+  expiresAt:   Date
+  usedAt?:     Date
+  createdAt:   Date
+  updatedAt:   Date
+}
+
+const ClassHandoffSchema = new Schema<IClassHandoff>(
+  {
+    codeHash:    { type: String, required: true, unique: true },
+    liveClassId: { type: Schema.Types.ObjectId, ref: 'LiveClass', required: true },
+    userId:      { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    kind:        { type: String, enum: ['host', 'student'], required: true },
+    visible:     { type: Boolean },
+    expiresAt:   { type: Date, required: true },
+    usedAt:      { type: Date },
+  },
+  baseSchemaOptions,
+)
+
+/* TTL sweeps spent codes. Mongo's monitor runs about once a minute, so a row
+   can outlive its expiry briefly — redemption therefore checks expiresAt
+   itself rather than trusting the row's absence. */
+ClassHandoffSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 })
+
+export const ClassHandoffModel =
+  mongoose.model<IClassHandoff>('ClassHandoff', ClassHandoffSchema)
+
 export type AuditAction =
   | 'course.create'   | 'course.update'   | 'course.delete'
   | 'course.publish'  | 'course.archive'
@@ -1563,6 +1650,7 @@ export type AuditAction =
   | 'user.delete'     | 'user.impersonate' | 'user.reset2fa'
   | 'user.impersonate.revoke'
   | 'user.impersonate.client'
+  | 'recording.view'
   | 'review.delete'
   | 'coupon.create'   | 'coupon.delete'
   | 'order.refund'
@@ -1725,6 +1813,13 @@ export interface IClassBooking extends Document {
   status:      BookingStatus
   bookedAt:    Date
   cancelledAt?: Date
+
+  /* Attendance, reported by the meeting platform after the fact.
+     Deliberately separate from `status`: a booking stays 'booked' whether or
+     not the student turned up, and collapsing the two would destroy the
+     difference between "cancelled in advance" and "no-showed". */
+  attendedAt?:      Date
+  attendanceSource?: 'livekit'
   // Reminder flags
   reminderDayBeforeSent:  boolean
   reminderDayOfSent:      boolean
@@ -1741,6 +1836,8 @@ const ClassBookingSchema = new Schema<IClassBooking>(
     liveClassId: { type: Schema.Types.ObjectId, ref: 'LiveClass', required: true },
     status:      { type: String, enum: ['booked', 'attended', 'missed', 'cancelled'], default: 'booked' },
     bookedAt:    { type: Date, default: Date.now },
+    attendedAt:       { type: Date },
+    attendanceSource: { type: String, enum: ['livekit'] },
     cancelledAt: { type: Date },
     reminderDayBeforeSent:  { type: Boolean, default: false },
     reminderDayOfSent:      { type: Boolean, default: false },

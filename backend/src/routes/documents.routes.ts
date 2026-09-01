@@ -46,7 +46,6 @@ type DocField = keyof typeof FIELDS
 
 const STAFF_ROLES = new Set([
   'super_admin', 'admin', 'sub_admin', 'support',
-  '4x_admin', 'digital_marketing_admin', 'ai_admin',
 ])
 
 /* GET /documents/:userId/:field  →  { url, expiresIn } */

@@ -9,6 +9,7 @@ import { useCurrentUser, logout } from '@/lib/api/user'
 import { useRouter } from 'next/navigation'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { useImpersonationStore } from '@/store/impersonation.store'
+import { PROGRAM_LABEL } from '@/lib/programScope'
 import { useOrgStore } from '@/store/org.store'
 import { useOrganizations } from '@/lib/api/organizations'
 
@@ -18,6 +19,15 @@ const notifications = [
   { id: 3, type: 'instructor', text: 'Alex Kim submitted new course draft',   time: '1h ago',  unread: false },
   { id: 4, type: 'enroll',     text: '25 new students this hour',             time: '2h ago',  unread: false },
 ]
+
+/* Same hues the enrolment screens use for these programmes, so one person
+   reads as the same colour wherever they appear. */
+const SCOPE_COLOR: Record<string, string> = {
+  forex:             '#10B981',
+  digital_marketing: '#0057b8',
+  ai:                '#8B5CF6',
+  jura:              '#8B5CF6',
+}
 
 export function AdminTopbar() {
   const { sidebarCollapsed, setMobileNav } = useUIStore()
@@ -151,21 +161,28 @@ export function AdminTopbar() {
         </div>
       )}
 
-      {/* ── Category scope badge (scoped roles) ───────── */}
-      {user && (user.role === '4x_admin' || user.role === 'digital_marketing_admin' || user.role === 'ai_admin' || user.role === 'sub_admin' || user.role === 'support') && (
-        <div className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold flex-shrink-0"
-          style={user.role === '4x_admin'
-            ? { background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.3)', color: '#60A5FA' }
-            : user.role === 'ai_admin' || (user.role === 'sub_admin' && user.program === 'ai')
-            ? { background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)', color: '#8B5CF6' }
-            : user.role === 'support'
-            ? { background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)', color: '#FBbf24' }
-            : { background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.3)', color: '#34D399' }}>
-          <span className="h-1.5 w-1.5 rounded-full flex-shrink-0"
-            style={{ background: user.role === '4x_admin' ? '#60A5FA' : user.role === 'ai_admin' ? '#8B5CF6' : user.role === 'support' ? '#FBbf24' : '#34D399' }} />
-          {user.role === '4x_admin' ? 'FOREX Trading' : user.role === 'ai_admin' ? 'AI' : user.role === 'support' ? 'Support' : user.role === 'sub_admin' ? (user.program === 'ai' ? 'AI' : user.program === 'forex' ? 'FOREX' : user.program === 'jura' ? 'JURA' : 'Digital Mktg') + ' Sub-Admin' : 'Digital Marketing'} scope
-        </div>
-      )}
+      {/* ── Programme scope badge ─────────────────────── */}
+      {/* Reads the PROGRAMME, not the role name. This used to be a ladder of
+          role comparisons because three roles each encoded their own
+          programme; with those folded into sub_admin there is one rule and
+          one colour table. A sub_admin with no programme set is genuinely
+          unscoped, and says so rather than defaulting to a programme. */}
+      {user && (user.role === 'sub_admin' || user.role === 'support') && (() => {
+        const scope = user.role === 'support'
+          ? { label: 'Support', color: '#FBBF24' }
+          : user.program
+            ? { label: `${PROGRAM_LABEL[user.program] ?? user.program} Sub-Admin`,
+                color: SCOPE_COLOR[user.program] ?? '#94A3B8' }
+            : { label: 'Sub-Admin · no programme', color: '#94A3B8' }
+        const rgb = scope.color
+        return (
+          <div className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold flex-shrink-0"
+            style={{ background: `${rgb}1F`, border: `1px solid ${rgb}4D`, color: rgb }}>
+            <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: rgb }} />
+            {scope.label} scope
+          </div>
+        )
+      })()}
 
       {/* ── Impersonation banner ────────────────────── */}
       {impersonatedUser && (

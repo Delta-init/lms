@@ -5,6 +5,7 @@ import { AuthController } from '@/controllers/auth.controller.ts'
 import { LiveClassController } from '@/controllers/liveClass.controller.ts'
 import { RolesController } from '@/controllers/roles.controller.ts'
 import { authenticateAdmin, requireRole, requireAdmin, requireAnyAdmin, requireInstructor, requireCourseAuthor, injectCategoryScope, requirePermission } from '@/middleware/auth.middleware.ts'
+import { issueClassHandoff } from '@/controllers/classHandoff.controller.ts'
 import { validate } from '@/middleware/validate.middleware.ts'
 import { env } from '@/config/env.ts'
 import { authRateLimit } from '@/middleware/rateLimit.middleware.ts'
@@ -57,7 +58,7 @@ router.get ('/auth/me',      authenticateAdmin, authCtrl.me)
 /* Admin routes are open to admins and instructors. Per-resource
    ownership checks inside the controllers reject instructors who
    try to mutate courses they don't own. */
-router.use(authenticateAdmin, requireRole('super_admin', 'admin', 'sub_admin', 'support', '4x_admin', 'digital_marketing_admin', 'ai_admin', 'instructor'), injectCategoryScope)
+router.use(authenticateAdmin, requireRole('super_admin', 'admin', 'sub_admin', 'support', 'instructor'), injectCategoryScope)
 
 /* ─── Schemas ─────────────────────────────────────── */
 const courseCreateSchema = z.object({
@@ -98,7 +99,7 @@ const categoryUpdateSchema = categoryCreateSchema.partial()
 const usersQuerySchema = z.object({
   page:              z.coerce.number().int().min(1).default(1),
   per_page:          z.coerce.number().int().min(1).max(500).default(20),
-  role:              z.enum(['student', 'instructor', 'admin', 'sub_admin', 'support', '4x_admin', 'digital_marketing_admin', 'ai_admin', 'super_admin']).optional(),
+  role:              z.enum(['student', 'instructor', 'admin', 'sub_admin', 'support', 'super_admin']).optional(),
   search:            z.string().trim().optional(),
   category:          z.enum(['4x-trading', 'digital-marketing', 'ai', 'jura']).optional(),
   status:            z.enum(['active', 'inactive']).optional(),
@@ -217,7 +218,7 @@ router.delete('/categories/:id', requirePermission('categories','delete'), requi
 
 /* ─── Users (admin-only) ──────────────────────────── */
 const userUpdateSchema = z.object({
-  role:       z.enum(['student', 'instructor', 'admin', 'sub_admin', 'support', '4x_admin', 'digital_marketing_admin', 'ai_admin', 'super_admin']).optional(),
+  role:       z.enum(['student', 'instructor', 'admin', 'sub_admin', 'support', 'super_admin']).optional(),
   isActive:   z.boolean().optional(),
   isVerified: z.boolean().optional(),
   name:       z.string().min(2).max(100).trim().optional(),
@@ -233,7 +234,7 @@ const userCreateSchema = z.object({
   name:       z.string().min(2).max(100).trim(),
   email:      z.string().email(),
   password:   z.string().min(8, 'Password must be at least 8 characters'),
-  role:       z.enum(['student', 'instructor', 'admin', 'sub_admin', 'support', '4x_admin', 'digital_marketing_admin', 'ai_admin', 'super_admin']).default('instructor'),
+  role:       z.enum(['student', 'instructor', 'admin', 'sub_admin', 'support', 'super_admin']).default('instructor'),
   bio:        z.string().max(2000).optional(),
   headline:   z.string().max(255).optional(),
   category:   z.enum(['4x-trading', 'digital-marketing', 'ai', 'jura']).optional(),
@@ -264,7 +265,7 @@ router.post ('/users', requirePermission('users','create'),          validate(us
       res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Instructors cannot create accounts.' } })
       return
     }
-    if ((role === '4x_admin' || role === 'digital_marketing_admin' || role === 'ai_admin' || role === 'sub_admin') && targetRole !== 'instructor') {
+    if (role === 'sub_admin' && targetRole !== 'instructor') {
       res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'You can only create instructor accounts.' } })
       return
     }
@@ -276,9 +277,13 @@ router.post ('/users', requirePermission('users','create'),          validate(us
       res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Only super admins can create super admin accounts.' } })
       return
     }
-    if (role === '4x_admin')                    (req.body as any).category = '4x-trading'
-    else if (role === 'digital_marketing_admin') (req.body as any).category = 'digital-marketing'
-    else if (role === 'ai_admin')               (req.body as any).category = 'ai'
+    /* A programme-scoped creator stamps their own programme onto the account
+       they create, so a scoped admin cannot mint staff outside their programme.
+       Reads the RESOLVED scope rather than the role name: the three legacy
+       roles that used to be listed here were only ever sub_admin with the
+       programme baked into the role, and injectCategoryScope now derives the
+       same value from `program`. */
+    if (req.user!.categoryScope) (req.body as any).category = req.user!.categoryScope
     next()
   },
   async (req: Request, res: Response, next: NextFunction) => {
@@ -431,7 +436,7 @@ router.post('/impersonation-sessions/revoke-all', requireRole('super_admin'),
   })
 
 /* ── Enrollment requests (student approval workflow) ─────────────────────
-   4x_admin / digital_marketing_admin approve or cancel student signups
+   a programme-scoped sub_admin approves or cancels student signups
    for their program. super_admin / admin manage all.
 ──────────────────────────────────────────────────────────────────────── */
 const enrollmentRequestQuerySchema = z.object({
@@ -487,9 +492,8 @@ router.delete('/express-members/:userId',    requireAdmin,    requireSameOrgUser
 
 /* ── Category-scope guards for enrollment management ──────────────
    Full admins (super_admin/admin) are unrestricted. Category-scoped
-   callers (sub_admin + the legacy 4x_admin/digital_marketing_admin/
-   ai_admin roles) may only touch students and courses within their
-   own program — mirrors the pattern already used by rejectEnrollment
+   callers (sub_admin, whose programme comes from `program`) may only
+   touch students and courses within their own program — mirrors the pattern already used by rejectEnrollment
    (this file) and SectionService.assertCourseEditable. Always compare
    against req.user.categoryScope (already normalized to the hyphenated
    '4x-trading'|'digital-marketing'|'ai' form), never req.user.program
@@ -735,6 +739,134 @@ router.patch('/enrollments/:id', requireAnyAdmin, validate(enrollmentUpdateSchem
 router.get   ('/reviews', requirePermission('reviews','list'),     requireAdmin, ctrl.listReviews)
 router.delete('/reviews/:id', requirePermission('reviews','delete'), requireAdmin, audit('review.delete', 'Review', r => String(r.params['id'] ?? '')), ctrl.deleteReview)
 
+/* Who may reach a class recording.
+   
+   A recording IS the class, after the fact — and watching it is arguably the
+   more sensitive of the two, because it is reviewable at leisure. So the gate
+   is the SAME set that decides who may enter the live room, imported rather
+   than restated so the two cannot drift apart.
+   
+   That deliberately excludes `support`: support staff handle tickets in the
+   LMS, while their meeting-side duties live in the meeting platform under its
+   own customer_service tier. A role that may not walk into a classroom has no
+   business reviewing the tape of one. */
+async function requireClassroomAccess(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const { ADMIN_OBSERVER_ROLES } = await import('@/services/liveClassJoin.service.ts')
+  if (!ADMIN_OBSERVER_ROLES.has(req.user!.role)) {
+    res.status(403).json({
+      success: false,
+      error: { code: 'FORBIDDEN', message: 'Class recordings are not available for your role.' },
+    })
+    return
+  }
+  next()
+}
+
+/* ─── Class recordings ────────────────────────────────────────────────────
+   Every recorded live class in one place. super_admin sees all academies;
+   everyone else is scoped to their own, matching every other admin listing.
+
+   The URL is NOT stored — see cltWebhook.service.ts. A separate call mints a
+   short-lived link at play time, so a stale presign can never be served.
+──────────────────────────────────────────────────────────────────────────── */
+router.get('/recordings', requireAnyAdmin, requireClassroomAccess, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { LiveClassModel } = await import('@/models/schema.ts')
+    const { Types } = await import('mongoose')
+    const { page, per_page } = parsePagination(req.query as Record<string, unknown>)
+
+    const filter: Record<string, unknown> = { cltRecordingId: { $exists: true } }
+    const orgId = req.user!.organizationId
+    if (req.user!.role !== 'super_admin' && orgId && Types.ObjectId.isValid(orgId)) {
+      filter['organizationId'] = new Types.ObjectId(orgId)
+    }
+    const search = String((req.query as Record<string, string>)['search'] ?? '').trim()
+    if (search) filter['title'] = { $regex: search, $options: 'i' }
+
+    /* Programme scope, mirroring assertAdminMayObserve: a sub_admin who may not
+       ENTER a JURA class must not be able to WATCH it afterwards either. The
+       recording is the class. Scope lives on the course, so this resolves the
+       caller's programme to a course id set first. */
+    const scope = req.user!.categoryScope
+    if (scope) {
+      const { CourseModel } = await import('@/models/schema.ts')
+      const scoped = await CourseModel.find({ program: scope }).select('_id').lean()
+      filter['courseId'] = { $in: scoped.map(c => c._id) }
+    }
+
+    const [docs, totalCount] = await Promise.all([
+      LiveClassModel.find(filter)
+        .sort({ endedAt: -1, scheduledStart: -1 })
+        .skip((page - 1) * per_page).limit(per_page)
+        .populate('instructorId', 'name email')
+        .populate('courseId', 'title slug')
+        .lean(),
+      LiveClassModel.countDocuments(filter),
+    ])
+
+    const rows = (docs as any[]).map(d => ({
+      id:              String(d._id),
+      title:           d.title,
+      scheduledStart:  d.scheduledStart,
+      endedAt:         d.endedAt ?? null,
+      durationMins:    d.durationMins,
+      recordingSecs:   d.recordingDurationSecs ?? null,
+      cltRecordingId:  d.cltRecordingId,
+      course:          d.courseId ? { id: String(d.courseId._id), title: d.courseId.title } : null,
+      instructor:      d.instructorId ? { id: String(d.instructorId._id), name: d.instructorId.name } : null,
+      organizationId:  d.organizationId ? String(d.organizationId) : null,
+    }))
+    sendSuccess(res, rows, undefined, 200, buildPaginationMeta(totalCount, page, per_page))
+  } catch (err) { next(err) }
+})
+
+/* Mint a short-lived playback URL. Authorisation happens HERE — reaching CLT
+   at all means this LMS admin was allowed to watch. */
+router.post('/recordings/:id/playback', requireAnyAdmin, requireClassroomAccess,
+  /* Audited: who watched which class recording is worth being able to answer. */
+  audit('recording.view', 'LiveClass', r => String(r.params['id'] ?? '')),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { LiveClassModel } = await import('@/models/schema.ts')
+      const { Types } = await import('mongoose')
+      const id = String(req.params['id'] ?? '')
+      if (!Types.ObjectId.isValid(id)) {
+        res.status(400).json({ success: false, error: { code: 'INVALID_ID', message: 'Invalid id' } }); return
+      }
+      const live = await LiveClassModel.findById(id).lean() as any
+      if (!live?.cltRecordingId) {
+        res.status(404).json({ success: false, error: { code: 'NO_RECORDING', message: 'This class has no recording.' } }); return
+      }
+      /* Org scoping, same rule as the listing: a non-super admin must not pull
+         a recording from another academy by guessing an id. */
+      const orgId = req.user!.organizationId
+      if (req.user!.role !== 'super_admin' && orgId && live.organizationId
+          && String(live.organizationId) !== String(orgId)) {
+        res.status(403).json({ success: false, error: { code: 'WRONG_ACADEMY', message: 'That class belongs to another academy.' } }); return
+      }
+
+      /* And the programme wall. Without it the listing hid other programmes
+         while this endpoint still served them to anyone who guessed an id —
+         a filter is not a permission. */
+      const scope = req.user!.categoryScope
+      if (scope && live.courseId) {
+        const { CourseModel } = await import('@/models/schema.ts')
+        const course = await CourseModel.findById(String(live.courseId)).select('program').lean()
+        if (!course || (course as { program?: string }).program !== scope) {
+          res.status(403).json({ success: false, error: { code: 'OUT_OF_SCOPE', message: 'That class belongs to another programme.' } }); return
+        }
+      }
+
+      const { requestPlaybackUrl } = await import('@/services/clt.service.ts')
+      try {
+        const out = await requestPlaybackUrl(live.cltRecordingId)
+        sendSuccess(res, out, 'Playback link issued')
+      } catch (err: any) {
+        res.status(503).json({ success: false, error: { code: 'CLT_UNAVAILABLE', message: err?.message ?? 'Could not reach the meeting platform.' } })
+      }
+    } catch (err) { next(err) }
+  })
+
 /* ─── Sections + Lessons (admin + own-course instructor) ─── */
 const sectionCreateSchema = z.object({
   title:       z.string().min(1).max(255).trim(),
@@ -788,6 +920,9 @@ const liveCreateSchema = z.object({
   scheduledStart:  z.string().datetime().or(z.string().refine(s => !isNaN(Date.parse(s)), 'Invalid date')),
   durationMins:    z.coerce.number().int().min(5).max(600),
   type:            z.enum(['external', 'internal']).default('external'),
+  /* Which in-app engine backs an `internal` class. Omitted means 'mux', so
+     every existing caller keeps its current behaviour. */
+  provider:        z.enum(['mux', 'livekit']).optional(),
   /* meetingUrl is now auto-generated for external sessions — omit from create requests */
   instructorId:    z.string().optional(),
   sectionId:       z.string().optional(),
@@ -831,6 +966,14 @@ router.post  ('/live-classes/:id/start',                  live.adminStart)
 router.post  ('/live-classes/:id/end',                    live.adminEnd)
 router.post  ('/live-classes/:id/recreate',               live.adminRecreate)
 router.get   ('/live-classes/:id/stream-credentials',     ctrl.guardStreamCredentials, live.adminGetStreamCredentials)
+
+/* POST /admin/live-classes/:id/handoff — the ADMIN portal's door into a class.
+
+   The same handler the student router mounts, but reached through this
+   router's `authenticateAdmin`, so it resolves the admin/instructor session.
+   Splitting it by mount is what stops the two portals' cookies competing —
+   see the handler. */
+router.post ('/live-classes/:id/handoff',                 issueClassHandoff)
 
 /* ─── Admin book-for-student (offline classes only) ──── */
 const bookForStudentSchema = z.object({
@@ -1373,7 +1516,7 @@ router.get('/bookings', requireInstructor, requirePermission('bookings','list'),
       lcFilter['instructorId'] = new Types.ObjectId(q.instructorId)
     }
 
-    // Category-scoped admins (e.g. digital_marketing_admin, 4x_admin) only see their program's bookings
+    // Programme-scoped admins (sub_admin) only see their program's bookings
     const scope = (req.user as any)?.categoryScope as string | undefined
     if (scope) {
       const { CourseModel } = await import('@/models/schema.ts')

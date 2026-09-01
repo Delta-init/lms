@@ -14,7 +14,7 @@ export default function InstructorsPage() {
   const router = useRouter()
   const [modalOpen, setModalOpen] = useState(() => searchParams.get('add') === '1')
   const { data: me } = useCurrentUser()
-  const isAdmin = ['super_admin', 'admin', '4x_admin', 'digital_marketing_admin'].includes(me?.role ?? '')
+  const isAdmin = ['super_admin', 'admin', 'sub_admin'].includes(me?.role ?? '')
 
   const handleClose = () => {
     setModalOpen(false)

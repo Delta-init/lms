@@ -1,18 +1,43 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ShieldOff } from 'lucide-react'
 import { useCurrentUser, logout } from '@/lib/api/user'
 import Spinner from '@/components/ui/Spinner'
 
-const ALLOWED_ROLES = ['super_admin', 'admin', 'sub_admin', 'support', '4x_admin', 'digital_marketing_admin', 'ai_admin', 'instructor']
+const ALLOWED_ROLES = ['super_admin', 'admin', 'sub_admin', 'support', 'instructor']
 
 export function AdminGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const { data: user, isLoading, isError } = useCurrentUser()
 
   const isAllowed = ALLOWED_ROLES.includes(user?.role ?? '')
+
+  /* ── Why this flag exists ──────────────────────────────────────────────
+     Rendering on the server, `useCurrentUser` never runs, so `isLoading` is
+     always true and the server emits the spinner below. On the client the
+     query does run — and React 18 hydration is interruptible, so it can
+     yield mid-hydration, let the /admin/auth/me response land, and resume
+     with `isLoading` already false. React then finds the loaded tree where
+     it expected a spinner and throws away the server HTML for this whole
+     subtree:
+
+       Hydration failed because the server rendered HTML didn't match the
+       client.
+
+     It is a RACE, so it reproduces perhaps one load in three rather than
+     every time, which is what made it look page-specific rather than
+     structural. Every page under (dashboard) sits inside this guard, so
+     every one of them can hit it.
+
+     `mounted` is false during SSR and false on the FIRST client render, so
+     those two agree by construction — whatever the query has done by then.
+     The effect flips it after hydration is safely finished, and the real
+     branch is chosen in a normal re-render where a mismatch is impossible.
+     No extra flash: the spinner is already what the server was sending. */
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
     if (isLoading) return
@@ -49,7 +74,7 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     }
   }, [isLoading, isError, user, isAllowed, router])
 
-  if (isLoading) {
+  if (!mounted || isLoading) {
     return (
       <div className="flex h-screen items-center justify-center gap-3" style={{ background: '#080A12' }}>
         <Spinner size={20} />

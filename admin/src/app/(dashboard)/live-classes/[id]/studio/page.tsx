@@ -10,10 +10,11 @@ import {
   Activity, BarChart2, CheckCircle2, Settings2,
 } from 'lucide-react'
 import {
-  useLiveClassById, useStartLiveStreamById, useEndLiveStreamById,
+  useLiveClassById, useStartLiveStreamById, useEndLiveStreamById, isInteractiveRoom,
   useStreamCredentials,
 } from '@/lib/api/liveClasses'
 import Spinner from '@/components/ui/Spinner'
+import { ClassEntryPanel } from '@/components/live-classes/ClassEntryPanel'
 
 /* ── WebRTC quality stats ─────────────────────────────── */
 interface StreamStats {
@@ -300,6 +301,22 @@ export default function StudioPage({ params }: { params: Promise<{ id: string }>
         <Link href="/live-classes" className="mt-4 inline-block text-sm" style={{ color: '#0057b8' }}>
           ← Back to live classes
         </Link>
+      </div>
+    )
+  }
+
+  /* ── Interactive room (LiveKit) ──────────────────────────────────────
+     A different engine entirely: no WHIP, no stream key, no camera plumbing
+     here — the LiveKit SDK owns the media. Branch before any of the Mux
+     machinery runs so a LiveKit class never touches it. */
+  if (isInteractiveRoom(live)) {
+    return (
+      <div className="mx-auto max-w-6xl">
+        <Link href="/live-classes" className="mb-4 inline-flex items-center gap-1.5 text-xs font-semibold"
+          style={{ color: 'rgba(255,255,255,0.45)' }}>
+          ← Back to live classes
+        </Link>
+        <ClassEntryPanel liveClassId={id} title={live.title} instructorId={live.instructorId} />
       </div>
     )
   }

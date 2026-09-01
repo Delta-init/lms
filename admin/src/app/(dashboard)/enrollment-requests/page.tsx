@@ -41,25 +41,11 @@ const ALL_CATEGORIES: ProgramCategory[] = ['4x-trading', 'digital-marketing', 'a
 const ROLE_LABEL: Record<string, string> = {
   super_admin:             'Super Admin',
   admin:                   'Admin',
-  '4x_admin':              'FOREX Admin',
-  digital_marketing_admin: 'DM Admin',
-  ai_admin:                'AI Admin',
+  sub_admin:               'Sub Admin',
 }
 
-const CATEGORY_SCOPE: Record<string, ProgramCategory> = {
-  '4x_admin':               '4x-trading',
-  digital_marketing_admin:  'digital-marketing',
-  ai_admin:                 'ai',
-}
-
-// sub_admin doesn't carry its scope on the role itself — it's on `program`
-// (mirrors backend injectCategoryScope in auth.middleware.ts).
-const PROGRAM_TO_CATEGORY: Record<string, ProgramCategory> = {
-  forex:              '4x-trading',
-  jura:               'jura',
-  digital_marketing:  'digital-marketing',
-  ai:                 'ai',
-}
+// Scope now has ONE source for every staff role — see lib/programScope.ts.
+import { categoryScopeOf } from '@/lib/programScope'
 
 /* ── Category badge (plain) ─────────────────────────── */
 function CategoryBadge({ cat }: { cat: ProgramCategory }) {
@@ -816,13 +802,8 @@ export default function EnrollmentRequestsPage() {
   const toggleBlock     = useToggleBlock()
   const deleteUser      = useDeleteUser()
 
-  // Category scope: category admins are locked to their program.
-  // sub_admin has no fixed role-to-category mapping — its scope lives on `program`.
-  const scopeCategory: ProgramCategory | null = me?.role
-    ? (CATEGORY_SCOPE[me.role]
-        ?? (me.role === 'sub_admin' && me.program ? PROGRAM_TO_CATEGORY[me.program] : undefined)
-        ?? null)
-    : null
+  // Scope lives on `program` for every scoped admin now — one source, shared.
+  const scopeCategory: ProgramCategory | null = categoryScopeOf(me) ?? null
 
   // Full admins (admin/super_admin) have no scope restriction
   const isFullAdmin = me?.role === 'super_admin' || me?.role === 'admin'

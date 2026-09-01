@@ -381,14 +381,17 @@ const sender: EmailSender = {
 }
 
 /* ─── Branded HTML wrapper ───────────────────────────── */
-function wrap(title: string, body: string): string {
+const DEFAULT_FOOTER = `You're receiving this because you signed up at Delta.
+              If this wasn't you, you can safely ignore this email.`
+
+function wrap(title: string, body: string, footer: string = DEFAULT_FOOTER): string {
   return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <title>${escapeHtml(title)}</title>
 </head>
-<body style="margin:0;padding:0;background:#F4F5F8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0D0F1A;line-height:1.55">
+<body style="margin:0;padding:0;background:#F4F5F8;font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0D0F1A;line-height:1.55">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F4F5F8;padding:40px 16px">
     <tr>
       <td align="center">
@@ -405,8 +408,7 @@ function wrap(title: string, body: string): string {
           </tr>
           <tr>
             <td style="padding:16px 32px 28px;border-top:1px solid #F3F4F6;font-size:11px;color:#9CA3AF">
-              You're receiving this because you signed up at Delta.
-              If this wasn't you, you can safely ignore this email.
+              ${footer}
             </td>
           </tr>
         </table>
@@ -426,11 +428,11 @@ export async function sendPasswordReset(to: string, name: string, resetUrl: stri
     <p>Hi ${escapeHtml(name)},</p>
     <p>We received a request to reset your password. Click the button below to choose a new one. The link expires in 60 minutes.</p>
     <p style="margin:24px 0">
-      <a href="${escapeHtml(sanitiseUrl(resetUrl))}" style="display:inline-block;background:linear-gradient(135deg,#FF6B1A,#FF8C42);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
+      <a href="${escapeHtml(sanitiseUrl(resetUrl))}" style="display:inline-block;background:linear-gradient(135deg,#0057b8,#2F6BFF);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
         Reset password
       </a>
     </p>
-    <p style="font-size:12px;color:#6B7280">Or paste this URL into your browser:<br><span style="color:#FF6B1A">${escapeHtml(resetUrl)}</span></p>
+    <p style="font-size:12px;color:#6B7280">Or paste this URL into your browser:<br><span style="color:#0057b8">${escapeHtml(resetUrl)}</span></p>
     <p style="font-size:12px;color:#9CA3AF">If you didn't request this, ignore this email and your password will stay the same.</p>
   `)
   await sender.send({
@@ -455,7 +457,7 @@ export async function sendRegistrationAttempt(to: string, name: string, signInUr
     <p>Someone just tried to create a Delta account using this email address. We did not create a second account, and nothing about your existing one has changed.</p>
     <p><strong>If that was you</strong>, you already have an account — just sign in below. If you have forgotten your password, use the reset link on the sign-in page.</p>
     <p style="margin:24px 0">
-      <a href="${escapeHtml(sanitiseUrl(signInUrl))}" style="display:inline-block;background:linear-gradient(135deg,#FF6B1A,#FF8C42);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
+      <a href="${escapeHtml(sanitiseUrl(signInUrl))}" style="display:inline-block;background:linear-gradient(135deg,#0057b8,#2F6BFF);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
         Sign in
       </a>
     </p>
@@ -475,11 +477,11 @@ export async function sendVerifyEmail(to: string, name: string, verifyUrl: strin
     <h2 style="margin:0 0 16px;font-size:20px;font-weight:700;color:#0D0F1A">Welcome to Delta, ${escapeHtml(name)}</h2>
     <p>Confirm your email address to unlock notifications, certificates, and account recovery.</p>
     <p style="margin:24px 0">
-      <a href="${escapeHtml(sanitiseUrl(verifyUrl))}" style="display:inline-block;background:linear-gradient(135deg,#FF6B1A,#FF8C42);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
+      <a href="${escapeHtml(sanitiseUrl(verifyUrl))}" style="display:inline-block;background:linear-gradient(135deg,#0057b8,#2F6BFF);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
         Verify email
       </a>
     </p>
-    <p style="font-size:12px;color:#6B7280">Or paste this URL into your browser:<br><span style="color:#FF6B1A">${escapeHtml(verifyUrl)}</span></p>
+    <p style="font-size:12px;color:#6B7280">Or paste this URL into your browser:<br><span style="color:#0057b8">${escapeHtml(verifyUrl)}</span></p>
     <p style="font-size:12px;color:#9CA3AF">The link expires in 24 hours.</p>
   `)
   await sender.send({
@@ -508,7 +510,7 @@ export async function sendLiveClassScheduled(
       <tr><td style="padding:8px 0"><strong>When:</strong> ${escapeHtml(when)}</td></tr>
     </table>
     <p style="margin:24px 0">
-      <a href="${escapeHtml(sanitiseUrl(joinUrl))}" style="display:inline-block;background:linear-gradient(135deg,#FF6B1A,#FF8C42);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
+      <a href="${escapeHtml(sanitiseUrl(joinUrl))}" style="display:inline-block;background:linear-gradient(135deg,#0057b8,#2F6BFF);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
         Open course page
       </a>
     </p>
@@ -539,10 +541,10 @@ export async function sendInstructorClassScheduled(
     <table cellpadding="0" cellspacing="0" style="margin:18px 0;background:#F4F5F8;border-radius:12px;padding:16px;width:100%">
       <tr><td style="padding:6px 0"><strong>Session:</strong> ${escapeHtml(liveTitle)}</td></tr>
       <tr><td style="padding:6px 0"><strong>When:</strong> ${escapeHtml(when)}</td></tr>
-      <tr><td style="padding:6px 0"><strong>Meet link:</strong> <a href="${escapeHtml(sanitiseUrl(meetLink))}" style="color:#FF6B1A">${escapeHtml(sanitiseUrl(meetLink))}</a></td></tr>
+      <tr><td style="padding:6px 0"><strong>Meet link:</strong> <a href="${escapeHtml(sanitiseUrl(meetLink))}" style="color:#0057b8">${escapeHtml(sanitiseUrl(meetLink))}</a></td></tr>
     </table>
     <p style="margin:24px 0">
-      <a href="${escapeHtml(sanitiseUrl(meetLink))}" style="display:inline-block;background:linear-gradient(135deg,#FF6B1A,#FF8C42);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
+      <a href="${escapeHtml(sanitiseUrl(meetLink))}" style="display:inline-block;background:linear-gradient(135deg,#0057b8,#2F6BFF);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
         Open Google Meet
       </a>
     </p>
@@ -570,11 +572,11 @@ export async function sendInstructor15MinReminder(
     <p>Hi ${escapeHtml(name)},</p>
     <p><strong>${escapeHtml(liveTitle)}</strong> starts at <strong>${escapeHtml(when)}</strong>. Open your Google Meet link now so you're ready when students join.</p>
     <p style="margin:24px 0">
-      <a href="${escapeHtml(sanitiseUrl(meetLink))}" style="display:inline-block;background:linear-gradient(135deg,#FF6B1A,#FF8C42);color:#fff;font-weight:600;padding:14px 28px;border-radius:12px;text-decoration:none;font-size:15px">
+      <a href="${escapeHtml(sanitiseUrl(meetLink))}" style="display:inline-block;background:linear-gradient(135deg,#0057b8,#2F6BFF);color:#fff;font-weight:600;padding:14px 28px;border-radius:12px;text-decoration:none;font-size:15px">
         Join Google Meet now →
       </a>
     </p>
-    <p style="font-size:12px;color:#6B7280">Link: <a href="${escapeHtml(sanitiseUrl(meetLink))}" style="color:#FF6B1A">${escapeHtml(sanitiseUrl(meetLink))}</a></p>
+    <p style="font-size:12px;color:#6B7280">Link: <a href="${escapeHtml(sanitiseUrl(meetLink))}" style="color:#0057b8">${escapeHtml(sanitiseUrl(meetLink))}</a></p>
   `)
   await sender.send({
     to,
@@ -596,7 +598,7 @@ export async function sendEnrollmentConfirmation(
     <p>Hi ${escapeHtml(name)}, you're now enrolled in <strong>${escapeHtml(courseTitle)}</strong>.</p>
     <p>Open the course any time and learn at your own pace. Your progress is saved automatically.</p>
     <p style="margin:24px 0">
-      <a href="${escapeHtml(sanitiseUrl(courseUrl))}" style="display:inline-block;background:linear-gradient(135deg,#FF6B1A,#FF8C42);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
+      <a href="${escapeHtml(sanitiseUrl(courseUrl))}" style="display:inline-block;background:linear-gradient(135deg,#0057b8,#2F6BFF);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
         Start learning →
       </a>
     </p>
@@ -632,7 +634,7 @@ export async function sendCourseCompletion(
     </table>
     <p>Your certificate is waiting for you on the course page.</p>
     <p style="margin:24px 0">
-      <a href="${escapeHtml(sanitiseUrl(courseUrl))}" style="display:inline-block;background:linear-gradient(135deg,#FF6B1A,#FF8C42);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
+      <a href="${escapeHtml(sanitiseUrl(courseUrl))}" style="display:inline-block;background:linear-gradient(135deg,#0057b8,#2F6BFF);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
         View certificate →
       </a>
     </p>
@@ -693,7 +695,7 @@ export async function sendSessionLinkReminder(
       </td></tr>
     </table>
     <p style="margin:24px 0">
-      <a href="${escapeHtml(sanitiseUrl(joinUrl))}" style="display:inline-block;background:linear-gradient(135deg,#FF6B1A,#FF8C42);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
+      <a href="${escapeHtml(sanitiseUrl(joinUrl))}" style="display:inline-block;background:linear-gradient(135deg,#0057b8,#2F6BFF);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
         Join session →
       </a>
     </p>
@@ -714,7 +716,7 @@ export async function sendDayOfReminder(
     <p>Hi ${escapeHtml(name)}, <strong>${escapeHtml(sessionTitle)}</strong> is happening today at <strong>${escapeHtml(time)}</strong>.</p>
     <p>Get ready and make sure your connection is stable.</p>
     <p style="margin:24px 0">
-      <a href="${escapeHtml(sanitiseUrl(joinUrl))}" style="display:inline-block;background:linear-gradient(135deg,#FF6B1A,#FF8C42);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
+      <a href="${escapeHtml(sanitiseUrl(joinUrl))}" style="display:inline-block;background:linear-gradient(135deg,#0057b8,#2F6BFF);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
         Join session →
       </a>
     </p>
@@ -739,7 +741,7 @@ export async function sendPreSessionReminder(
     <p>Get ready — make sure your device and connection are set. The join link will arrive in a separate email 5 minutes before the session starts.</p>
     <p style="margin:24px 0">
       <a href="${process.env['CLIENT_URL'] ?? 'http://localhost:3000'}/class-bookings"
-        style="display:inline-block;background:linear-gradient(135deg,#FF6B1A,#FF8C42);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
+        style="display:inline-block;background:linear-gradient(135deg,#0057b8,#2F6BFF);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
         View my schedule →
       </a>
     </p>
@@ -773,7 +775,7 @@ export async function sendFiveMinReminder(
     </table>
     <p style="margin:0 0 12px;color:#374151"><strong>Join the session here:</strong></p>
     <p style="margin:0 0 20px">
-      <a href="${escapeHtml(sanitiseUrl(joinUrl))}" style="display:inline-block;background:linear-gradient(135deg,#FF6B1A,#FF8C42);color:#fff;font-weight:700;padding:14px 28px;border-radius:12px;text-decoration:none;font-size:15px">
+      <a href="${escapeHtml(sanitiseUrl(joinUrl))}" style="display:inline-block;background:linear-gradient(135deg,#0057b8,#2F6BFF);color:#fff;font-weight:700;padding:14px 28px;border-radius:12px;text-decoration:none;font-size:15px">
         Join Now →
       </a>
     </p>
@@ -912,7 +914,7 @@ export async function sendRescheduledEmail1(args: RescheduledArgs): Promise<void
     </div>
     <p style="margin:24px 0">
       <a href="${process.env['CLIENT_URL'] ?? 'http://localhost:3000'}/class-bookings"
-        style="display:inline-block;background:linear-gradient(135deg,#6366F1,#818CF8);color:#fff;font-weight:700;padding:14px 28px;border-radius:12px;text-decoration:none;font-size:15px">
+        style="display:inline-block;background:linear-gradient(135deg,#0057b8,#2F6BFF);color:#fff;font-weight:700;padding:14px 28px;border-radius:12px;text-decoration:none;font-size:15px">
         View my updated schedule →
       </a>
     </p>
@@ -928,7 +930,7 @@ export async function sendRescheduledEmail2(args: RescheduledArgs): Promise<void
     <h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#0D0F1A">A quick follow-up on your class</h2>
     <p>Hi ${escapeHtml(name)},</p>
     <p>We wanted to follow up to ensure you received our earlier notification about the schedule change for <strong>${escapeHtml(title)}</strong>.</p>
-    <table cellpadding="0" cellspacing="0" style="margin:20px 0;background:rgba(99,102,241,0.06);border-left:3px solid #6366F1;border-radius:0 12px 12px 0;padding:18px 20px;width:100%">
+    <table cellpadding="0" cellspacing="0" style="margin:20px 0;background:rgba(0,87,184,0.06);border-left:3px solid #0057b8;border-radius:0 12px 12px 0;padding:18px 20px;width:100%">
       <tr><td style="font-size:15px;font-weight:700;color:#1F2937;padding:0 0 8px">
         📅 ${escapeHtml(newDate)}
       </td></tr>
@@ -940,7 +942,7 @@ export async function sendRescheduledEmail2(args: RescheduledArgs): Promise<void
     <p><strong>You don't need to do anything</strong> — your seat is confirmed and your booking has already been updated automatically.</p>
     <p style="margin:24px 0">
       <a href="${process.env['CLIENT_URL'] ?? 'http://localhost:3000'}/class-bookings"
-        style="display:inline-block;background:linear-gradient(135deg,#6366F1,#818CF8);color:#fff;font-weight:700;padding:14px 28px;border-radius:12px;text-decoration:none;font-size:15px">
+        style="display:inline-block;background:linear-gradient(135deg,#0057b8,#2F6BFF);color:#fff;font-weight:700;padding:14px 28px;border-radius:12px;text-decoration:none;font-size:15px">
         Check my bookings →
       </a>
     </p>
@@ -1102,12 +1104,64 @@ export async function sendEnrollmentApproved(
     <p>Hi ${escapeHtml(name)},</p>
     <p>Great news — your access to the <strong>${escapeHtml(prog)}</strong> program has been approved. You can now book and join live sessions.</p>
     <p style="margin:24px 0">
-      <a href="${escapeHtml(sanitiseUrl(dashUrl))}" style="display:inline-block;background:linear-gradient(135deg,#FF6B1A,#FF8C42);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
+      <a href="${escapeHtml(sanitiseUrl(dashUrl))}" style="display:inline-block;background:linear-gradient(135deg,#0057b8,#2F6BFF);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
         Go to my learning →
       </a>
     </p>
   `)
   await sender.send({ to, subject, html, text: `Your ${prog} program access has been approved. Visit ${dashUrl} to get started.` })
+}
+
+/* Welcome mail for bulk-imported students: their account already exists and is
+   approved, so the only step is setting a password via a 7-day link. Sent by
+   src/scripts/import-dubai-students.ts — the regular approval mail is
+   deliberately NOT sent for these accounts. */
+export async function sendImportedStudentWelcome(
+  to: string,
+  name: string,
+  category: string,
+  setPasswordUrl: string,
+): Promise<void> {
+  const prog     = CATEGORY_LABEL[category] ?? category
+  const subject  = `Welcome to Delta International — your ${prog} portal is ready`
+  const loginUrl = `${process.env['CLIENT_URL'] ?? 'http://localhost:3000'}/login?from=%2Fmy-learning`
+  const safeSet  = escapeHtml(sanitiseUrl(setPasswordUrl))
+  const html = wrap(subject, `
+    <h2 style="margin:0 0 16px;font-size:20px;font-weight:700;color:#0D0F1A">Welcome to Delta International 🎓</h2>
+    <p style="margin:0 0 12px">Dear ${escapeHtml(name)},</p>
+    <p style="margin:0 0 12px">This is the Admin Team at <strong>Delta International</strong> — welcome to the <strong>${escapeHtml(prog)}</strong> program! We're delighted to have you on board.</p>
+    <p style="margin:0 0 20px">Your <strong>LMS student portal account has already been created and approved</strong> by our team, so there's no registration form to fill in. Just one step remains — set your password to activate your account:</p>
+    <p style="margin:0 0 24px;text-align:center">
+      <a href="${safeSet}" style="display:inline-block;background:linear-gradient(135deg,#0057b8,#2F6BFF);color:#ffffff;font-weight:600;padding:13px 32px;border-radius:12px;text-decoration:none;font-size:15px">
+        Set My Password &amp; Activate →
+      </a>
+    </p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:12px;margin:0 0 20px">
+      <tr>
+        <td style="padding:18px 20px;font-size:13.5px;color:#374151">
+          <p style="margin:0 0 10px;font-size:12px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.06em">Getting started</p>
+          <p style="margin:0 0 8px"><strong style="color:#0057b8">1.</strong>&nbsp; Click the button above and choose your password <span style="color:#9CA3AF">(link valid for 7 days)</span></p>
+          <p style="margin:0 0 8px"><strong style="color:#0057b8">2.</strong>&nbsp; Sign in at <a href="${escapeHtml(sanitiseUrl(loginUrl))}" style="color:#0057b8;text-decoration:none;font-weight:600">the student portal</a> using this email address</p>
+          <p style="margin:0"><strong style="color:#0057b8">3.</strong>&nbsp; You'll land on <strong>My Learning</strong> — book your classes, join live sessions, and track your progress</p>
+        </td>
+      </tr>
+    </table>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EEF5FF;border-left:4px solid #0057b8;border-radius:0 12px 12px 0;margin:0 0 20px">
+      <tr>
+        <td style="padding:12px 16px;font-size:13px;color:#003d80">
+          <strong>Link expired?</strong> No problem — open the login page and use <em>“Forgot password?”</em> with this email address to receive a fresh link.
+        </td>
+      </tr>
+    </table>
+    <p style="margin:0 0 12px">If you run into any trouble, simply reply to this email or reach out to us directly — we'll help you sort it out right away.</p>
+    <p style="margin:0 0 4px">Looking forward to seeing you in class!</p>
+    <p style="margin:16px 0 0;color:#0D0F1A"><strong>Warm regards,</strong><br>
+    Admin Team — ${escapeHtml(prog)}<br>
+    <span style="color:#6B7280">Delta International</span></p>
+  `, `You're receiving this email because you are enrolled as a student at Delta International.
+              If you think this was sent in error, please contact our support team.`)
+  const text = `Dear ${name},\n\nWelcome to the ${prog} program at Delta International! Your student portal account has already been created and approved. Set your password to activate it (link valid 7 days):\n${setPasswordUrl}\n\nThen sign in at ${loginUrl} with this email address.\nIf the link expires, use "Forgot password?" on the login page.\n\nAdmin Team — ${prog}\nDelta International`
+  await sender.send({ to, subject, html, text })
 }
 
 export async function sendEnrollmentCancelled(
@@ -1158,7 +1212,7 @@ export async function sendNewEnrollmentRequestToAdmin(
     </table>
     <p>Review the request and approve or deny access in the admin panel.</p>
     <p style="margin:24px 0">
-      <a href="${escapeHtml(sanitiseUrl(requestsUrl))}" style="display:inline-block;background:linear-gradient(135deg,#FF6B1A,#FF8C42);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
+      <a href="${escapeHtml(sanitiseUrl(requestsUrl))}" style="display:inline-block;background:linear-gradient(135deg,#0057b8,#2F6BFF);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
         Review request →
       </a>
     </p>
