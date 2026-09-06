@@ -1,5 +1,16 @@
 import type { Response } from 'express'
 import type { ApiSuccessResponse, ApiErrorResponse, PaginationMeta } from '@/types/index.ts'
+import { toAssetUrl } from '@/utils/assetUrl.ts'
+
+/* Rewrite every stored R2 public URL (pub-*.r2.dev/<key>) in a response to the
+   asset proxy, so images keep loading now that the bucket is private. Done at
+   the serialized-JSON level so it catches URLs from ANY serializer/model, not
+   just the few DTOs. toAssetUrl leaves protected prefixes (videos/, kyc/)
+   untouched. */
+const R2_URL = /https?:\/\/[a-z0-9-]+\.r2\.dev\/[^"\\]+/gi
+function rewriteR2Urls(json: string): string {
+  return json.includes('.r2.dev') ? json.replace(R2_URL, m => toAssetUrl(m) ?? m) : json
+}
 
 /* ─── Success response ──────────────────────────────
    Usage: sendSuccess(res, data, 'Created', 201)
@@ -17,7 +28,7 @@ export function sendSuccess<T>(
     ...(message && { message }),
     ...(meta && { meta }),
   }
-  return res.status(statusCode).json(body)
+  return res.status(statusCode).type('application/json').send(rewriteR2Urls(JSON.stringify(body)))
 }
 
 /* ─── Error response ────────────────────────────────
