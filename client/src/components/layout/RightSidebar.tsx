@@ -306,32 +306,35 @@ export function RightSidebar() {
               {activity && (weekLessons > 0 || weekMins > 0) && (
                 <>
                   <Divider />
-                  <div className="mx-3 mt-3 mb-2 rounded-2xl p-3.5" style={{ background: 'var(--color-text-primary)' }}>
+                  {/* Fixed brand-blue card so white text keeps its contrast in
+                      BOTH themes — the old `var(--color-text-primary)` background
+                      flipped to near-white in dark mode and hid the text. */}
+                  <div className="mx-3 mt-3 mb-2 rounded-2xl p-3.5" style={{ background: 'linear-gradient(135deg, #0057b8, #003d80)' }}>
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="flex items-center gap-1.5 mb-1.5">
-                          <Flame size={10} style={{ color: 'var(--color-primary)' }} />
+                          <Flame size={10} style={{ color: 'rgba(255,255,255,0.9)' }} />
                           <span className="text-[9px] font-bold uppercase tracking-[0.09em]"
-                            style={{ color: 'rgba(255,255,255,0.35)' }}>This week</span>
+                            style={{ color: 'rgba(255,255,255,0.6)' }}>This week</span>
                         </div>
                         <p className="text-xl font-bold text-white leading-none">
                           {weekLessons}
-                          <span className="ml-1 text-sm font-normal" style={{ color: 'rgba(255,255,255,0.40)' }}>
+                          <span className="ml-1 text-sm font-normal" style={{ color: 'rgba(255,255,255,0.65)' }}>
                             lesson{weekLessons === 1 ? '' : 's'}
                           </span>
                         </p>
                         {weekMins > 0 && (
-                          <p className="mt-0.5 text-[11px]" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                          <p className="mt-0.5 text-[11px]" style={{ color: 'rgba(255,255,255,0.65)' }}>
                             {fmtMins(weekMins)} watched
                           </p>
                         )}
                       </div>
                       <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl"
-                        style={{ background: 'rgba(0,87,184,0.15)', border: '1px solid rgba(0,87,184,0.22)' }}>
-                        <TrendingUp size={13} style={{ color: 'var(--color-primary)' }} />
+                        style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)' }}>
+                        <TrendingUp size={13} style={{ color: '#fff' }} />
                       </div>
                     </div>
-                    <p className="mt-2 text-[10px]" style={{ color: 'rgba(255,255,255,0.25)' }}>
+                    <p className="mt-2 text-[10px]" style={{ color: 'rgba(255,255,255,0.5)' }}>
                       Keep the streak going. Next lesson is waiting.
                     </p>
                   </div>
