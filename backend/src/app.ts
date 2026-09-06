@@ -21,6 +21,7 @@ import { corsOptions } from '@/config/cors.ts'
 import { errorMiddleware, notFoundMiddleware } from '@/middleware/error.middleware.ts'
 import { logger } from '@/utils/logger.ts'
 import apiRouter from '@/routes/index.ts'
+import assetProxyRouter from '@/routes/assets.routes.ts'
 
 const app = express()
 const isProd = process.env.NODE_ENV === 'production'
@@ -108,6 +109,12 @@ app.use(
     immutable: true,
   }),
 )
+
+/* ─── Public asset proxy ─────────────────────────────
+   Serves non-protected files (avatars, images) from the now-private R2 bucket.
+   Outside /api/v1 so it isn't rate-limited, mirroring the static /uploads mount.
+   Refuses paid videos and KYC scans. */
+app.use('/assets', assetProxyRouter)
 
 /* ─── Request logging (dev only) ─────────────────── */
 if (process.env.NODE_ENV === 'development') {

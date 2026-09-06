@@ -47,6 +47,7 @@ export type {
    party and the UI shows them to explain the account's own status.
 ───────────────────────────────────────────────────── */
 import type { IUser } from './schema.ts'
+import { toAssetUrl } from '@/utils/assetUrl.ts'
 
 const SAFE_USER_FIELDS = [
   'id', 'name', 'email', 'avatarUrl', 'role',
@@ -73,5 +74,7 @@ export function toSafeUser(user: IUser): SafeUser {
   for (const key of SAFE_USER_FIELDS) {
     if (obj[key] !== undefined) out[key] = obj[key]
   }
+  /* Route avatars through the asset proxy so they load from the private bucket. */
+  if (typeof out['avatarUrl'] === 'string') out['avatarUrl'] = toAssetUrl(out['avatarUrl'] as string)
   return out as SafeUser
 }

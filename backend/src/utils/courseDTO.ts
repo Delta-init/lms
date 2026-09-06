@@ -1,4 +1,5 @@
 import type { ICourse, ISection, ILesson } from '@/models/schema.ts'
+import { toAssetUrl } from '@/utils/assetUrl.ts'
 
 /* ─────────────────────────────────────────────────────
    Course DTO — flattens populated instructor/category
@@ -50,7 +51,7 @@ export function toCourseDTO(course: ICourse, lessonCount?: number): CourseDTO {
     title:         json['title']         as string,
     slug:          json['slug']          as string,
     description:   json['description']   as string | undefined,
-    thumbnailUrl:  json['thumbnailUrl']  as string | undefined,
+    thumbnailUrl:  toAssetUrl(json['thumbnailUrl'] as string | undefined),
     previewUrl:    json['previewUrl']    as string | undefined,
     price:         json['price']         as number,
     priceAED:      json['priceAED']      as number | undefined,
@@ -72,7 +73,7 @@ export function toCourseDTO(course: ICourse, lessonCount?: number): CourseDTO {
 
   const inst = json.instructorId
   if (typeof inst === 'object' && inst !== null) {
-    dto.instructor   = inst
+    dto.instructor   = { ...inst, avatarUrl: toAssetUrl(inst.avatarUrl) }
     dto.instructorId = inst.id
   } else {
     dto.instructorId = String(inst ?? '')

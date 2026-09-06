@@ -260,6 +260,22 @@ export function keyFromUrl(url: string): string | null {
   return key
 }
 
+/** Fetch an object's bytes + content type from the main bucket. Used by the
+ *  public asset proxy to serve images from the (now private) bucket. Returns
+ *  null when the object is missing. */
+export async function getObjectBytes(
+  key: string,
+): Promise<{ body: Uint8Array; contentType?: string; contentLength?: number } | null> {
+  try {
+    const out = await getClient().send(new GetObjectCommand({ Bucket: env.R2_BUCKET_NAME, Key: key }))
+    if (!out.Body) return null
+    const body = await out.Body.transformToByteArray()
+    return { body, contentType: out.ContentType, contentLength: out.ContentLength }
+  } catch {
+    return null
+  }
+}
+
 /** Short-lived signed GET for a private object. R2 only. */
 export async function generatePresignedGetUrl(key: string, expiresIn = 300): Promise<string> {
   const command = new GetObjectCommand({
