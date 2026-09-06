@@ -243,7 +243,9 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
                   onChange={e => setOtpEmail(e.target.value)}
                   type="email" autoComplete="email" autoFocus placeholder="you@example.com"
                   className="w-full rounded-xl py-3 pl-10 pr-4 text-sm outline-none transition-all"
-                  style={{ background: 'var(--color-bg-page)', border: '1.5px solid transparent', color: 'var(--color-text-primary)', fontFamily: 'DM Sans, sans-serif' }}
+                  style={{ background: 'var(--color-bg-surface)', border: '1.5px solid var(--color-border)', color: 'var(--color-text-primary)', fontFamily: 'DM Sans, sans-serif' }}
+                  onFocus={e => { e.currentTarget.style.border = '1.5px solid #3B82F6'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.12)' }}
+                  onBlur={e => { e.currentTarget.style.border = '1.5px solid var(--color-border)'; e.currentTarget.style.boxShadow = 'none' }}
                 />
               ) : (
                 <input
@@ -251,7 +253,9 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
                   onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus placeholder="000000"
                   className="w-full rounded-xl py-3 pl-10 pr-4 text-sm tracking-[0.4em] outline-none transition-all"
-                  style={{ background: 'var(--color-bg-page)', border: '1.5px solid transparent', color: 'var(--color-text-primary)', fontFamily: 'DM Sans, sans-serif' }}
+                  style={{ background: 'var(--color-bg-surface)', border: '1.5px solid var(--color-border)', color: 'var(--color-text-primary)', fontFamily: 'DM Sans, sans-serif' }}
+                  onFocus={e => { e.currentTarget.style.border = '1.5px solid #3B82F6'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.12)' }}
+                  onBlur={e => { e.currentTarget.style.border = '1.5px solid var(--color-border)'; e.currentTarget.style.boxShadow = 'none' }}
                 />
               )}
             </div>
@@ -489,21 +493,20 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
               autoComplete="email"
               className="w-full rounded-xl py-3 pl-10 pr-4 text-sm outline-none transition-all"
               style={{
-                background: errors.email ? '#FEF2F2' : 'var(--color-bg-page)',
-                border: `1.5px solid ${errors.email ? '#FCA5A5' : 'transparent'}`,
+                background: errors.email ? '#FEF2F2' : 'var(--color-bg-surface)',
+                border: `1.5px solid ${errors.email ? '#FCA5A5' : 'var(--color-border)'}`,
                 color: 'var(--color-text-primary)',
                 fontFamily: 'DM Sans, sans-serif',
               }}
               onFocus={e => {
-                e.currentTarget.style.border = `1.5px solid ${errors.email ? '#EF4444' : 'transparent'}`
-                e.currentTarget.style.background = '#FFFFFF'
+                e.currentTarget.style.border = `1.5px solid ${errors.email ? '#EF4444' : '#3B82F6'}`
                 e.currentTarget.style.boxShadow = errors.email
                   ? '0 0 0 3px rgba(239,68,68,0.12)'
-                  : '0 0 0 3px rgba(0,87,184,0.12)'
+                  : '0 0 0 3px rgba(59,130,246,0.12)'
               }}
               onBlur={e => {
-                e.currentTarget.style.border = `1.5px solid ${errors.email ? '#FCA5A5' : 'transparent'}`
-                e.currentTarget.style.background = errors.email ? '#FEF2F2' : 'var(--color-bg-page)'
+                e.currentTarget.style.border = `1.5px solid ${errors.email ? '#FCA5A5' : 'var(--color-border)'}`
+                e.currentTarget.style.background = errors.email ? '#FEF2F2' : 'var(--color-bg-surface)'
                 e.currentTarget.style.boxShadow = 'none'
               }}
             />
@@ -551,21 +554,20 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
               autoComplete="current-password"
               className="w-full rounded-xl py-3 pl-10 pr-11 text-sm outline-none transition-all"
               style={{
-                background: errors.password ? '#FEF2F2' : 'var(--color-bg-page)',
-                border: `1.5px solid ${errors.password ? '#FCA5A5' : 'transparent'}`,
+                background: errors.password ? '#FEF2F2' : 'var(--color-bg-surface)',
+                border: `1.5px solid ${errors.password ? '#FCA5A5' : 'var(--color-border)'}`,
                 color: 'var(--color-text-primary)',
                 fontFamily: 'DM Sans, sans-serif',
               }}
               onFocus={e => {
-                e.currentTarget.style.border = `1.5px solid ${errors.password ? '#EF4444' : 'transparent'}`
-                e.currentTarget.style.background = '#FFFFFF'
+                e.currentTarget.style.border = `1.5px solid ${errors.password ? '#EF4444' : '#3B82F6'}`
                 e.currentTarget.style.boxShadow = errors.password
                   ? '0 0 0 3px rgba(239,68,68,0.12)'
-                  : '0 0 0 3px rgba(0,87,184,0.12)'
+                  : '0 0 0 3px rgba(59,130,246,0.12)'
               }}
               onBlur={e => {
-                e.currentTarget.style.border = `1.5px solid ${errors.password ? '#FCA5A5' : 'transparent'}`
-                e.currentTarget.style.background = errors.password ? '#FEF2F2' : 'var(--color-bg-page)'
+                e.currentTarget.style.border = `1.5px solid ${errors.password ? '#FCA5A5' : 'var(--color-border)'}`
+                e.currentTarget.style.background = errors.password ? '#FEF2F2' : 'var(--color-bg-surface)'
                 e.currentTarget.style.boxShadow = 'none'
               }}
             />
