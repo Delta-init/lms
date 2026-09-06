@@ -6,11 +6,27 @@
    mirror of services/clt.service.ts going the other way.
 ──────────────────────────────────────────────────────────────────────────── */
 import { Router, type Request, type Response, type NextFunction } from 'express'
+import { timingSafeEqual } from 'node:crypto'
+import { z } from 'zod'
 import { sendSuccess } from '@/utils/response.ts'
 import { verifyCltSignature } from '@/utils/cltSignature.ts'
+import { validate } from '@/middleware/validate.middleware.ts'
+import { OrderService } from '@/services/order.service.ts'
+import { AuthService } from '@/services/auth.service.ts'
 import { logger } from '@/utils/logger.ts'
 
 const router = Router()
+const orderSvc = new OrderService()
+const authSvc  = new AuthService()
+
+/* Timing-safe secret compare for the AI-academy server-to-server call. */
+function secretOk(presented: unknown, expected: string): boolean {
+  if (typeof presented !== 'string' || !expected) return false
+  const a = Buffer.from(presented)
+  const b = Buffer.from(expected)
+  if (a.length !== b.length) return false
+  return timingSafeEqual(a, b)
+}
 
 const FAILURE_STATUS: Record<string, number> = {
   MISSING_SIGNATURE: 401,
@@ -87,6 +103,58 @@ router.post('/handoff/exchange', async (req: Request, res: Response, next: NextF
       }
       throw err
     }
+  } catch (err) { next(err) }
+})
+
+/* ────────────────────────────────────────────────────────────────────────────
+   POST /integrations/ai-academy/purchase   (AI-academy website → LMS)
+   ────────────────────────────────────────────────────────────────────────────
+   Called server-to-server by academy-api after a successful purchase. Creates /
+   approves the LMS student, enrolls them in BOTH AI-academy courses, and emails
+   a one-click login link. Idempotent on orderId. Secret is a shared value in
+   AI_ACADEMY_S2S_SECRET (unset → integration disabled). No cookie/session.
+──────────────────────────────────────────────────────────────────────────── */
+const aiaPurchaseSchema = z.object({
+  email:    z.string().email().toLowerCase(),
+  name:     z.string().max(120).optional(),
+  phone:    z.string().max(30).optional(),
+  orderId:  z.string().min(1).max(200),
+  amount:   z.coerce.number().min(0).optional(),
+  currency: z.string().max(3).optional(),
+})
+
+router.post('/ai-academy/purchase', validate(aiaPurchaseSchema), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const secret = String(process.env['AI_ACADEMY_S2S_SECRET'] ?? '')
+    if (!secret) {
+      res.status(503).json({ success: false, error: { code: 'INTEGRATION_DISABLED', message: 'AI-academy integration is not configured' } })
+      return
+    }
+    if (!secretOk(req.headers['x-aia-secret'], secret)) {
+      logger.warn('AI-academy purchase: invalid or missing X-AIA-Secret')
+      res.status(401).json({ success: false, error: { code: 'UNAUTHORISED', message: 'Bad secret' } })
+      return
+    }
+
+    const { email, name, phone, orderId, amount, currency } = req.body as {
+      email: string; name?: string; phone?: string; orderId: string; amount?: number; currency?: string
+    }
+
+    const result = await orderSvc.provisionExternalPurchase({ email, name, phone, orderId, amount, currency })
+
+    /* Email the one-click login link — only on first provision, so webhook
+       retries don't spam the buyer. */
+    let loginLink: string | undefined
+    if (!result.alreadyProcessed) {
+      const invite = await authSvc.inviteToCourse(email, {
+        next: '/courses/ai-academy-english',
+        ...(name ? { name } : {}),
+        courseName: 'AI Academy',
+      })
+      loginLink = invite.link
+    }
+
+    sendSuccess(res, { ...result, ...(loginLink ? { loginLink } : {}) }, 'Purchase provisioned')
   } catch (err) { next(err) }
 })
 

@@ -974,6 +974,70 @@ export class OrderService {
   }
 
   /* ─── Private helpers ───────────────────────────────── */
+  /* ── Provision an LMS student from an external (AI-academy website) purchase ──
+     Server-to-server, called by the AI-academy integration. Idempotent on the
+     external orderId (stored as Order.razorpayOrderId): a webhook retry returns
+     the existing result rather than re-enrolling. Creates a passwordless account
+     if needed, auto-approves, and enrolls in BOTH AI-academy courses. */
+  async provisionExternalPurchase(input: {
+    email: string
+    name?: string
+    phone?: string
+    orderId: string
+    amount?: number
+    currency?: string
+  }): Promise<{ userId: string; created: boolean; alreadyProcessed: boolean; enrolled: string[] }> {
+    const { OrderModel } = await import('@/models/schema.ts')
+    const email = input.email.toLowerCase().trim()
+    const COURSE_SLUGS = ['ai', 'ai-academy-english']   // Malayalam + English
+
+    /* Upsert the user (create passwordless if new; backfill blank name/phone). */
+    let user = await UserModel.findOne({ email })
+    let created = false
+    if (!user) {
+      user = await UserModel.create({
+        name:  input.name?.trim() || email.split('@')[0],
+        email,
+        role:  'student',
+        ...(input.phone ? { enrollmentApplication: { phone: input.phone.trim() } } : {}),
+      })
+      created = true
+    } else {
+      const set: Record<string, unknown> = {}
+      if (input.name && !user.name) set['name'] = input.name.trim()
+      if (input.phone && !(user as { enrollmentApplication?: { phone?: string } }).enrollmentApplication?.phone) {
+        set['enrollmentApplication.phone'] = input.phone.trim()
+      }
+      if (Object.keys(set).length) await UserModel.updateOne({ _id: user._id }, { $set: set })
+    }
+    const userId = String(user._id)
+
+    /* Idempotency: this external order already provisioned? */
+    const prior = await OrderModel.findOne({ razorpayOrderId: input.orderId }).select('_id').lean()
+    if (prior) {
+      logger.info({ orderId: input.orderId, userId }, 'AI-academy purchase already provisioned — skipping')
+      return { userId, created, alreadyProcessed: true, enrolled: COURSE_SLUGS }
+    }
+
+    const courses = await CourseModel.find({ slug: { $in: COURSE_SLUGS } }).select('_id slug').lean()
+    const enrolled: string[] = []
+    for (const c of courses as Array<{ _id: unknown; slug: string }>) {
+      const courseId = String(c._id)
+      await this._createEnrollment(userId, courseId)
+      await this._autoApproveViaPayment(userId, courseId)
+      await OrderModel.create({
+        userId, courseId, gateway: 'razorpay', status: 'paid',
+        amount: input.amount ?? 0,
+        currency: (input.currency ?? 'INR').toLowerCase().slice(0, 3),
+        razorpayOrderId: input.orderId,
+      })
+      enrolled.push(c.slug)
+    }
+
+    logger.info({ orderId: input.orderId, userId, enrolled, created }, '✅ AI-academy purchase provisioned in LMS')
+    return { userId, created, alreadyProcessed: false, enrolled }
+  }
+
   private async _createEnrollment(userId: string, courseId: string): Promise<void> {
     const { EnrollmentRepository } = await import('@/repositories/enrollment.repository.ts')
     const { CourseRepository }     = await import('@/repositories/course.repository.ts')
