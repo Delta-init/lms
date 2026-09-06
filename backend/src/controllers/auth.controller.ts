@@ -117,6 +117,45 @@ export class AuthController {
     }
   }
 
+  /* ── POST /auth/otp/request ───────────────────────
+     Passwordless login step 1. Always answers the same way so it can't be
+     used to probe which emails have accounts. */
+  requestLoginOtp = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { devCode } = await this.service.requestLoginOtp(String(req.body.email))
+      sendSuccess(res, { ok: true, ...(devCode ? { devCode } : {}) }, 'If an account exists for that email, a sign-in code is on its way.')
+    } catch (err) {
+      next(err)
+    }
+  }
+
+  /* ── POST /auth/otp/verify ────────────────────────
+     Passwordless login step 2 — exchanges the code for the same session
+     cookies a password login would set. */
+  verifyLoginOtp = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { email, code } = req.body as { email: string; code: string }
+      const result = await this.service.verifyLoginOtp(email, code, sessionMeta(req))
+      setAuthCookies(res, result.tokens)
+      sendSuccess(res, { user: result.user }, 'Signed in successfully')
+    } catch (err) {
+      next(err)
+    }
+  }
+
+  /* ── POST /auth/login-link/redeem ─────────────────
+     One-click invite/login link → the same session cookies a password login
+     sets. The client page then forwards to its `next` target (the course). */
+  redeemLoginLink = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const result = await this.service.redeemLoginLink(String(req.body.token), sessionMeta(req))
+      setAuthCookies(res, result.tokens)
+      sendSuccess(res, { user: result.user }, 'Signed in successfully')
+    } catch (err) {
+      next(err)
+    }
+  }
+
   /* ── POST /auth/login/2fa ───────────────────────── */
   loginTwoFactor = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {

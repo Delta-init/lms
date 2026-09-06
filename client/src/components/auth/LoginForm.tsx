@@ -50,6 +50,11 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
   const [challengeToken, setChallengeToken] = useState<string | null>(null)
   const [code,           setCode]           = useState('')
   const [verifying,      setVerifying]      = useState(false)
+  /* Passwordless (email → OTP) login — separate flow from the password form. */
+  const [otpStep,  setOtpStep]  = useState<null | 'email' | 'code'>(null)
+  const [otpEmail, setOtpEmail] = useState('')
+  const [otpCode,  setOtpCode]  = useState('')
+  const [otpBusy,  setOtpBusy]  = useState(false)
 
   const {
     register,
@@ -135,6 +140,150 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
     setChallengeToken(null)
     setCode('')
     setServerError(null)
+  }
+
+  /* ─── Passwordless: request a code ────────────── */
+  const requestOtp = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (otpBusy) return
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(otpEmail.trim())) {
+      setServerError('Enter a valid email address.')
+      return
+    }
+    setServerError(null)
+    setOtpBusy(true)
+    try {
+      await api.post('/auth/otp/request', { email: otpEmail.trim() })
+      setOtpCode('')
+      setOtpStep('code')
+    } catch (err: any) {
+      setServerError(err?.response?.data?.error?.message ?? 'Could not send a code. Please try again.')
+    } finally {
+      setOtpBusy(false)
+    }
+  }
+
+  /* ─── Passwordless: verify the code ───────────── */
+  const verifyOtp = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (otpBusy) return
+    if (!/^\d{6}$/.test(otpCode)) {
+      setServerError('Enter the 6-digit code from your email.')
+      return
+    }
+    setServerError(null)
+    setOtpBusy(true)
+    try {
+      const res = await api.post<{ success: true; data: { user?: { role: string } } }>(
+        '/auth/otp/verify',
+        { email: otpEmail.trim(), code: otpCode },
+      )
+      await completeLogin(res.data?.data?.user?.role)
+    } catch (err: any) {
+      setServerError(err?.response?.data?.error?.message ?? 'That code was not accepted. Please try again.')
+      setOtpCode('')
+    } finally {
+      setOtpBusy(false)
+    }
+  }
+
+  const exitOtp = () => { setOtpStep(null); setOtpCode(''); setServerError(null) }
+
+  /* ─── Passwordless (email → OTP) step ─────────── */
+  if (otpStep) {
+    const onEmail = otpStep === 'email'
+    return (
+      <motion.div
+        key="login-otp"
+        initial={{ opacity: 0, x: 40 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -40 }}
+        transition={{ type: 'spring', stiffness: 280, damping: 26 }}
+        className="w-full"
+      >
+        <div className="mb-8">
+          <p className="mb-1 text-sm font-medium" style={{ color: 'var(--color-primary)' }}>
+            {onEmail ? 'Sign in with email ✉️' : 'Check your inbox 📩'}
+          </p>
+          <h2
+            className="text-[28px] font-bold leading-tight tracking-tight"
+            style={{ fontFamily: 'var(--font-display), sans-serif', color: 'var(--color-text-primary)' }}
+          >
+            {onEmail ? 'No password needed' : 'Enter your code'}
+          </h2>
+          <p className="mt-1.5 text-sm" style={{ color: 'var(--color-text-muted)' }}>
+            {onEmail
+              ? 'We’ll email you a six-digit code to sign in.'
+              : <>We sent a code to <span style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{otpEmail}</span>.</>}
+          </p>
+        </div>
+
+        <form onSubmit={onEmail ? requestOtp : verifyOtp} noValidate className="space-y-4">
+          <div>
+            <label className="mb-1.5 block text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+              {onEmail ? 'Email address' : 'Six-digit code'}
+            </label>
+            <div className="relative">
+              {onEmail
+                ? <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--color-text-muted)' }} />
+                : <ShieldCheck size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--color-text-muted)' }} />}
+              {onEmail ? (
+                <input
+                  value={otpEmail}
+                  onChange={e => setOtpEmail(e.target.value)}
+                  type="email" autoComplete="email" autoFocus placeholder="you@example.com"
+                  className="w-full rounded-xl py-3 pl-10 pr-4 text-sm outline-none transition-all"
+                  style={{ background: 'var(--color-bg-page)', border: '1.5px solid transparent', color: 'var(--color-text-primary)', fontFamily: 'DM Sans, sans-serif' }}
+                />
+              ) : (
+                <input
+                  value={otpCode}
+                  onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus placeholder="000000"
+                  className="w-full rounded-xl py-3 pl-10 pr-4 text-sm tracking-[0.4em] outline-none transition-all"
+                  style={{ background: 'var(--color-bg-page)', border: '1.5px solid transparent', color: 'var(--color-text-primary)', fontFamily: 'DM Sans, sans-serif' }}
+                />
+              )}
+            </div>
+          </div>
+
+          <AnimatePresence>
+            {serverError && (
+              <motion.div
+                initial={{ opacity: 0, y: -6, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -4 }}
+                className="flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm"
+                style={{ background: '#FEE2E2', color: 'var(--color-danger)' }}
+              >
+                <AlertCircle size={15} />{serverError}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <motion.button
+            type="submit" disabled={otpBusy}
+            whileHover={{ y: -2, boxShadow: '0 8px 28px rgba(0,87,184,0.35)' }} whileTap={{ scale: 0.98 }}
+            className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold text-white transition-all disabled:cursor-not-allowed disabled:opacity-60"
+            style={{ background: 'var(--color-primary)', boxShadow: '0 4px 20px rgba(0,87,184,0.30)' }}
+          >
+            {otpBusy ? <><Spinner size={16} />{onEmail ? 'Sending…' : 'Verifying…'}</> : <>{onEmail ? 'Send code' : 'Verify & sign in'}<ArrowRight size={16} /></>}
+          </motion.button>
+        </form>
+
+        <div className="mt-6 flex items-center justify-between text-sm" style={{ color: 'var(--color-text-muted)' }}>
+          <button type="button" onClick={onEmail ? exitOtp : () => { setOtpStep('email'); setServerError(null) }}
+            className="inline-flex items-center gap-1 font-semibold transition-opacity hover:opacity-70" style={{ color: 'var(--color-primary)' }}>
+            <ArrowLeft size={14} />{onEmail ? 'Use a password' : 'Change email'}
+          </button>
+          {!onEmail && (
+            <button type="button" disabled={otpBusy}
+              onClick={() => requestOtp({ preventDefault() {} } as FormEvent<HTMLFormElement>)}
+              className="font-semibold transition-opacity hover:opacity-70 disabled:opacity-50" style={{ color: 'var(--color-primary)' }}>
+              Resend code
+            </button>
+          )}
+        </div>
+      </motion.div>
+    )
   }
 
   /* ─── 2FA challenge step ──────────────────────── */
@@ -498,6 +647,24 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
           </motion.button>
         </motion.div>
       </form>
+
+      {/* Passwordless option */}
+      <motion.div custom={6} variants={fieldVariant} initial="hidden" animate="visible" className="mt-4">
+        <div className="mb-3 flex items-center gap-3">
+          <div className="h-px flex-1" style={{ background: 'var(--color-border)' }} />
+          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>or</span>
+          <div className="h-px flex-1" style={{ background: 'var(--color-border)' }} />
+        </div>
+        <button
+          type="button"
+          onClick={() => { setServerError(null); setOtpStep('email') }}
+          className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition-all hover:opacity-80"
+          style={{ background: 'var(--color-bg-page)', color: 'var(--color-text-primary)', border: '1.5px solid var(--color-border)' }}
+        >
+          <Mail size={16} />
+          Sign in with email code
+        </button>
+      </motion.div>
 
       {/* Switch to register */}
       <motion.p

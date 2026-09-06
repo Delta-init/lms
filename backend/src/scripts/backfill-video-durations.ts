@@ -10,6 +10,7 @@
  * it does not download whole files. READ-only on R2; writes only durationMins.
  */
 import mongoose from 'mongoose'
+import { spawnSync } from 'node:child_process'
 import { env } from '@/config/env.ts'
 import { LessonModel } from '@/models/schema.ts'
 import { keyFromUrl, generatePresignedGetUrl, isR2Configured } from '@/services/r2.service.ts'
@@ -17,14 +18,14 @@ import { keyFromUrl, generatePresignedGetUrl, isR2Configured } from '@/services/
 const EXECUTE = process.argv.includes('--yes')
 
 async function probeSeconds(url: string): Promise<number | null> {
-  const proc = Bun.spawnSync([
-    'ffprobe', '-v', 'error',
+  const proc = spawnSync('ffprobe', [
+    '-v', 'error',
     '-show_entries', 'format=duration',
     '-of', 'default=noprint_wrappers=1:nokey=1',
     url,
-  ])
-  if (proc.exitCode !== 0) return null
-  const secs = parseFloat(proc.stdout.toString().trim())
+  ], { encoding: 'utf8' })
+  if (proc.status !== 0) return null
+  const secs = parseFloat((proc.stdout ?? '').trim())
   return Number.isFinite(secs) && secs > 0 ? secs : null
 }
 

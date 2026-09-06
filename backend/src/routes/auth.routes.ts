@@ -55,6 +55,18 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 })
 
+/* ─── Passwordless (email → OTP) login ────────────── */
+const otpRequestSchema = z.object({
+  email: z.string().email().toLowerCase(),
+})
+const otpVerifySchema = z.object({
+  email: z.string().email().toLowerCase(),
+  code:  z.string().regex(/^\d{6}$/, 'Enter the six-digit code from your email'),
+})
+const loginLinkSchema = z.object({
+  token: z.string().min(16, 'Invalid link'),
+})
+
 /* Second login step for accounts with 2FA enabled — the challenge handed
    back by /login plus the 6-digit code from the authenticator app. */
 const loginTwoFactorSchema = z.object({
@@ -84,6 +96,11 @@ const verifySchema = z.object({
 router.post('/register',         authRateLimit, validate(registerSchema), auth.register)
 router.post('/login',            authRateLimit, validate(loginSchema),    auth.login)
 router.post('/login/2fa',        authRateLimit, validate(loginTwoFactorSchema), auth.loginTwoFactor)
+/* Passwordless login: request an email code, then exchange it for a session. */
+router.post('/otp/request',      authRateLimit, validate(otpRequestSchema), auth.requestLoginOtp)
+router.post('/otp/verify',       authRateLimit, validate(otpVerifySchema),  auth.verifyLoginOtp)
+/* One-click invite/login link → session (redeemed by the client's /auth/continue). */
+router.post('/login-link/redeem', authRateLimit, validate(loginLinkSchema), auth.redeemLoginLink)
 /* The admin portal's second factor lives beside its own login, at
    /api/v1/admin/auth/login/2fa (see admin.routes.ts). */
 router.post('/refresh',          authRateLimit, auth.refresh)

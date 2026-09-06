@@ -443,6 +443,49 @@ export async function sendPasswordReset(to: string, name: string, resetUrl: stri
   })
 }
 
+/* Invitation from Delta AI Academy → one-click login link into the LMS that
+   drops the recipient straight onto their course. Single-use link. */
+export async function sendCourseInvite(to: string, name: string, link: string, courseName: string): Promise<void> {
+  const subject = `You're invited to ${courseName} — Delta AI Academy`
+  const html = wrap(subject, `
+    <h2 style="margin:0 0 16px;font-size:20px;font-weight:700;color:#0D0F1A">Welcome to Delta AI Academy 🎉</h2>
+    <p>Hi ${escapeHtml(name)},</p>
+    <p>Your access to <strong>${escapeHtml(courseName)}</strong> is ready. Tap the button below to sign in and jump straight into the course — no password needed.</p>
+    <p style="margin:24px 0">
+      <a href="${escapeHtml(sanitiseUrl(link))}" style="display:inline-block;background:linear-gradient(135deg,#0057b8,#2F6BFF);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
+        Open my course
+      </a>
+    </p>
+    <p style="font-size:12px;color:#6B7280">Or paste this link into your browser:<br><span style="color:#0057b8">${escapeHtml(link)}</span></p>
+    <p style="font-size:12px;color:#9CA3AF">This link signs you in once and expires in 7 days. Didn't expect this? You can ignore this email.</p>
+  `)
+  await sender.send({
+    to,
+    subject,
+    html,
+    text: `You're invited to ${courseName}. Sign in and open your course: ${link}\n\nThis link works once and expires in 7 days.`,
+  })
+}
+
+/* Passwordless sign-in code (email → OTP login). Mirrors the reset email's
+   shell so it reads as the same sender. The code expires in 10 minutes. */
+export async function sendLoginCode(to: string, name: string, code: string): Promise<void> {
+  const subject = `${code} is your Delta sign-in code`
+  const html = wrap(subject, `
+    <h2 style="margin:0 0 16px;font-size:20px;font-weight:700;color:#0D0F1A">Your sign-in code</h2>
+    <p>Hi ${escapeHtml(name)},</p>
+    <p>Enter this code to finish signing in. It expires in 10 minutes.</p>
+    <p style="margin:24px 0;font-size:34px;font-weight:700;letter-spacing:0.18em;color:#0057b8">${escapeHtml(code)}</p>
+    <p style="font-size:12px;color:#9CA3AF">Didn't try to sign in? You can ignore this email — nobody can get in without the code.</p>
+  `)
+  await sender.send({
+    to,
+    subject,
+    html,
+    text: `Your Delta sign-in code is ${code}. It expires in 10 minutes. If you didn't request it, ignore this email.`,
+  })
+}
+
 /* Someone tried to register with an address that already has an account (M-05).
    Sent to the ACCOUNT HOLDER, never to whoever made the attempt — which turns
    a silent enumeration probe into something its owner can see. It is also

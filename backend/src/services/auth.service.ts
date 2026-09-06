@@ -1,10 +1,10 @@
-import { createHash, randomBytes } from 'crypto'
+import { createHash, randomBytes, randomInt } from 'crypto'
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose'
 import { UserRepository, RefreshTokenRepository, AuthTokenRepository } from '@/repositories/user.repository.ts'
 import { hashPassword, comparePassword } from '@/utils/hash.ts'
 import { generateTokenPair, verifyRefreshToken, type TokenAudience } from '@/utils/jwt.ts'
 import { logger } from '@/utils/logger.ts'
-import { sendPasswordReset, sendVerifyEmail, sendRegistrationAttempt } from '@/services/email.service.ts'
+import { sendPasswordReset, sendVerifyEmail, sendRegistrationAttempt, sendLoginCode, sendCourseInvite } from '@/services/email.service.ts'
 import { TotpService } from '@/services/totp.service.ts'
 import { env } from '@/config/env.ts'
 import type { RegisterDto, LoginDto, TokenPair, UserRole } from '@/types/index.ts'
@@ -724,6 +724,127 @@ export class AuthService {
   }
 
   /* ── Forgot password ────────────────────────────── */
+  /* ── Passwordless login — request an email code ────
+       Always returns void without signalling whether the address exists, so
+       this cannot be used to enumerate accounts. A 6-digit code is stored
+       hashed and bound to the user; only the latest is valid. */
+  async requestLoginOtp(email: string): Promise<{ devCode?: string }> {
+    const user = await this.userRepo.findOne({ email: email.toLowerCase().trim() })
+    if (!user || !user.isActive) {
+      logger.debug({ email }, 'otp-login: no active account, silently skipping')
+      return {}
+    }
+    const code = await this.#issueLoginOtp(user.id)
+    await sendLoginCode(user.email, user.name, code)
+    logger.info({ userId: user.id }, 'login OTP sent')
+    /* Local convenience only: return the code so the flow can be exercised
+       without a mailbox. Two gates — never production, and opt-in per env. */
+    const echo = process.env.NODE_ENV !== 'production' && process.env.OTP_DEV_ECHO === '1'
+    return echo ? { devCode: code } : {}
+  }
+
+  /* ── Passwordless login — verify the code ──────────
+       Same session-issuing outcome as password login. The code is single-use
+       and expires in 10 minutes (claim() enforces both atomically). */
+  async verifyLoginOtp(
+    email: string,
+    code: string,
+    meta?: { userAgent?: string; ip?: string },
+    audience: TokenAudience = 'client',
+  ): Promise<{ user: ReturnType<typeof toSafeUser>; tokens: TokenPair }> {
+    const invalid = () => new AuthError('INVALID_OTP', 'That code is invalid or has expired. Request a new one.', 400)
+
+    const user = await this.userRepo.findOne({ email: email.toLowerCase().trim() })
+    if (!user || !user.isActive) throw invalid()
+
+    const tokenHash = this.#hashToken(`${user.id}:${code.trim()}`)
+    const claimed   = await this.authTokenRepo.claim(tokenHash, 'otp-login')
+    if (!claimed) throw invalid()
+
+    void this.userRepo.touchLastLogin(user.id)
+    const tokens = await this.#issueTokens(user.id, user.email, user.role, meta, audience)
+    logger.info({ userId: user.id }, 'User logged in via OTP')
+    return { user: toSafeUser(user), tokens }
+  }
+
+  /* ── Invitation: email a one-click login link ──────
+       Creates a passwordless account if none exists (name derived from the
+       email when not given), issues a single-use link, and emails it. The
+       link lands on the client's /auth/continue page, which signs the user in
+       and forwards to `next` (e.g. the English course interface). */
+  async inviteToCourse(
+    email: string,
+    opts: { next?: string; name?: string; courseName?: string } = {},
+  ): Promise<{ link: string; created: boolean }> {
+    const normalized = email.toLowerCase().trim()
+    let user = await this.userRepo.findOne({ email: normalized })
+    let created = false
+    if (!user) {
+      const { UserModel } = await import('@/models/schema.ts')
+      user = await UserModel.create({
+        name: opts.name?.trim() || normalized.split('@')[0],
+        email: normalized,
+        role: 'student',
+      })
+      created = true
+    }
+    if (!user.isActive) throw new AuthError('ACCOUNT_DISABLED', 'This account is disabled.', 403)
+
+    const raw  = await this.#issueLoginLink(user.id)
+    const next = opts.next && opts.next.startsWith('/') ? opts.next : '/my-learning'
+    const link = `${env.CLIENT_URL}/continue?token=${raw}&next=${encodeURIComponent(next)}`
+    await sendCourseInvite(user.email, user.name, link, opts.courseName ?? 'Delta AI Academy')
+    logger.info({ userId: user.id, created }, 'course invite / login link sent')
+    return { link, created }
+  }
+
+  /* ── Redeem a one-click login link → session ───────
+       Single-use and time-limited (claim() enforces both). Same session
+       outcome as a password login. */
+  async redeemLoginLink(
+    rawToken: string,
+    meta?: { userAgent?: string; ip?: string },
+    audience: TokenAudience = 'client',
+  ): Promise<{ user: ReturnType<typeof toSafeUser>; tokens: TokenPair }> {
+    const invalid = () => new AuthError('INVALID_LOGIN_LINK', 'This sign-in link is invalid, used, or expired. Sign in with your email instead.', 400)
+    const tokenHash = this.#hashToken(rawToken)
+    const claimed   = await this.authTokenRepo.claim(tokenHash, 'login-link')
+    if (!claimed) throw invalid()
+
+    const user = await this.userRepo.findById(claimed.userId.toString())
+    if (!user || !user.isActive) throw invalid()
+
+    void this.userRepo.touchLastLogin(user.id)
+    const tokens = await this.#issueTokens(user.id, user.email, user.role, meta, audience)
+    logger.info({ userId: user.id }, 'User logged in via login link')
+    return { user: toSafeUser(user), tokens }
+  }
+
+  /* ── Generate a one-time login-link token ──────────
+       Random 32-byte token (unlike the 6-digit OTP), 7-day single-use. Prior
+       unused links are invalidated so only the latest works. */
+  async #issueLoginLink(userId: string): Promise<string> {
+    await this.authTokenRepo.invalidateForUser(userId, 'login-link')
+    const raw       = randomBytes(32).toString('hex')
+    const tokenHash = this.#hashToken(raw)
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    await this.authTokenRepo.create_({ userId, tokenHash, purpose: 'login-link', expiresAt })
+    return raw
+  }
+
+  /* ── Generate a one-time 6-digit login code ────────
+       Bound to the user (hash of `${userId}:${code}`) so a short code stays
+       unique in the shared token collection and can't be replayed for another
+       account. Prior unused codes are invalidated first. */
+  async #issueLoginOtp(userId: string): Promise<string> {
+    await this.authTokenRepo.invalidateForUser(userId, 'otp-login')
+    const code      = String(randomInt(0, 1_000_000)).padStart(6, '0')
+    const tokenHash = this.#hashToken(`${userId}:${code}`)
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
+    await this.authTokenRepo.create_({ userId, tokenHash, purpose: 'otp-login', expiresAt })
+    return code
+  }
+
   async forgotPassword(email: string): Promise<void> {
     /* Always succeed visibly (don't leak account existence).
        Only do work when an active account is found. */

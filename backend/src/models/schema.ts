@@ -324,7 +324,7 @@ export const RefreshTokenModel = mongoose.model<IRefreshToken>('RefreshToken', R
 /* ─────────────────────────────────────────────────────
    AUTH TOKEN — used for password reset + email verify
 ───────────────────────────────────────────────────── */
-export type AuthTokenPurpose = 'reset-password' | 'verify-email'
+export type AuthTokenPurpose = 'reset-password' | 'verify-email' | 'otp-login' | 'login-link'
 
 export interface IAuthToken extends Document {
   id:        string
@@ -341,7 +341,7 @@ const AuthTokenSchema = new Schema<IAuthToken>(
   {
     userId:    { type: Schema.Types.ObjectId, ref: 'User', required: true },
     tokenHash: { type: String, required: true, unique: true },
-    purpose:   { type: String, enum: ['reset-password', 'verify-email'], required: true },
+    purpose:   { type: String, enum: ['reset-password', 'verify-email', 'otp-login', 'login-link'], required: true },
     expiresAt: { type: Date, required: true },
     usedAt:    { type: Date },
   },
