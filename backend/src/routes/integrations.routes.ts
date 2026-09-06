@@ -117,7 +117,9 @@ router.post('/handoff/exchange', async (req: Request, res: Response, next: NextF
 const aiaPurchaseSchema = z.object({
   email:    z.string().email().toLowerCase(),
   name:     z.string().max(120).optional(),
-  phone:    z.string().max(30).optional(),
+  // Mandatory for buyers: the phone is rendered as a forensic video watermark
+  // (LMS player + AI-academy v2), so a purchase can't provision without one.
+  phone:    z.string().max(30).refine(v => v.replace(/\D/g, '').length >= 7, 'A valid phone number is required'),
   orderId:  z.string().min(1).max(200),
   amount:   z.coerce.number().min(0).optional(),
   currency: z.string().max(3).optional(),
