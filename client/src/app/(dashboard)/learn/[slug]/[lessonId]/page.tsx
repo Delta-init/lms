@@ -14,7 +14,7 @@ import { MediaPlayer, MediaProvider, type MediaPlayerInstance } from '@vidstack/
 import { DefaultVideoLayout, defaultLayoutIcons } from '@vidstack/react/player/layouts/default'
 import '@vidstack/react/player/styles/default/theme.css'
 import '@vidstack/react/player/styles/default/layouts/video.css'
-import { useCourse, type LessonOutline } from '@/lib/api/courses'
+import { useCourse, useLessonPlayUrl, type LessonOutline } from '@/lib/api/courses'
 import { useCourseProgress } from '@/lib/api/enrollments'
 import { useCurrentUser } from '@/lib/api/user'
 import { useMarkLessonComplete, recordWatchTime, useMyLessonProgress } from '@/lib/api/progress'
@@ -377,6 +377,10 @@ function PlayerArea({
 }) {
   const lastReportRef  = useRef(0)
   const seekedToResume = useRef(false)
+  /* Video src is a short-lived signed URL fetched on demand — never embedded
+     in the course payload (see backend courseDTO / GET /lessons/:id/play-url). */
+  const { data: playData, isLoading: playUrlLoading } = useLessonPlayUrl(lesson.id, !!lesson.hasVideo)
+  const videoSrc = playData?.url
   const { data: lessonProgress } = useMyLessonProgress(lesson.id)
   const createBookmark = useCreateBookmark(lessonId)
   const [bookmarking,   setBookmarking]   = useState(false)
@@ -443,11 +447,11 @@ function PlayerArea({
   return (
     <div className="space-y-2">
       <div data-protected-content className="relative overflow-hidden rounded-2xl bg-black" style={{ aspectRatio: '16 / 9' }}>
-        {lesson.contentUrl ? (
+        {lesson.hasVideo && videoSrc ? (
           <MediaPlayer
             ref={playerRef}
             key={lesson.id}
-            src={lesson.contentUrl}
+            src={videoSrc}
             className="h-full w-full"
             onLoadedMetadata={onLoadedMetadata}
             onTimeUpdate={onTimeUpdate}
@@ -459,6 +463,13 @@ function PlayerArea({
                 fullscreen — a child stays composited over the video. */}
             <WatermarkOverlay />
           </MediaPlayer>
+        ) : lesson.hasVideo ? (
+          <div className="flex h-full w-full items-center justify-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white/70" />
+            <span className="ml-3 text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              {playUrlLoading ? 'Loading video…' : 'Video unavailable'}
+            </span>
+          </div>
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-3">
             <div className="flex h-16 w-16 items-center justify-center rounded-3xl"
@@ -480,7 +491,7 @@ function PlayerArea({
         )}
 
         {/* Skip ±10s buttons — bottom-center, above Vidstack controls */}
-        {lesson.contentUrl && (
+        {videoSrc && (
           <div className="absolute bottom-14 left-1/2 -translate-x-1/2 flex items-center gap-2 pointer-events-auto">
             <Button
               variant="ghost"

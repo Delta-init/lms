@@ -46,6 +46,9 @@ const envSchema = z.object({
   R2_SECRET_ACCESS_KEY: opt(z.string().min(1)),
   R2_BUCKET_NAME:       z.string().default('learnos-media'),
   R2_PUBLIC_URL:        opt(z.string().url()),
+  /* Lifetime (seconds) of a signed course-video URL. Must exceed the longest
+     video so playback doesn't stall mid-stream on an expired URL. Default 6h. */
+  R2_VIDEO_URL_TTL:     z.coerce.number().int().min(60).max(86_400).default(21_600),
 
   /* AI — Ollama (local LLM) */
   OLLAMA_BASE_URL: z.preprocess(v => (v === '' ? undefined : v), z.string().url().default('http://localhost:11434')),

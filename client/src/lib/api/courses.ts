@@ -19,7 +19,8 @@ export interface LessonOutline {
   durationMins: number
   order:        number
   isFree:       boolean
-  contentUrl?:  string   // present for video/article lessons; absent for quiz-only
+  contentUrl?:  string   // article/external content only — video URLs are NOT sent here
+  hasVideo?:    boolean  // true for video lessons; fetch the signed URL via useLessonPlayUrl
   contentBody?: string   // rich text body for article lessons
 }
 
@@ -87,6 +88,27 @@ export function useCourse(slug: string) {
     queryKey: courseKeys.detail(slug),
     queryFn: () => apiGet<CourseDetail>(`/courses/${slug}`),
     enabled: !!slug,
+    retry: false,
+  })
+}
+
+/* ─── Signed video playback URL ──────────────────
+   Video URLs are no longer embedded in the course outline. The player asks
+   for a short-lived signed URL here, just before playback. Backend enforces
+   enrollment + module access; a permanent public link is never exposed. */
+export interface LessonPlayUrl {
+  url:       string
+  expiresIn: number
+}
+
+export function useLessonPlayUrl(lessonId: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: ['lesson-play-url', lessonId ?? ''],
+    queryFn:  () => apiGet<LessonPlayUrl>(`/lessons/${lessonId}/play-url`),
+    enabled:  !!lessonId && enabled,
+    /* URL is valid for hours server-side; cache well under that so a long
+       viewing session keeps a fresh link. */
+    staleTime: 60 * 60 * 1000,
     retry: false,
   })
 }

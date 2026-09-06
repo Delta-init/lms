@@ -107,7 +107,8 @@ export interface LessonDTO {
   durationMins: number
   order:        number
   isFree:       boolean
-  contentUrl?:  string   // only included for enrolled users or free lessons
+  contentUrl?:  string   // non-video content (article/external) — safe to expose
+  hasVideo?:    boolean  // true when a video exists; the real URL is fetched, signed, from GET /lessons/:id/play-url
 }
 
 export function toSectionDTO(s: ISection): SectionDTO {
@@ -132,7 +133,15 @@ export function toLessonDTO(l: ILesson, includeContentUrl = false): LessonDTO {
     isFree:       j['isFree']       as boolean,
   }
   if (includeContentUrl) {
-    dto.contentUrl = j['contentUrl'] as string | undefined
+    const url = j['contentUrl'] as string | undefined
+    if ((j['type'] as string) === 'video') {
+      /* SECURITY: never ship the raw (public R2) video URL to the client — a
+         permanent public link defeats paid gating. Expose only a boolean; the
+         player fetches a short-lived signed URL from GET /lessons/:id/play-url. */
+      dto.hasVideo = !!url
+    } else {
+      dto.contentUrl = url   // articles / external links are not the R2 video leak
+    }
   }
   return dto
 }

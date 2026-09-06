@@ -7,8 +7,11 @@ import { SectionService } from '@/services/section.service.ts'
 import { TranscriptError } from '@/services/transcript.service.ts'
 import { EnrollmentRepository } from '@/repositories/enrollment.repository.ts'
 import { LessonModel } from '@/models/schema.ts'
-import { authenticate, authenticateAny, requireAdmin, requireInstructor, injectCategoryScope } from '@/middleware/auth.middleware.ts'
+import { authenticate, authenticateAny, optionalAuthenticate, requireAdmin, requireInstructor, injectCategoryScope } from '@/middleware/auth.middleware.ts'
 import { validate } from '@/middleware/validate.middleware.ts'
+import { sendSuccess } from '@/utils/response.ts'
+import { keyFromUrl, generatePresignedGetUrl, isR2Configured } from '@/services/r2.service.ts'
+import { env } from '@/config/env.ts'
 
 const router   = Router()
 const progress = new ProgressController()
@@ -51,6 +54,43 @@ const requireLessonOwnership = async (req: Request, _res: Response, next: NextFu
     next()
   } catch (err) { next(err) }
 }
+
+/* ── Signed video playback URL ────────────────────────
+   Returns a SHORT-LIVED signed URL for the lesson's video instead of a
+   permanent public one. Access: free lessons are open (optional auth, so a
+   logged-out visitor can still preview); paid lessons require an approved
+   enrollment and are refused when the owning module is blocked.
+   The stored contentUrl is never exposed to the client — see courseDTO.ts. */
+router.get('/:id/play-url', optionalAuthenticate, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const lessonId = String(req.params['id'] ?? '')
+    if (!Types.ObjectId.isValid(lessonId)) throw new TranscriptError('INVALID_ID', 'Invalid lesson id', 400)
+
+    const lesson = await LessonModel.findById(lessonId)
+      .select('courseId isFree contentUrl sectionId type').lean().exec()
+    if (!lesson || lesson.type !== 'video' || !lesson.contentUrl) {
+      throw new TranscriptError('NOT_FOUND', 'No video for this lesson', 404)
+    }
+
+    if (!lesson.isFree) {
+      if (!req.user) throw new TranscriptError('UNAUTHENTICATED', 'Login required to watch this lesson', 401)
+      const enrollment = await enrollRepo.findByUserCourse(req.user.id, lesson.courseId)
+      if (!enrollment) throw new TranscriptError('NOT_ENROLLED', 'You must be enrolled in this course', 403)
+      /* Module-level block — blockedLessons stores SECTION ids (legacy name). */
+      const blocked = (enrollment.blockedLessons ?? []).map((x: unknown) => String(x))
+      if (blocked.includes(String(lesson.sectionId))) {
+        throw new TranscriptError('MODULE_LOCKED', 'This module is locked for your enrollment', 403)
+      }
+    }
+
+    /* Sign R2-hosted objects; pass through anything we don't own (external/local). */
+    const key = keyFromUrl(lesson.contentUrl)
+    const url = key && isR2Configured()
+      ? await generatePresignedGetUrl(key, env.R2_VIDEO_URL_TTL)
+      : lesson.contentUrl
+    sendSuccess(res, { url, expiresIn: env.R2_VIDEO_URL_TTL })
+  } catch (err) { next(err) }
+})
 
 /* ── Progress ─────────────────────────────────────── */
 router.get ('/:id/progress',    authenticate, progress.myLessonProgress)
