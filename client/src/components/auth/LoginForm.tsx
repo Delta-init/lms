@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -55,6 +55,16 @@ export function LoginForm({ onSwitch }: LoginFormProps) {
   const [otpEmail, setOtpEmail] = useState('')
   const [otpCode,  setOtpCode]  = useState('')
   const [otpBusy,  setOtpBusy]  = useState(false)
+
+  /* Deep link: /login?method=email opens the passwordless step directly, so
+     the "No password needed" flow has its own reachable URL. */
+  useEffect(() => {
+    try {
+      if (new URLSearchParams(window.location.search).get('method') === 'email') {
+        setOtpStep('email')
+      }
+    } catch { /* SSR / no window — ignore */ }
+  }, [])
 
   const {
     register,

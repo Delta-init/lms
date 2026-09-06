@@ -57,7 +57,7 @@ function ContinueInner() {
       </div>
       <p className="text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>Sign-in link problem</p>
       <p className="text-sm max-w-sm" style={{ color: 'var(--color-text-muted)' }}>{errorMsg}</p>
-      <Link href="/login" className="mt-3 rounded-xl px-5 py-2.5 text-sm font-bold text-white"
+      <Link href="/login?method=email" className="mt-3 rounded-xl px-5 py-2.5 text-sm font-bold text-white"
         style={{ background: 'var(--color-primary)' }}>
         Sign in with email
       </Link>
