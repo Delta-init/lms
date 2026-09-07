@@ -1,4 +1,5 @@
-import type { Response } from 'express'
+import { randomBytes } from 'node:crypto'
+import type { Request, Response } from 'express'
 import { env } from '@/config/env.ts'
 import type { TokenPair } from '@/types/index.ts'
 
@@ -13,6 +14,14 @@ import type { TokenPair } from '@/types/index.ts'
 
 export const ACCESS_COOKIE  = 'lms_at'
 export const REFRESH_COOKIE = 'lms_rt'
+
+/* Identifies the browser for the device whitelist. Long-lived and httpOnly so
+   it outlasts any single session — a browser keeps its identity across
+   sign-outs and re-logins, even while a device is blocked (pending). Carries no
+   authority on its own; it only names which device row to check. Host-only /
+   Path=/ so it rides along with every auth request. */
+export const DEVICE_COOKIE = 'lms_device'
+const DEVICE_TTL_MS = 400 * 86_400_000 // 400 days (Chrome's max cookie lifetime)
 
 export const ADMIN_ACCESS_COOKIE  = 'lms_admin_at'
 export const ADMIN_REFRESH_COOKIE = 'lms_admin_rt'
@@ -193,4 +202,25 @@ export function setImpersonationCookie(res: Response, token: string, maxAgeMs: n
 export function clearImpersonationCookie(res: Response): void {
   res.clearCookie(IMPERSONATION_COOKIE,      { path: '/', domain: cookieDomain() })
   res.clearCookie(IMPERSONATION_FLAG_COOKIE, { path: '/', domain: cookieDomain() })
+}
+
+/* ── Device identity cookie (lms_device) ───────────────────────────────
+   Reads the browser's device id, minting and setting one on first contact so
+   that even a blocked (pending) browser keeps a stable identity for an admin to
+   approve. Never cleared on logout — it identifies the browser, not the
+   session. Returns the id to check against the whitelist. */
+export function resolveDeviceId(req: Request, res: Response): string {
+  const existing = req.cookies?.[DEVICE_COOKIE]
+  if (typeof existing === 'string' && existing.length > 0) return existing
+
+  const deviceId = randomBytes(32).toString('hex')
+  res.cookie(DEVICE_COOKIE, deviceId, {
+    httpOnly: true,
+    secure:   isProd(),
+    sameSite: 'lax',
+    domain:   cookieDomain(),
+    path:     '/',
+    maxAge:   DEVICE_TTL_MS,
+  })
+  return deviceId
 }

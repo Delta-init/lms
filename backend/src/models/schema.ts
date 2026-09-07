@@ -321,6 +321,54 @@ RefreshTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 })  // TTL in
 
 export const RefreshTokenModel = mongoose.model<IRefreshToken>('RefreshToken', RefreshTokenSchema)
 
+/* ── Device whitelist ──────────────────────────────────────────────────
+   Students may sign in on two devices. The first browser is auto-approved as
+   the main device; a second is a pending request an admin approves; a third is
+   refused until a slot is freed. Identity is a random deviceId kept in a
+   long-lived httpOnly cookie (lms_device), per browser rather than hardware.
+   Enforced at every login and re-checked on refresh (see device.service.ts).
+   The AI-academy side keeps its own equivalent — see academy-api. */
+export type DeviceStatus = 'approved' | 'pending' | 'revoked'
+
+export interface IDevice extends Document {
+  id:          string
+  userId:      Types.ObjectId
+  deviceId:    string
+  status:      DeviceStatus
+  isMain:      boolean
+  label?:      string
+  userAgent?:  string
+  ip?:         string
+  approvedAt?: Date
+  approvedBy?: Types.ObjectId
+  lastSeenAt?: Date
+  createdAt:   Date
+  updatedAt:   Date
+}
+
+const DeviceSchema = new Schema<IDevice>(
+  {
+    userId:     { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    deviceId:   { type: String, required: true },
+    status:     { type: String, enum: ['approved', 'pending', 'revoked'], required: true },
+    isMain:     { type: Boolean, default: false },
+    label:      { type: String, maxlength: 120 },
+    userAgent:  { type: String, maxlength: 500 },
+    ip:         { type: String, maxlength: 64 },
+    approvedAt: { type: Date },
+    approvedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    lastSeenAt: { type: Date },
+  },
+  baseSchemaOptions,
+)
+
+// One row per browser per user — the whitelist upsert depends on it.
+DeviceSchema.index({ userId: 1, deviceId: 1 }, { unique: true })
+DeviceSchema.index({ userId: 1, status: 1 })
+DeviceSchema.index({ status: 1, createdAt: -1 })   // admin pending-requests list
+
+export const DeviceModel = mongoose.model<IDevice>('Device', DeviceSchema)
+
 /* ─────────────────────────────────────────────────────
    AUTH TOKEN — used for password reset + email verify
 ───────────────────────────────────────────────────── */

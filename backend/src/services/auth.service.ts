@@ -6,6 +6,7 @@ import { generateTokenPair, verifyRefreshToken, type TokenAudience } from '@/uti
 import { logger } from '@/utils/logger.ts'
 import { sendPasswordReset, sendVerifyEmail, sendRegistrationAttempt, sendLoginCode, sendCourseInvite } from '@/services/email.service.ts'
 import { TotpService } from '@/services/totp.service.ts'
+import { resolveDeviceForLogin, isDeviceApproved, type DeviceOutcome } from '@/services/device.service.ts'
 import { env } from '@/config/env.ts'
 import type { RegisterDto, LoginDto, TokenPair, UserRole } from '@/types/index.ts'
 import type { SafeUser } from '@/models/types.ts'
@@ -99,6 +100,29 @@ export class AuthError extends Error {
   }
 }
 
+/* Session metadata threaded from the controller into token issuance. `deviceId`
+   is the browser's device-whitelist id (lms_device cookie); the controller
+   mints it, and student sign-ins are gated on it. */
+type SessionMeta = { userAgent?: string; ip?: string; deviceId?: string }
+
+/* Only students are device-limited; staff sign in on any number of devices. */
+function isDeviceLimited(role: UserRole): boolean {
+  return role === 'student'
+}
+
+/* The machine code + message for a blocked device, mirroring the AI-academy
+   side's DEVICE_PENDING / DEVICE_LIMIT / DEVICE_REVOKED. */
+function deviceBlockError(reason: Exclude<DeviceOutcome, { ok: true }>['reason']): AuthError {
+  switch (reason) {
+    case 'pending':
+      return new AuthError('DEVICE_PENDING', 'This is a new device. An admin needs to approve it before you can sign in — you will be able to sign in once they do.', 403)
+    case 'limit':
+      return new AuthError('DEVICE_LIMIT', 'You are already set up on two devices. Ask an admin to remove one before adding this device.', 403)
+    case 'revoked':
+      return new AuthError('DEVICE_REVOKED', 'This device\'s access was removed. Contact support if you think that is a mistake.', 403)
+  }
+}
+
 /* ─────────────────────────────────────────────────────
    AuthService
    ─────────────────────────────────────────────────────
@@ -114,7 +138,7 @@ export class AuthService {
   /* ── Register ────────────────────────────────────── */
   async register(
     dto: RegisterDto,
-    meta?: { userAgent?: string; ip?: string },
+    meta?: SessionMeta,
     audience: TokenAudience = 'client',
   ): Promise<{ user: SafeUser; tokens: TokenPair } | VerificationPending> {
     /* 1. Hash FIRST, then check the email — deliberately in this order (M-05).
@@ -212,7 +236,7 @@ export class AuthService {
     }
 
     /* Default: issue tokens (student gets tokens but stays pending) */
-    const tokens = await this.#issueTokens(user.id, user.email, user.role, meta, audience)
+    const tokens = await this.#issueLoginTokens(user.id, user.email, user.role, meta, audience)
 
     logger.info({ userId: user.id }, 'User registered')
     return { user: toSafeUser(user), tokens }
@@ -221,7 +245,7 @@ export class AuthService {
   /* ── Login ───────────────────────────────────────── */
   async login(
     dto: LoginDto,
-    meta?: { userAgent?: string; ip?: string },
+    meta?: SessionMeta,
     audience: TokenAudience = 'client',
   ): Promise<{ user: SafeUser; tokens: TokenPair } | TwoFactorPending> {
     /* 1. Find user (includes passwordHash via select:+passwordHash) */
@@ -286,7 +310,7 @@ export class AuthService {
     void this.userRepo.touchLastLogin(user.id)
 
     /* 7. Issue tokens */
-    const tokens = await this.#issueTokens(user.id, user.email, user.role, meta, audience)
+    const tokens = await this.#issueLoginTokens(user.id, user.email, user.role, meta, audience)
 
     logger.info({ userId: user.id }, 'User logged in')
     return { user: toSafeUser(user), tokens }
@@ -298,7 +322,7 @@ export class AuthService {
   async loginTwoFactor(
     challengeToken: string,
     code: string,
-    meta?: { userAgent?: string; ip?: string },
+    meta?: SessionMeta,
     audience: TokenAudience = 'client',
   ): Promise<{ user: SafeUser; tokens: TokenPair }> {
     /* 1. Verify the challenge itself — signature, expiry, type */
@@ -361,7 +385,7 @@ export class AuthService {
     void this.userRepo.touchLastLogin(user.id)
 
     /* 7. Issue tokens */
-    const tokens = await this.#issueTokens(user.id, user.email, user.role, meta, audience)
+    const tokens = await this.#issueLoginTokens(user.id, user.email, user.role, meta, audience)
 
     logger.info({ userId: user.id }, 'User logged in (2FA verified)')
     return { user: toSafeUser(user), tokens }
@@ -370,7 +394,7 @@ export class AuthService {
   /* ── Refresh ─────────────────────────────────────── */
   async refresh(
     rawRefreshToken: string,
-    meta?: { userAgent?: string; ip?: string },
+    meta?: SessionMeta,
     audience: TokenAudience = 'client',
   ): Promise<TokenPair> {
     /* 1. Verify JWT */
@@ -693,7 +717,7 @@ export class AuthService {
     userId: string,
     currentPassword: string,
     newPassword: string,
-    meta?: { userAgent?: string; ip?: string },
+    meta?: SessionMeta,
     audience: TokenAudience = 'client',
   ): Promise<TokenPair> {
     /* Must opt-in to passwordHash (select: false on schema) */
@@ -749,7 +773,7 @@ export class AuthService {
   async verifyLoginOtp(
     email: string,
     code: string,
-    meta?: { userAgent?: string; ip?: string },
+    meta?: SessionMeta,
     audience: TokenAudience = 'client',
   ): Promise<{ user: ReturnType<typeof toSafeUser>; tokens: TokenPair }> {
     const invalid = () => new AuthError('INVALID_OTP', 'That code is invalid or has expired. Request a new one.', 400)
@@ -762,7 +786,7 @@ export class AuthService {
     if (!claimed) throw invalid()
 
     void this.userRepo.touchLastLogin(user.id)
-    const tokens = await this.#issueTokens(user.id, user.email, user.role, meta, audience)
+    const tokens = await this.#issueLoginTokens(user.id, user.email, user.role, meta, audience)
     logger.info({ userId: user.id }, 'User logged in via OTP')
     return { user: toSafeUser(user), tokens }
   }
@@ -803,7 +827,7 @@ export class AuthService {
        outcome as a password login. */
   async redeemLoginLink(
     rawToken: string,
-    meta?: { userAgent?: string; ip?: string },
+    meta?: SessionMeta,
     audience: TokenAudience = 'client',
   ): Promise<{ user: ReturnType<typeof toSafeUser>; tokens: TokenPair }> {
     const invalid = () => new AuthError('INVALID_LOGIN_LINK', 'This sign-in link is invalid, used, or expired. Sign in with your email instead.', 400)
@@ -815,7 +839,7 @@ export class AuthService {
     if (!user || !user.isActive) throw invalid()
 
     void this.userRepo.touchLastLogin(user.id)
-    const tokens = await this.#issueTokens(user.id, user.email, user.role, meta, audience)
+    const tokens = await this.#issueLoginTokens(user.id, user.email, user.role, meta, audience)
     logger.info({ userId: user.id }, 'User logged in via login link')
     return { user: toSafeUser(user), tokens }
   }
@@ -896,12 +920,40 @@ export class AuthService {
     await this.#sendVerificationEmail(user.id, user.email, user.name)
   }
 
+  /* ── Device whitelist gate for a sign-in ───────────
+     Students are capped at two devices: the first browser is auto-approved as
+     their main, a second is a pending request an admin approves, a third is
+     refused. Staff are exempt. A block throws before any token is issued, so a
+     blocked device never gets a session (its device row and cookie still exist,
+     so an admin can approve it and the buyer can then sign in). */
+  async #enforceDeviceForLogin(userId: string, role: UserRole, meta?: SessionMeta): Promise<void> {
+    if (!isDeviceLimited(role)) return
+    const deviceId = meta?.deviceId
+    if (!deviceId) return // no browser device context (non-cookie client) — nothing to gate on
+    const outcome = await resolveDeviceForLogin(userId, deviceId, { userAgent: meta?.userAgent, ip: meta?.ip })
+    if (!outcome.ok) throw deviceBlockError(outcome.reason)
+  }
+
+  /* Issue a session for a fresh sign-in — gated on the device whitelist first.
+     Every login path funnels through here; token reissue for an already-open
+     session (password change) and rotation call #issueTokens directly. */
+  async #issueLoginTokens(
+    userId: string,
+    email: string,
+    role: UserRole,
+    meta?: SessionMeta,
+    audience: TokenAudience = 'client',
+  ): Promise<TokenPair> {
+    await this.#enforceDeviceForLogin(userId, role, meta)
+    return this.#issueTokens(userId, email, role, meta, audience)
+  }
+
   /* ── Issue + persist token pair ──────────────────── */
   async #issueTokens(
     userId: string,
     email: string,
     role: UserRole,
-    meta?: { userAgent?: string; ip?: string },
+    meta?: SessionMeta,
     audience: TokenAudience = 'client',
   ): Promise<TokenPair> {
     /* `audience` binds the pair to the portal that issued it (L-06). Defaults
@@ -926,12 +978,19 @@ export class AuthService {
   /* ── Mint the successor pair for a claimed rotation ─ */
   async #rotateTokens(
     userId: string,
-    meta?: { userAgent?: string; ip?: string },
+    meta?: SessionMeta,
     audience: TokenAudience = 'client',
   ): Promise<TokenPair> {
     const user = await this.userRepo.findById(userId)
     if (!user || !user.isActive) {
       throw new AuthError('USER_NOT_FOUND', 'Account not found or deactivated.', 401)
+    }
+    /* The session lives only while its browser stays an approved device: a
+       student whose device an admin revokes loses the session on the next
+       refresh, rather than waiting out the 30-day token. 401 so the controller
+       clears the cookies as a dead session. Staff are exempt. */
+    if (isDeviceLimited(user.role) && !(await isDeviceApproved(user.id, meta?.deviceId ?? ''))) {
+      throw new AuthError('DEVICE_REVOKED', 'This device is no longer approved. Sign in again.', 401)
     }
     /* A rotation must preserve the portal the session started in, or the
        first refresh would silently re-issue the pair as 'client' (L-06). */

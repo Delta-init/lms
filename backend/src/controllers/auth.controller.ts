@@ -13,6 +13,7 @@ import {
   ADMIN_ACCESS_COOKIE,
   setImpersonationCookie,
   clearImpersonationCookie,
+  resolveDeviceId,
 } from '@/utils/authCookies.ts'
 
 /* ─────────────────────────────────────────────────────
@@ -22,11 +23,19 @@ import {
    Tokens are issued as httpOnly cookies, never returned
    in the JSON body (browsers attach them automatically).
 ───────────────────────────────────────────────────── */
-function sessionMeta(req: Request): { userAgent?: string; ip?: string } {
+function sessionMeta(
+  req: Request,
+  res?: Response,
+): { userAgent?: string; ip?: string; deviceId?: string } {
   const userAgent = typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : undefined
   /* Express resolves req.ip via `trust proxy = 1`, so it handles X-Forwarded-For. */
   const ip = req.ip
-  return { userAgent, ip }
+  /* Reading/minting the device cookie is done here so it is set on the response
+     even when the sign-in is then blocked (a pending device keeps its identity
+     for an admin to approve). Only the student sign-in paths pass `res`; admin
+     paths omit it, since staff are exempt from the device whitelist. */
+  const deviceId = res ? resolveDeviceId(req, res) : undefined
+  return { userAgent, ip, deviceId }
 }
 
 /* ─────────────────────────────────────────────────────
@@ -74,7 +83,7 @@ export class AuthController {
   /* ── POST /auth/register ────────────────────────── */
   register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const result = await this.service.register(req.body, sessionMeta(req))
+      const result = await this.service.register(req.body, sessionMeta(req, res))
 
       /* Verification-first mode (M-05): no session, and deliberately the same
          answer a taken address gets — that identity is the whole point. */
@@ -101,7 +110,7 @@ export class AuthController {
      response shape it always got. */
   login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const result = await this.service.login(req.body, sessionMeta(req))
+      const result = await this.service.login(req.body, sessionMeta(req, res))
       if ('twoFactorRequired' in result) {
         sendSuccess(
           res,
@@ -135,7 +144,7 @@ export class AuthController {
   verifyLoginOtp = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { email, code } = req.body as { email: string; code: string }
-      const result = await this.service.verifyLoginOtp(email, code, sessionMeta(req))
+      const result = await this.service.verifyLoginOtp(email, code, sessionMeta(req, res))
       setAuthCookies(res, result.tokens)
       sendSuccess(res, { user: result.user }, 'Signed in successfully')
     } catch (err) {
@@ -148,7 +157,7 @@ export class AuthController {
      sets. The client page then forwards to its `next` target (the course). */
   redeemLoginLink = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const result = await this.service.redeemLoginLink(String(req.body.token), sessionMeta(req))
+      const result = await this.service.redeemLoginLink(String(req.body.token), sessionMeta(req, res))
       setAuthCookies(res, result.tokens)
       sendSuccess(res, { user: result.user }, 'Signed in successfully')
     } catch (err) {
@@ -160,7 +169,7 @@ export class AuthController {
   loginTwoFactor = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { challengeToken, code } = req.body as { challengeToken: string; code: string }
-      const { user, tokens } = await this.service.loginTwoFactor(challengeToken, code, sessionMeta(req))
+      const { user, tokens } = await this.service.loginTwoFactor(challengeToken, code, sessionMeta(req, res))
       setAuthCookies(res, tokens)
       sendSuccess(res, { user }, 'Signed in successfully')
     } catch (err) {
@@ -186,7 +195,7 @@ export class AuthController {
         return
       }
 
-      const tokens = await this.service.refresh(rawToken, sessionMeta(req))
+      const tokens = await this.service.refresh(rawToken, sessionMeta(req, res))
       setAuthCookies(res, tokens)
       sendSuccess(res, null, 'Session refreshed')
     } catch (err) {
