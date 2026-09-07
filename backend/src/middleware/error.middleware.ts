@@ -184,6 +184,30 @@ export function errorMiddleware(
     return
   }
 
+  /* ── Malformed or oversized request bodies ─────────
+     body-parser rejects these before any route sees them, and it already
+     decides the right status: 400 for JSON it cannot parse, 413 for a body
+     over the limit. Without this they fell through to the catch-all and were
+     reported as 500 — a client sending "{bad" was recorded as a server fault,
+     which is both wrong and the kind of thing that pages someone at 3am for
+     no reason. */
+  {
+    const e = err as { type?: string; status?: number; statusCode?: number }
+    const status = e.status ?? e.statusCode
+    if (typeof e.type === 'string' && e.type.startsWith('entity.')
+        && typeof status === 'number' && status >= 400 && status < 500) {
+      sendError(
+        res,
+        e.type === 'entity.too.large' ? 'PAYLOAD_TOO_LARGE' : 'INVALID_JSON',
+        e.type === 'entity.too.large'
+          ? 'Request body is too large.'
+          : 'Request body is not valid JSON.',
+        status,
+      )
+      return
+    }
+  }
+
   /* ── Unknown errors ────────────────────────────── */
   logger.error(
     {

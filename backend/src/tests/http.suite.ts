@@ -92,10 +92,20 @@ try {
   const blocked    = await mk('blocked@t.local','student',    dubai, { enrollmentStatus: 'approved' })
 
   /* Client-portal login (lms_at) and admin-portal login (lms_admin_at). */
+  /* The suite signs the same account in more than once. A student's SECOND
+     device is held for admin approval, so a fresh jar each time looks like a
+     new browser and the second sign-in is refused with DEVICE_PENDING.
+     Remember the `lms_device` cookie per account and send it back — which is
+     all a real browser does. */
+  const deviceOf = new Map<string, [string, string]>()
+
   async function login(email: string, admin = false): Promise<Jar> {
     const jar: Jar = new Map()
+    const known = deviceOf.get(email)
+    if (known) jar.set(known[0], known[1])
     const r = await call('POST', admin ? '/admin/auth/login' : '/auth/login', { jar, body: { email, password: PW } })
     if (r.status !== 200) throw new Error(`login ${email} failed: ${r.status} ${JSON.stringify(r.body)}`)
+    for (const [k, v] of jar) if (k.startsWith('lms_device')) deviceOf.set(email, [k, v])
     return jar
   }
 
@@ -199,6 +209,17 @@ try {
     check('a too-short title fails validation before any guard', bad.status === 422 || bad.status === 403, `got ${bad.status}`)
     const notFound = await call('GET', '/does-not-exist')
     check('an unknown route answers 404', notFound.status === 404)
+
+    /* A body the JSON parser cannot read is the CLIENT's mistake. It used to
+       fall through to the catch-all and be reported as a 500, which is both
+       wrong and the sort of thing that wakes someone up over a stray brace. */
+    const malformed = await fetch(`${BASE}/admin/auth/login`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: '{bad',
+    })
+    const mBody: any = await malformed.json().catch(() => null)
+    check('a malformed JSON body is a 400, not a 500', malformed.status === 400,
+      String(malformed.status))
+    check('and names itself', mBody?.error?.code === 'INVALID_JSON', mBody?.error?.code)
   }
 
 } finally {
