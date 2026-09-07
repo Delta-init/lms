@@ -1,4 +1,5 @@
-import { DeviceModel, type IDevice } from '@/models/schema.ts'
+import { Types } from 'mongoose'
+import { DeviceModel, UserModel, type IDevice, type DeviceStatus } from '@/models/schema.ts'
 
 /* ─────────────────────────────────────────────────────
    Device whitelist logic (student two-device limit)
@@ -111,4 +112,110 @@ export async function isDeviceApproved(userId: string, deviceId: string): Promis
     { $set: { lastSeenAt: new Date() } },
   )
   return device !== null
+}
+
+/* ── Admin approval side (Phase D) ─────────────────────────────────────── */
+
+/** One device row flattened for the admin UI, with the student it belongs to. */
+export interface DeviceAdminView {
+  id:         string
+  userId:     string
+  name:       string | null
+  email:      string
+  phone:      string | null
+  status:     DeviceStatus
+  isMain:     boolean
+  label:      string | null
+  ip:         string | null
+  createdAt:  string
+  approvedAt: string | null
+  lastSeenAt: string | null
+}
+
+function iso(v: Date | null | undefined): string | null {
+  return v ? new Date(v).toISOString() : null
+}
+
+/**
+ * Every device joined to its student, pending first (the ones needing action).
+ * Org admins see only their own academy's students; super_admin sees all.
+ */
+export async function adminListDevices(opts: {
+  status?: DeviceStatus
+  organizationId?: string | null
+}): Promise<DeviceAdminView[]> {
+  const orgMatch =
+    opts.organizationId && Types.ObjectId.isValid(opts.organizationId)
+      ? [{ $match: { 'user.organizationId': new Types.ObjectId(opts.organizationId) } }]
+      : []
+  const statusMatch = opts.status ? [{ $match: { status: opts.status } }] : []
+
+  const rows = await DeviceModel.aggregate([
+    { $addFields: { _rank: { $indexOfArray: [['pending', 'approved', 'revoked'], '$status'] } } },
+    { $sort: { _rank: 1, createdAt: -1 } },
+    { $lookup: { from: 'users', localField: 'userId', foreignField: '_id', as: 'user' } },
+    { $unwind: '$user' }, // inner join — drop rows whose user was deleted
+    ...orgMatch,
+    ...statusMatch,
+    { $limit: 1000 },
+  ])
+
+  return rows.map((r) => ({
+    id:         String(r._id),
+    userId:     String(r.userId),
+    name:       r.user?.name ?? null,
+    email:      r.user?.email ?? '(unknown account)',
+    phone:      r.user?.enrollmentApplication?.phone ?? r.user?.phone ?? null,
+    status:     r.status,
+    isMain:     Boolean(r.isMain),
+    label:      r.label ?? null,
+    ip:         r.ip ?? null,
+    createdAt:  iso(r.createdAt) ?? new Date(0).toISOString(),
+    approvedAt: iso(r.approvedAt),
+    lastSeenAt: iso(r.lastSeenAt),
+  }))
+}
+
+export type AdminApproveResult = { ok: true } | { ok: false; reason: 'not_found' | 'limit' }
+
+/* An org admin may only act on their own academy's students; super_admin
+ *  passes no orgId and skips this. Returns false if the device's user is in a
+ *  different org, so the caller reports it as not-found rather than leaking that
+ *  the id exists. */
+async function deviceInOrg(device: IDevice, organizationId?: string | null): Promise<boolean> {
+  if (!organizationId || !Types.ObjectId.isValid(organizationId)) return true
+  const user = await UserModel.findById(device.userId).select('organizationId').lean<{ organizationId?: Types.ObjectId }>()
+  return String(user?.organizationId ?? '') === String(organizationId)
+}
+
+/** Approves a device, never past the two-device cap — a third approval is
+ *  refused until an admin revokes one. Idempotent on an already-approved row. */
+export async function adminApproveDevice(
+  id: string,
+  approvedBy: string,
+  organizationId?: string | null,
+): Promise<AdminApproveResult> {
+  if (!Types.ObjectId.isValid(id)) return { ok: false, reason: 'not_found' }
+  const device = await DeviceModel.findById(id)
+  if (!device || !(await deviceInOrg(device, organizationId))) return { ok: false, reason: 'not_found' }
+  if (device.status === 'approved') return { ok: true }
+
+  const approvedCount = await DeviceModel.countDocuments({ userId: device.userId, status: 'approved' })
+  if (approvedCount >= MAX_APPROVED_DEVICES) return { ok: false, reason: 'limit' }
+
+  device.status = 'approved'
+  device.approvedAt = new Date()
+  if (Types.ObjectId.isValid(approvedBy)) device.approvedBy = new Types.ObjectId(approvedBy)
+  await device.save()
+  return { ok: true }
+}
+
+/** Revokes a device — its session ends on the next refresh and the slot frees. */
+export async function adminRevokeDevice(id: string, organizationId?: string | null): Promise<{ ok: boolean }> {
+  if (!Types.ObjectId.isValid(id)) return { ok: false }
+  const device = await DeviceModel.findById(id)
+  if (!device || !(await deviceInOrg(device, organizationId))) return { ok: false }
+  device.status = 'revoked'
+  await device.save()
+  return { ok: true }
 }

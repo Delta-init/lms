@@ -7,7 +7,7 @@ import {
   LayoutDashboard, BookOpen, Users, GraduationCap,
   Tag, Star, Settings, ChevronLeft, ChevronRight, LogOut, X,
   ShoppingBag, Ticket, Map, ClipboardList, Video, CalendarDays, BarChart3, ShieldCheck, UserCog, LifeBuoy,
-  ClipboardCheck, Film,
+  ClipboardCheck, Film, MonitorSmartphone,
 } from 'lucide-react'
 import { useUIStore } from '@/store/ui.store'
 import { mayReachClassroom } from '@/lib/classroomAccess'
@@ -29,6 +29,7 @@ const adminNavItems = [
   { label: 'Bookings',       href: '/bookings',          icon: CalendarDays },
   { label: 'Assignments',    href: '/assignments',       icon: ClipboardCheck },
   { label: 'Students',       href: '/students',          icon: Users },
+  { label: 'Devices',        href: '/devices',           icon: MonitorSmartphone },
   { label: 'Instructors',    href: '/instructors',       icon: GraduationCap },
   { label: 'Categories',     href: '/categories',        icon: Tag },
   { label: 'Reviews',        href: '/reviews',           icon: Star },
@@ -44,6 +45,7 @@ const scopedAdminNavItems = [
   { label: 'Dashboard',        href: '/',                       icon: LayoutDashboard },
   { label: 'Requests',   href: '/enrollment-requests',    icon: ClipboardCheck },
   { label: 'Users',      href: '/users',                  icon: UserCog },
+  { label: 'Devices',    href: '/devices',                icon: MonitorSmartphone },
   { label: 'Courses',          href: '/courses',                icon: BookOpen },
   { label: 'Live Classes',     href: '/live-classes',           icon: Video },
   { label: 'Recordings',       href: '/recordings',             icon: Film },

@@ -17,6 +17,7 @@ import { CouponService } from '@/services/coupon.service.ts'
 import { requireSameOrgUser, callerMayAccess } from '@/utils/tenancy.ts'
 import { documentRef } from '@/utils/documentRef.ts'
 import { UserService } from '@/services/user.service.ts'
+import { adminListDevices, adminApproveDevice, adminRevokeDevice } from '@/services/device.service.ts'
 import { sendSuccess, buildPaginationMeta, parsePagination } from '@/utils/response.ts'
 import { audit } from '@/middleware/audit.middleware.ts'
 import type { Request, Response, NextFunction } from 'express'
@@ -434,6 +435,51 @@ router.post('/impersonation-sessions/revoke-all', requireRole('super_admin'),
       sendSuccess(res, { revoked: result.modifiedCount }, 'All impersonation sessions ended')
     } catch (err) { next(err) }
   })
+
+/* ── Device whitelist (two-device limit) ─────────────────────────────────
+   Students are capped at two devices (enforced in auth.service at login and
+   refresh). This is the approval side: list a student's devices, approve a
+   pending second device, or revoke one to free a slot. Org admins see and act
+   on their own academy only; super_admin sees all. */
+const DEVICE_STATUSES = ['pending', 'approved', 'revoked'] as const
+
+router.get('/devices', requireAnyAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const statusRaw = String(req.query['status'] ?? '')
+    const status = DEVICE_STATUSES.find(s => s === statusRaw)
+    const orgId = req.user!.role === 'super_admin' ? undefined : req.user!.organizationId
+    const devices = await adminListDevices({ status, organizationId: orgId ?? undefined })
+    sendSuccess(res, devices)
+  } catch (err) { next(err) }
+})
+
+router.patch('/devices/:id/approve', requireAnyAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user!.role === 'super_admin' ? undefined : req.user!.organizationId
+    const result = await adminApproveDevice(String(req.params['id'] ?? ''), req.user!.id, orgId ?? undefined)
+    if (!result.ok) {
+      if (result.reason === 'limit') {
+        res.status(409).json({ success: false, error: { code: 'DEVICE_LIMIT', message: 'This student already has two approved devices. Revoke one first.' } })
+        return
+      }
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Device not found' } })
+      return
+    }
+    sendSuccess(res, null, 'Device approved')
+  } catch (err) { next(err) }
+})
+
+router.patch('/devices/:id/revoke', requireAnyAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user!.role === 'super_admin' ? undefined : req.user!.organizationId
+    const result = await adminRevokeDevice(String(req.params['id'] ?? ''), orgId ?? undefined)
+    if (!result.ok) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Device not found' } })
+      return
+    }
+    sendSuccess(res, null, 'Device revoked')
+  } catch (err) { next(err) }
+})
 
 /* ── Enrollment requests (student approval workflow) ─────────────────────
    a programme-scoped sub_admin approves or cancels student signups
