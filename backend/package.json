@@ -15,7 +15,7 @@
     "migrate-audit-org": "bun src/scripts/migrate-audit-org.ts",
     "test:security": "bun src/tests/security.suite.ts",
     "test:2fa": "bun src/tests/2fa.suite.ts",
-    "test": "bun src/tests/security.suite.ts && bun src/tests/2fa.suite.ts && bun src/tests/learningpath.suite.ts && bun src/tests/claims.suite.ts && bun src/tests/impersonation.suite.ts && bun src/tests/permissions.suite.ts && bun src/tests/cookies.suite.ts && bun src/tests/signup.suite.ts && bun src/tests/kyc.suite.ts && bun src/tests/bounty.suite.ts && bun src/tests/smoke.suite.ts && bun src/tests/adminmatrix.suite.ts && bun src/tests/client.suite.ts && bun src/tests/classchange.suite.ts && bun src/tests/assignments.suite.ts && bun src/tests/portalguards.suite.ts && bun src/tests/clientimpersonation.suite.ts && bun src/tests/clientimpersonation.adversarial.suite.ts && bun src/tests/emailoutbox.suite.ts && bun src/tests/integration.suite.ts && bun src/tests/integration2.suite.ts && bun src/tests/integration3.suite.ts && bun src/tests/integration4.suite.ts && bun src/tests/integration5.suite.ts && bun src/tests/integrationroles.suite.ts && bun src/tests/recordings.suite.ts && bun src/tests/handoff.suite.ts && bun src/tests/enrolledcount.suite.ts && bun src/tests/http.suite.ts",
+    "test": "bun src/tests/devices.suite.ts && bun src/tests/security.suite.ts && bun src/tests/2fa.suite.ts && bun src/tests/learningpath.suite.ts && bun src/tests/claims.suite.ts && bun src/tests/impersonation.suite.ts && bun src/tests/permissions.suite.ts && bun src/tests/cookies.suite.ts && bun src/tests/signup.suite.ts && bun src/tests/kyc.suite.ts && bun src/tests/bounty.suite.ts && bun src/tests/smoke.suite.ts && bun src/tests/adminmatrix.suite.ts && bun src/tests/client.suite.ts && bun src/tests/classchange.suite.ts && bun src/tests/assignments.suite.ts && bun src/tests/portalguards.suite.ts && bun src/tests/clientimpersonation.suite.ts && bun src/tests/clientimpersonation.adversarial.suite.ts && bun src/tests/emailoutbox.suite.ts && bun src/tests/integration.suite.ts && bun src/tests/integration2.suite.ts && bun src/tests/integration3.suite.ts && bun src/tests/integration4.suite.ts && bun src/tests/integration5.suite.ts && bun src/tests/integrationroles.suite.ts && bun src/tests/recordings.suite.ts && bun src/tests/handoff.suite.ts && bun src/tests/enrolledcount.suite.ts && bun src/tests/orgassignment.suite.ts && bun src/tests/programscope.suite.ts && bun src/tests/passwordflows.suite.ts && bun src/tests/http.suite.ts",
     "test:paths": "bun src/tests/learningpath.suite.ts",
     "test:http": "bun src/tests/http.suite.ts",
     "test:claims": "bun src/tests/claims.suite.ts",
@@ -45,7 +45,11 @@
     "test:recordings": "bun src/tests/recordings.suite.ts",
     "verify-class-change-email": "bun src/scripts/verify-class-change-email.ts",
     "test:enrolledcount": "bun src/tests/enrolledcount.suite.ts",
-    "test:handoff": "bun src/tests/handoff.suite.ts"
+    "test:handoff": "bun src/tests/handoff.suite.ts",
+    "test:devices": "bun src/tests/devices.suite.ts",
+    "test:programscope": "bun src/tests/programscope.suite.ts",
+    "test:orgassignment": "bun src/tests/orgassignment.suite.ts",
+    "test:passwordflows": "bun src/tests/passwordflows.suite.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1046.0",
