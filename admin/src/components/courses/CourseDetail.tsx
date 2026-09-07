@@ -15,6 +15,7 @@ import { useCourse, useUpdateCourse, useDeleteCourse } from '@/lib/api/courses'
 import { useToast } from '@/store/ui.store'
 import type { Course, CourseStatus } from '@/types/index'
 import Spinner from '@/components/ui/Spinner'
+import { CourseStudentsPanel } from '@/components/courses/CourseStudentsPanel'
 import { useOrgCurrency, formatCoursePrice } from '@/lib/currency'
 
 /* ── Helpers ──────────────────────────────────────────────────── */
@@ -47,16 +48,29 @@ const LEVEL_CONFIG: Record<string, { label: string; color: string; bg: string }>
 }
 
 /* ── Stat Card ────────────────────────────────────────────────── */
-function StatCard({ icon: Icon, label, value, color, sub, delay = 0 }: {
+function StatCard({ icon: Icon, label, value, color, sub, delay = 0, onClick, actionLabel }: {
   icon: React.ElementType; label: string; value: string | number
   color: string; sub?: string; delay?: number
+  /** Makes the tile a real button. Only the tiles that lead somewhere get it,
+      so a hover state never promises something that does not happen. */
+  onClick?: () => void
+  actionLabel?: string
 }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, type: 'spring', stiffness: 260, damping: 24 }}
-      className="relative overflow-hidden rounded-2xl p-4"
+      {...(onClick ? {
+        role: 'button' as const,
+        tabIndex: 0,
+        onClick,
+        onKeyDown: (e: React.KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() }
+        },
+        whileHover: { y: -2 },
+      } : {})}
+      className={`relative overflow-hidden rounded-2xl p-4${onClick ? ' cursor-pointer' : ''}`}
       style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
     >
       <div className="flex items-start gap-3">
@@ -72,6 +86,9 @@ function StatCard({ icon: Icon, label, value, color, sub, delay = 0 }: {
           <p className="mt-1 truncate text-xl font-bold text-white">{value}</p>
           {sub && (
             <p className="mt-0.5 text-[11px]" style={{ color: 'rgba(255,255,255,0.35)' }}>{sub}</p>
+          )}
+          {actionLabel && (
+            <p className="mt-1 text-[11px] font-semibold" style={{ color }}>{actionLabel} →</p>
           )}
         </div>
       </div>
@@ -110,6 +127,7 @@ export function CourseDetail({ id }: { id: string }) {
   const updateCourse = useUpdateCourse()
   const deleteCourse = useDeleteCourse()
   const [publishing,     setPublishing]     = useState(false)
+  const [studentsOpen,   setStudentsOpen]   = useState(false)
   const [deleting,       setDeleting]       = useState(false)
   const [confirmDelete,  setConfirmDelete]  = useState(false)
 
@@ -350,10 +368,14 @@ export function CourseDetail({ id }: { id: string }) {
 
       {/* ── Stats row ── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {/* The count was a dead number: it said how many, never who. It is the
+            obvious place to ask the question, so it opens the roster. */}
         <StatCard
           icon={Users} label="Enrolled"
           value={course.enrolledCount.toLocaleString()}
           color="#0057b8" delay={0.08}
+          onClick={() => setStudentsOpen(v => !v)}
+          actionLabel={studentsOpen ? 'Hide students' : 'View students'}
         />
         <StatCard
           icon={Star} label="Rating"
@@ -372,6 +394,15 @@ export function CourseDetail({ id }: { id: string }) {
           color="#A78BFA" delay={0.17}
         />
       </div>
+
+      {/* Roster — opened from the Enrolled tile above. Full width rather than
+          inside the 2-col body: it is a table, and a table squeezed into a
+          third of the page is a table nobody reads. */}
+      <AnimatePresence>
+        {studentsOpen && (
+          <CourseStudentsPanel courseId={course.id} onClose={() => setStudentsOpen(false)} />
+        )}
+      </AnimatePresence>
 
       {/* ── Body: 2-col ── */}
       <div className="grid gap-4 lg:grid-cols-3">

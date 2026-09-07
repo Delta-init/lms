@@ -21,6 +21,7 @@ export const courseKeys = {
   all:    ['admin', 'courses'] as const,
   list:   (p: object) => ['admin', 'courses', 'list', p] as const,
   detail: (id: string) => ['admin', 'courses', 'detail', id] as const,
+  students: (id: string, p: object) => ['admin', 'courses', 'students', id, p] as const,
 }
 
 /* ─── List ───────────────────────────────────────── */
@@ -130,6 +131,52 @@ export function useBulkCourses() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: courseKeys.all })
       qc.invalidateQueries({ queryKey: ['admin', 'stats'] })
+    },
+  })
+}
+
+/* ─── Students on a course ───────────────────────────────────────────────
+   The reverse of a student's enrolment list, which was the only direction the
+   API offered. `source` says how each one got in — purchase, free, admin,
+   script — and is read from the enrolment rather than re-derived, so it
+   cannot disagree with what was recorded at the time.
+──────────────────────────────────────────────────────────────────────── */
+export type EnrollmentSource = 'purchase' | 'free' | 'admin' | 'script' | 'unknown'
+
+export interface CourseStudentRow {
+  _id:             string
+  source:          EnrollmentSource
+  status:          'active' | 'completed' | 'dropped'
+  progressPercent: number
+  enrolledAt:      string
+  student: {
+    id: string; name: string; email: string; phone?: string; avatarUrl?: string
+    enrollmentStatus?: string; isActive?: boolean
+  }
+}
+
+export interface CourseStudentsPayload {
+  courseTitle: string
+  rows:        CourseStudentRow[]
+  bySource:    Partial<Record<EnrollmentSource, number>>
+  /** Enrolments whose user account no longer exists — they cannot be listed,
+      but they are why this list can be shorter than the course's count. */
+  orphaned:    number
+}
+
+export function useCourseStudents(
+  courseId: string,
+  params: { page?: number; per_page?: number; search?: string; source?: string } = {},
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: courseKeys.students(courseId, params),
+    enabled:  enabled && !!courseId,
+    queryFn: async () => {
+      const res = await api.get<{ data: CourseStudentsPayload; meta: PaginationMeta }>(
+        `/admin/courses/${courseId}/students`, { params: clean(params) },
+      )
+      return { ...res.data.data, meta: res.data.meta }
     },
   })
 }

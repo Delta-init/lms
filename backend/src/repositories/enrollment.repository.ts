@@ -1,6 +1,6 @@
 import { Types } from 'mongoose'
 import { BaseRepository } from './base.repository.ts'
-import { EnrollmentModel, type IEnrollment } from '@/models/schema.ts'
+import { EnrollmentModel, type IEnrollment, type EnrollmentSource } from '@/models/schema.ts'
 
 export class EnrollmentRepository extends BaseRepository<IEnrollment> {
   constructor() {
@@ -28,14 +28,21 @@ export class EnrollmentRepository extends BaseRepository<IEnrollment> {
       .exec()
   }
 
+  /* `source` is REQUIRED, not optional with a default. Every caller has to
+     say how this enrolment came about, because nothing downstream can work it
+     out later — an admin grant and a bulk import produce identical rows. A
+     required argument makes the next new enrolment path answer the question
+     at compile time instead of silently landing as 'unknown'. */
   async create_(data: {
     userId:   string | Types.ObjectId
     courseId: string | Types.ObjectId
+    source:   EnrollmentSource
   }): Promise<IEnrollment> {
     return EnrollmentModel.create({
       userId:          data.userId,
       courseId:        data.courseId,
       status:          'active',
+      source:          data.source,
       progressPercent: 0,
       enrolledAt:      new Date(),
     })

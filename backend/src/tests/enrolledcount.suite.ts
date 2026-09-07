@@ -176,6 +176,161 @@ try {
       await storedCount(course._id) === 0, `got ${await storedCount(course._id)}`)
   }
 
+  /* ═══════════════════════════════════════════════ */
+  section('C2 · an ADMIN deleting the account releases them too')
+  {
+    /* The path that did NOT clean up. Self-deletion released the seat; an
+       admin deleting the same student left the enrolment behind, pointing at
+       a user that no longer existed. The course went on counting it, which is
+       how the table could say 7 students on a course whose roster named 1. */
+    const course = await mkCourse('Admin Seat Release')
+    const student = await UserModel.create({
+      name: 'S', email: `s-admindel-${Date.now()}@ec.local`, passwordHash: hash,
+      role: 'student', isActive: true, enrollmentStatus: 'approved', organizationId: org._id,
+    })
+    await call('POST', `/admin/users/${String(student._id)}/enrollments`, {
+      jar: aJar, body: { courseId: String(course._id) },
+    })
+    check('the seat is counted', await storedCount(course._id) === 1)
+
+    const del = await call('DELETE', `/admin/users/${String(student._id)}`, { jar: aJar })
+    check('the admin can delete the account', del.status === 200, String(del.status))
+
+    check('the enrolment goes with it — it used to survive the account',
+      await EnrollmentModel.countDocuments({ userId: student._id }) === 0,
+      String(await EnrollmentModel.countDocuments({ userId: student._id })))
+    check('and the course counter comes back down',
+      await storedCount(course._id) === 0, `got ${await storedCount(course._id)}`)
+
+    const res = await call('GET', `/admin/courses/${String(course._id)}/students`, { jar: aJar })
+    check('the roster reports no orphan, because none was created',
+      res.body?.data?.orphaned === 0, String(res.body?.data?.orphaned))
+    check('and the admin list agrees at zero',
+      (((await call('GET', '/admin/courses?per_page=100', { jar: aJar })).body?.data ?? [])
+        .find((c: any) => c.title === 'Admin Seat Release')?.enrolledCount) === 0)
+
+    /* Deleting a user who was never enrolled must still work. */
+    const bare = await UserModel.create({
+      name: 'B', email: `s-bare-${Date.now()}@ec.local`, passwordHash: hash,
+      role: 'student', isActive: true, enrollmentStatus: 'approved', organizationId: org._id,
+    })
+    const del2 = await call('DELETE', `/admin/users/${String(bare._id)}`, { jar: aJar })
+    check('deleting a student with no enrolments still succeeds', del2.status === 200,
+      String(del2.status))
+  }
+
+  /* ═══════════════════════════════════════════════ */
+  section('D · the roster — who is on this course, and how they got in')
+  {
+    const course = await mkCourse('Roster Course')
+
+    const buyer = await UserModel.create({
+      name: 'Buyer', email: `buy-${Date.now()}@ec.local`, passwordHash: hash,
+      role: 'student', isActive: true, enrollmentStatus: 'approved', organizationId: org._id,
+    })
+    const granted = await UserModel.create({
+      name: 'Granted', email: `grant-${Date.now()}@ec.local`, passwordHash: hash,
+      role: 'student', isActive: true, enrollmentStatus: 'approved', organizationId: org._id,
+    })
+    const ghost = await UserModel.create({
+      name: 'Ghost', email: `ghost-${Date.now()}@ec.local`, passwordHash: hash,
+      role: 'student', isActive: true, enrollmentStatus: 'approved', organizationId: org._id,
+    })
+
+    await EnrollmentModel.create({ userId: buyer._id, courseId: course._id, source: 'purchase' })
+    await call('POST', `/admin/users/${String(granted._id)}/enrollments`, {
+      jar: aJar, body: { courseId: String(course._id) },
+    })
+    /* An enrolment whose account is then removed from under it — the shape
+       that made the roster shorter than the count with no explanation. */
+    await EnrollmentModel.create({ userId: ghost._id, courseId: course._id, source: 'script' })
+    await UserModel.deleteOne({ _id: ghost._id })
+
+    const res = await call('GET', `/admin/courses/${String(course._id)}/students`, { jar: aJar })
+    check('the roster endpoint answers', res.status === 200, String(res.status))
+
+    const d = res.body?.data
+    const names = (d?.rows ?? []).map((r: any) => r.student?.name).sort()
+    check('it lists only students whose account still exists',
+      JSON.stringify(names) === JSON.stringify(['Buyer', 'Granted']), JSON.stringify(names))
+
+    const sourceOf = (n: string) =>
+      (d?.rows ?? []).find((r: any) => r.student?.name === n)?.source
+    check('a purchase is reported as a purchase', sourceOf('Buyer') === 'purchase', sourceOf('Buyer'))
+    check('an admin grant is reported as admin — NOT as a purchase',
+      sourceOf('Granted') === 'admin', sourceOf('Granted'))
+
+    check('the source counts cover the whole course, not just the page',
+      d?.bySource?.purchase === 1 && d?.bySource?.admin === 1,
+      JSON.stringify(d?.bySource))
+
+    check('the orphaned enrolment is COUNTED rather than silently dropped',
+      d?.orphaned === 1, String(d?.orphaned))
+    check('and listable + orphaned reconciles with the course total',
+      (res.body?.meta?.total_count ?? 0) + (d?.orphaned ?? 0) === 3,
+      `${res.body?.meta?.total_count} + ${d?.orphaned}`)
+
+    const filtered = await call(
+      'GET', `/admin/courses/${String(course._id)}/students?source=purchase`, { jar: aJar })
+    check('filtering by source returns only that source',
+      (filtered.body?.data?.rows ?? []).length === 1
+      && filtered.body.data.rows[0].source === 'purchase',
+      JSON.stringify((filtered.body?.data?.rows ?? []).map((r: any) => r.source)))
+
+    /* The chips are what you click to change the filter, so they must keep
+       describing the whole course while one is applied. When they shared a
+       $facet with the rows, filtering to Purchased dropped the Admin chip
+       entirely — leaving no way back to it, and an "All" that meant "all of
+       the one source you already chose". */
+    check('a filtered request still reports every source in the course',
+      filtered.body?.data?.bySource?.purchase === 1
+      && filtered.body?.data?.bySource?.admin === 1,
+      JSON.stringify(filtered.body?.data?.bySource))
+    check('and still reports the orphan count — the reason the list is short',
+      filtered.body?.data?.orphaned === 1, String(filtered.body?.data?.orphaned))
+
+    /* Same trap on the other filter. */
+    const searched = await call(
+      'GET', `/admin/courses/${String(course._id)}/students?search=Buyer`, { jar: aJar })
+    check('a search narrows the rows', (searched.body?.data?.rows ?? []).length === 1,
+      String((searched.body?.data?.rows ?? []).length))
+    check('but leaves the source counts describing the whole course',
+      searched.body?.data?.bySource?.purchase === 1
+      && searched.body?.data?.bySource?.admin === 1,
+      JSON.stringify(searched.body?.data?.bySource))
+
+    const bad = await call('GET', '/admin/courses/not-an-id/students', { jar: aJar })
+    check('a malformed course id is rejected', bad.status === 400, String(bad.status))
+  }
+
+  /* =============================================== */
+  section('E · an enrolment with no stated source SAYS so, rather than guessing')
+  {
+    /* The schema default is 'unknown' on purpose. Every real source is
+       knowable only at write time, so a default that names one -- 'admin', say
+       -- would quietly relabel every legacy row and every row written by a
+       path that forgot to say. The roster would then report a confident lie,
+       which is worse than the gap it is filling. */
+    const course = await mkCourse('Unstated Source')
+    const student = await UserModel.create({
+      name: 'S', email: `s-nosrc-${Date.now()}@ec.local`, passwordHash: hash,
+      role: 'student', isActive: true, enrollmentStatus: 'approved', organizationId: org._id,
+    })
+    /* Written the way the bulk importers and the older code do: no source. */
+    await EnrollmentModel.create({ userId: student._id, courseId: course._id })
+
+    const res = await call('GET', `/admin/courses/${String(course._id)}/students`, { jar: aJar })
+    check('the roster answers', res.status === 200, String(res.status))
+    check("it reads as 'unknown' — the default must never claim a real source",
+      res.body?.data?.rows?.[0]?.source === 'unknown',
+      String(res.body?.data?.rows?.[0]?.source))
+    check('and the chip counts agree',
+      res.body?.data?.bySource?.unknown === 1, JSON.stringify(res.body?.data?.bySource))
+    check('filtering by unknown finds it',
+      ((await call('GET', `/admin/courses/${String(course._id)}/students?source=unknown`,
+        { jar: aJar })).body?.data?.rows ?? []).length === 1)
+  }
+
 } catch (err) {
   fail++
   lines.push(`  FAIL  suite threw — ${(err as Error).message}\n${(err as Error).stack}`)

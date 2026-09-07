@@ -1046,7 +1046,10 @@ export class OrderService {
 
     const already = await enrollRepo.findByUserCourse(userId, courseId)
     if (!already) {
-      await enrollRepo.create_({ userId, courseId })
+      /* Every caller of _createEnrollment is a settled payment — the gateway
+         webhooks, the manual capture paths, and the AI-academy provisioning,
+         which writes its own paid Order alongside. */
+      await enrollRepo.create_({ userId, courseId, source: 'purchase' })
       await courseRepo.incrementEnrollment(courseId, 1)
     }
   }

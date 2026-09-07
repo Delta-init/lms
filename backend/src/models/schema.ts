@@ -570,11 +570,32 @@ export const LessonModel = mongoose.model<ILesson>('Lesson', LessonSchema)
 /* ─────────────────────────────────────────────────────
    ENROLLMENT
 ───────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────
+   How a student came to be enrolled.
+
+   Recorded at creation because it cannot be reconstructed afterwards: an
+   admin-granted enrolment and a bulk-imported one are byte-identical rows, so
+   until this field existed the two were indistinguishable for ever. Only
+   `purchase` is independently verifiable after the fact, from the paid Order.
+
+     purchase  paid through a gateway — Stripe/Razorpay/Tabby/Abzer/Tamara,
+               including the AI-academy server-to-server provisioning, which
+               writes its own paid Order
+     free      the student enrolled themselves on a course with no price
+     admin     granted from the admin panel by a person
+     script    written by a maintenance or bulk-import script
+     unknown   pre-dates this field and could not be inferred — see
+               scripts/backfill-enrollment-source.ts
+───────────────────────────────────────────────────── */
+export const ENROLLMENT_SOURCES = ['purchase', 'free', 'admin', 'script', 'unknown'] as const
+export type EnrollmentSource = typeof ENROLLMENT_SOURCES[number]
+
 export interface IEnrollment extends Document {
   id:              string
   userId:          Types.ObjectId
   courseId:        Types.ObjectId
   status:          EnrollmentStatus
+  source:          EnrollmentSource
   progressPercent: number
   lastLessonId?:   Types.ObjectId
   enrolledAt:      Date
@@ -591,6 +612,10 @@ const EnrollmentSchema = new Schema<IEnrollment>(
     userId:          { type: Schema.Types.ObjectId, ref: 'User',   required: true },
     courseId:        { type: Schema.Types.ObjectId, ref: 'Course', required: true },
     status:          { type: String, enum: ['active', 'completed', 'dropped'], default: 'active' },
+    /* Defaults to 'unknown' rather than 'admin': a row that arrives without a
+       source is one whose writer forgot to say, and guessing would launder
+       that silence into a claim the UI then presents as fact. */
+    source:          { type: String, enum: ENROLLMENT_SOURCES, default: 'unknown', index: true },
     progressPercent: { type: Number, default: 0, min: 0, max: 100 },
     lastLessonId:    { type: Schema.Types.ObjectId, ref: 'Lesson' },
     enrolledAt:      { type: Date, default: Date.now },

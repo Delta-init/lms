@@ -23,8 +23,21 @@ export class UserService {
     return this.repo.listByRole(role, params)
   }
 
+  /* Deleting a user from the admin panel used to remove the user row and
+     nothing else, so their enrolments survived pointing at an account that no
+     longer existed — and the course table, which counts enrolments, kept
+     counting them. The cascade runs BEFORE the row goes: it reads the user's
+     enrolments to know which course counters to decrement, and once the user
+     is gone there is nothing left to read. */
   async adminDelete(id: string): Promise<void> {
     if (!Types.ObjectId.isValid(id)) throw new UserError('INVALID_ID', 'Invalid user id', 400)
+
+    const existing = await this.repo.findById(id)
+    if (!existing) throw new UserError('USER_NOT_FOUND', 'User not found.', 404)
+
+    const { cascadeUserDeletion } = await import('@/services/userCascade.ts')
+    await cascadeUserDeletion(id)
+
     const deleted = await this.repo.hardDelete(id)
     if (!deleted) throw new UserError('USER_NOT_FOUND', 'User not found.', 404)
     await this.refreshRepo.revokeAllForUser(id, 'security')

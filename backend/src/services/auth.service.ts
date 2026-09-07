@@ -541,32 +541,15 @@ export class AuthService {
     }
     await this.#verifyCurrentPassword(userId, currentPassword)
 
-    /* Cascade the user-attached personal records first.
-       We import lazily here to avoid a circular import at module load. */
-    const { ReviewModel, EnrollmentModel, LessonProgressModel, AuthTokenModel, CourseModel } =
-      await import('@/models/schema.ts')
-
-    /* Which courses this account was enrolled on, read before the rows go.
-       Deleting an account used to leave every one of its courses reporting a
-       student it no longer had. */
-    const removedEnrolments = await EnrollmentModel.find({ userId }, { courseId: 1 }).lean()
-
+    /* Cascade the user-attached personal records first. Shared with the ADMIN
+       delete path, which used to do none of this and left every enrolment
+       behind — see services/userCascade.ts. Imported lazily to avoid a
+       circular import at module load. */
+    const { cascadeUserDeletion } = await import('@/services/userCascade.ts')
     await Promise.all([
       this.tokenRepo.revokeAllForUser(userId, 'security'),
-      AuthTokenModel.deleteMany({ userId }).exec(),
-      ReviewModel.deleteMany({ userId }).exec(),
-      EnrollmentModel.deleteMany({ userId }).exec(),
-      LessonProgressModel.deleteMany({ userId }).exec(),
+      cascadeUserDeletion(userId),
     ])
-
-    if (removedEnrolments.length) {
-      await CourseModel.bulkWrite(
-        removedEnrolments.map(r => ({
-          updateOne: { filter: { _id: r.courseId }, update: { $inc: { enrolledCount: -1 } } },
-        })),
-        { ordered: false },
-      )
-    }
     await this.userRepo.hardDelete(userId)
     logger.info({ userId }, 'account hard-deleted')
   }

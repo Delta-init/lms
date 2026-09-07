@@ -81,6 +81,9 @@ const courseCreateSchema = z.object({
   categoryId:   z.string().optional(),
   instructorId: z.string().optional(),
   program:      z.enum(['4x-trading', 'digital-marketing', 'ai', 'jura']).optional(),
+  /* Which academy the course belongs to. Super admins only — see the resolver
+     in createCourse; everyone else's is their own. */
+  organizationId: z.string().optional(),
 })
 
 const courseUpdateSchema = courseCreateSchema.partial().extend({
@@ -246,6 +249,10 @@ const userCreateSchema = z.object({
     courseId:       z.string().min(1),
     blockedLessons: z.array(z.string()).default([]),
   })).optional(),
+  /* Which academy the new account belongs to. Only a super_admin may set it;
+     for everyone else it is their own, and naming someone else's is refused
+     rather than ignored. Resolved in the create handler below. */
+  organizationId: z.string().optional(),
 })
 
 router.get  ('/users', requirePermission('users','list'),
@@ -290,11 +297,66 @@ router.post ('/users', requirePermission('users','create'),          validate(us
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       /* Build DTO without the courses field (handled separately) */
-      const { courses, ...userDto } = req.body as z.infer<typeof userCreateSchema>
+      const { courses, organizationId: bodyOrg, ...userDto } = req.body as z.infer<typeof userCreateSchema>
+
+      /* ── Which academy does this account belong to? ──────────────────────
+         It used to be whatever `req.user.organizationId` happened to be, which
+         for a super_admin is the org switcher in the topbar — and the
+         switcher's default is "All Orgs", which sends no header at all. So
+         creating a student from that position produced an account belonging to
+         NO academy: a 201, no warning, and a person who never appears in any
+         academy's student list again.
+
+         A super_admin now says explicitly which academy, falling back to the
+         switcher when one is selected. Anyone else gets their own and may not
+         name another — that is a cross-tenant write, so it is refused rather
+         than quietly dropped. */
+      const isSuper   = req.user!.role === 'super_admin'
+      const callerOrg = req.user!.organizationId
+
+      if (!isSuper && bodyOrg && bodyOrg !== callerOrg) {
+        res.status(403).json({ success: false, error: {
+          code: 'FORBIDDEN', message: 'You can only create accounts in your own academy.',
+        } })
+        return
+      }
+
+      /* `||` not `??`: an unselected picker sends an empty string, which is
+         "not chosen", not "chosen as empty" — it should still fall back to
+         the switcher rather than skipping past it into the refusal below. */
+      const orgId = isSuper ? (bodyOrg || callerOrg) : callerOrg
+
+      /* super_admin is the one role that legitimately belongs to no single
+         academy. Everyone else must have one, or they are invisible to every
+         scoped list in the product. */
+      if (!orgId && userDto.role !== 'super_admin') {
+        res.status(400).json({ success: false, error: {
+          code: 'ORGANIZATION_REQUIRED', message: 'Select an academy for this account.',
+        } })
+        return
+      }
+
+      if (orgId) {
+        const { Types } = await import('mongoose')
+        const { OrganizationModel } = await import('@/models/schema.ts')
+        if (!Types.ObjectId.isValid(orgId)) {
+          res.status(400).json({ success: false, error: {
+            code: 'INVALID_ORGANIZATION', message: 'That is not a valid academy id.',
+          } })
+          return
+        }
+        if (!(await OrganizationModel.exists({ _id: orgId }))) {
+          res.status(404).json({ success: false, error: {
+            code: 'ORGANIZATION_NOT_FOUND', message: 'That academy does not exist.',
+          } })
+          return
+        }
+      }
+
       const user = await userSvc.adminCreateUser({
         ...userDto,
         approvedBy:     req.user!.id,
-        organizationId: req.user!.organizationId,
+        organizationId: orgId,
       })
 
       /* Enroll the new student into the requested courses */
@@ -311,9 +373,12 @@ router.post ('/users', requirePermission('users','create'),          validate(us
                 userId:         new Types.ObjectId(user.id),
                 courseId:       new Types.ObjectId(c.courseId),
                 blockedLessons: blockedObjectIds,
+                source:         'admin' as const,
               }
-              if (req.user!.organizationId && Types.ObjectId.isValid(req.user!.organizationId)) {
-                enrollDoc['organizationId'] = new Types.ObjectId(req.user!.organizationId)
+              /* The new account's academy, not the caller's — for a super
+                 admin creating into Dubai from "All Orgs" those differ. */
+              if (orgId && Types.ObjectId.isValid(orgId)) {
+                enrollDoc['organizationId'] = new Types.ObjectId(orgId)
               }
               await EnrollmentModel.create(enrollDoc)
               await CourseModel.updateOne(
@@ -647,6 +712,154 @@ router.get('/users/:id/enrollments', requireAnyAdmin, requireSameOrgUser('id'),
   },
 )
 
+/* ────────────────────────────────────────────────────────────────────────────
+   GET /admin/courses/:id/students — who is in this course, and how they got in
+   ────────────────────────────────────────────────────────────────────────────
+   The reverse of /users/:id/enrollments, which was the only direction that
+   existed: enrolments could be listed per student but never per course, so
+   "who is on this course" had no answer short of a database query.
+
+   `source` is read from the enrolment, not recomputed here. Deriving it at
+   read time would mean re-guessing on every request the thing that is only
+   knowable at write time — and would quietly disagree with the stored value
+   the moment the two rules drifted. Rows written before the field exists read
+   as 'unknown' until scripts/backfill-enrollment-source.ts has run.
+──────────────────────────────────────────────────────────────────────────── */
+router.get('/courses/:id/students', requireAnyAdmin,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { EnrollmentModel, CourseModel } = await import('@/models/schema.ts')
+      const { Types } = await import('mongoose')
+
+      const courseId = String(req.params['id'] ?? '')
+      if (!Types.ObjectId.isValid(courseId)) {
+        res.status(400).json({ success: false, error: { code: 'INVALID_ID', message: 'Invalid course ID' } })
+        return
+      }
+
+      /* Tenancy first: a course belonging to another academy must not leak its
+         roster, and the roster is the part that names real people. */
+      const course = await CourseModel.findById(courseId)
+        .select('title organizationId program').lean() as
+          { title?: string; organizationId?: unknown; program?: string } | null
+      if (!course) {
+        res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Course not found' } })
+        return
+      }
+      if (!isFullAdmin(req.user!.role)) {
+        const sameOrg = !course.organizationId
+          || String(course.organizationId) === String(req.user!.organizationId ?? '')
+        if (!sameOrg) {
+          res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'This course belongs to another academy.' } })
+          return
+        }
+      }
+
+      const page    = Math.max(1, parseInt(String(req.query['page'] ?? '1'), 10) || 1)
+      const perPage = Math.min(100, Math.max(1, parseInt(String(req.query['per_page'] ?? '25'), 10) || 25))
+      const search  = String(req.query['search'] ?? '').trim()
+      const source  = String(req.query['source'] ?? '').trim()
+
+      const match: Record<string, unknown> = { courseId: new Types.ObjectId(courseId) }
+      if (source && source !== 'all') match['source'] = source
+
+      const pipeline: import('mongoose').PipelineStage[] = [
+        { $match: match },
+        { $lookup: { from: 'users', localField: 'userId', foreignField: '_id', as: 'student' } },
+        /* An enrolment whose user has been deleted has nothing to show, so it
+           cannot appear as a row — but it is still counted by the course's
+           enrolledCount, and dropping it silently would make the list
+           disagree with the tile above it with no explanation. It is counted
+           separately instead and reported as `orphaned`. */
+        { $unwind: { path: '$student', preserveNullAndEmptyArrays: true } },
+      ]
+
+      /* Search runs after the join because it looks at the student, not the
+         enrolment. */
+      if (search) {
+        const rx = search.slice(0, 80).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        pipeline.push({ $match: { $or: [
+          { 'student.name':  { $regex: rx, $options: 'i' } },
+          { 'student.email': { $regex: rx, $options: 'i' } },
+        ] } })
+      }
+
+      pipeline.push(
+        { $sort: { enrolledAt: -1 } },
+        { $facet: {
+          rows: [
+            { $match: { student: { $ne: null } } },
+            { $skip: (page - 1) * perPage },
+            { $limit: perPage },
+            { $project: {
+              _id: 1, source: 1, status: 1, enrolledAt: 1,
+              /* Older rows pre-date the field and would otherwise reach the
+                 UI as undefined. */
+              progressPercent: { $ifNull: ['$progressPercent', 0] },
+              student: {
+                id: '$student._id', name: '$student.name', email: '$student.email',
+                phone: '$student.phone', avatarUrl: '$student.avatarUrl',
+                enrollmentStatus: '$student.enrollmentStatus', isActive: '$student.isActive',
+              },
+            } },
+          ],
+          total: [{ $match: { student: { $ne: null } } }, { $count: 'n' }],
+        } },
+      )
+
+      /* ── The chip counts and the orphan tally describe the COURSE, so they
+            run on their own pipeline rather than inside the facet above.
+
+            Sharing the facet meant they inherited `source` and `search`, and
+            the chips are what you click to CHANGE the source: filtering to
+            Purchased rebuilt the row as "All 2 · Purchased 2", the Unknown
+            chip vanished, and there was no way back to it. "All" also stopped
+            meaning all. The orphan notice disappeared for the same reason,
+            which is worse than it sounds — it is the explanation for why the
+            list is shorter than the tile. ─────────────────────────────── */
+      const overview: import('mongoose').PipelineStage[] = [
+        { $match: { courseId: new Types.ObjectId(courseId) } },
+        { $lookup: { from: 'users', localField: 'userId', foreignField: '_id', as: 'student' } },
+        { $unwind: { path: '$student', preserveNullAndEmptyArrays: true } },
+        { $facet: {
+          orphaned: [{ $match: { student: null } }, { $count: 'n' }],
+          bySource: [
+            { $match: { student: { $ne: null } } },
+            { $group: { _id: '$source', n: { $sum: 1 } } },
+          ],
+        } },
+      ]
+
+      const [[agg], [counts]] = await Promise.all([
+        EnrollmentModel.aggregate(pipeline),
+        EnrollmentModel.aggregate(overview),
+      ])
+      const total = agg?.total?.[0]?.n ?? 0
+      const bySource = Object.fromEntries(
+        (counts?.bySource ?? []).map((b: { _id: string | null; n: number }) => [b._id ?? 'unknown', b.n]),
+      )
+
+      const totalPages = Math.max(1, Math.ceil(total / perPage))
+      sendSuccess(res, {
+        courseTitle: course.title ?? '',
+        rows: agg?.rows ?? [],
+        bySource,
+        /* Enrolments pointing at deleted accounts. Surfaced rather than
+           swallowed: they are why this list can be shorter than the
+           course's enrolled count. */
+        orphaned: counts?.orphaned?.[0]?.n ?? 0,
+      }, undefined, 200, {
+        total_count: total,
+        page,
+        per_page:    perPage,
+        total_pages: totalPages,
+        has_next:    page < totalPages,
+        has_prev:    page > 1,
+      })
+    } catch (err) { next(err) }
+  },
+)
+
 /* GET /admin/users/:id/orders — list a student's purchase history */
 /* Tenancy is enforced by requireSameOrgUser — previously hand-rolled here,
    which made it a fifth copy of the same rule and one that missed the
@@ -694,6 +907,7 @@ router.post('/users/:id/enrollments', requireAnyAdmin, requireSameOrgUser('id'),
       const doc = await EnrollmentModel.create({
         userId:   new Types.ObjectId(userId),
         courseId: new Types.ObjectId(courseId),
+        source:   'admin',
       })
       /* Keep the denormalised counter in step. It is maintained on the
          self-enrol and purchase paths but was never touched here, so every

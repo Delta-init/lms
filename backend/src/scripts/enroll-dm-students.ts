@@ -198,6 +198,7 @@ if (STAGE === 'enroll') {
           userId:         user._id,
           courseId,
           blockedLessons: want,
+          source:         'script',
           ...(user.organizationId ? { organizationId: user.organizationId } : {}),
         })
         r.action = 'enrolled'

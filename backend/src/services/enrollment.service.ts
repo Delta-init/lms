@@ -68,7 +68,10 @@ export class EnrollmentService {
       return { enrollment: existing, created: false }
     }
 
-    const enrollment = await this.enrollRepo.create_({ userId, courseId })
+    /* 'free' is exact here, not an assumption: the guard above rejects any
+       course with a price with 402 PAYMENT_REQUIRED, so nothing paid can
+       reach this line. */
+    const enrollment = await this.enrollRepo.create_({ userId, courseId, source: 'free' })
     await this.courseRepo.incrementEnrollment(courseId, 1)
 
     /* Fire-and-forget in-app notification */
