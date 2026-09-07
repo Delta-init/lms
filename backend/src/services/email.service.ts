@@ -486,6 +486,36 @@ export async function sendLoginCode(to: string, name: string, code: string): Pro
   })
 }
 
+/* Tells an admin a student is waiting on a second-device approval, so the
+   request doesn't sit unseen until someone happens to open the Devices page.
+   Best-effort — a mail failure never blocks the sign-in flow it describes. */
+export async function sendDeviceApprovalRequest(
+  to: string,
+  adminName: string,
+  studentEmail: string,
+  deviceLabel: string,
+  reviewUrl: string,
+): Promise<void> {
+  const subject = 'A student is waiting for device approval'
+  const html = wrap(subject, `
+    <h2 style="margin:0 0 16px;font-size:20px;font-weight:700;color:#0D0F1A">New device to review</h2>
+    <p>Hi ${escapeHtml(adminName)},</p>
+    <p><strong>${escapeHtml(studentEmail)}</strong> is trying to sign in on a second device (${escapeHtml(deviceLabel)}). Students are limited to two devices, so this one needs your approval before they can watch on it.</p>
+    <p style="margin:24px 0">
+      <a href="${escapeHtml(sanitiseUrl(reviewUrl))}" style="display:inline-block;background:linear-gradient(135deg,#0057b8,#2F6BFF);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
+        Review devices
+      </a>
+    </p>
+    <p style="font-size:12px;color:#9CA3AF">If you don't recognise this, revoke the device from the same page — its session ends within minutes.</p>
+  `)
+  await sender.send({
+    to,
+    subject,
+    html,
+    text: `${studentEmail} is waiting for approval on a second device (${deviceLabel}). Review devices: ${reviewUrl}`,
+  })
+}
+
 /* Someone tried to register with an address that already has an account (M-05).
    Sent to the ACCOUNT HOLDER, never to whoever made the attempt — which turns
    a silent enumeration probe into something its owner can see. It is also

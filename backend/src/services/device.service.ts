@@ -15,8 +15,10 @@ export const MAX_APPROVED_DEVICES = 2
 
 export type DeviceOutcome =
   | { ok: true;  device: IDevice }
-  | { ok: false; reason: 'pending' }
-  | { ok: false; reason: 'limit' }
+  /** `created` is true only the first time a browser is recorded — the caller
+   *  uses it to notify admins once, not on every blocked retry. `label` is the
+   *  device's friendly name, for that notification. */
+  | { ok: false; reason: 'pending' | 'limit'; created: boolean; label: string }
   | { ok: false; reason: 'revoked' }
 
 /** A short label from the user agent — enough for an admin to tell two devices
@@ -64,7 +66,8 @@ export async function resolveDeviceForLogin(
     if (info.ip) existing.ip = info.ip
     await existing.save()
     if (existing.status === 'approved') return { ok: true, device: existing }
-    return { ok: false, reason: 'pending' }
+    // An already-recorded pending browser signing in again — not newly created.
+    return { ok: false, reason: 'pending', created: false, label: existing.label ?? 'Unknown device' }
   }
 
   const approvedCount = await DeviceModel.countDocuments({ userId, status: 'approved' })
@@ -90,16 +93,18 @@ export async function resolveDeviceForLogin(
       const row = await DeviceModel.findOne({ userId, deviceId })
       if (row?.status === 'approved') return { ok: true, device: row }
       if (row?.status === 'revoked') return { ok: false, reason: 'revoked' }
-      return { ok: false, reason: 'pending' }
+      return { ok: false, reason: 'pending', created: false, label: row?.label ?? 'Unknown device' }
     }
     throw err
   }
 
   // A brand-new device beyond the first: pending if a slot is open, otherwise a
-  // hard limit (the row still exists for the admin to see).
+  // hard limit (the row still exists for the admin to see). `created: true` —
+  // this is the sign-in that first recorded it, so notify admins exactly once.
+  const label = labelFromUserAgent(info.userAgent)
   return approvedCount >= MAX_APPROVED_DEVICES
-    ? { ok: false, reason: 'limit' }
-    : { ok: false, reason: 'pending' }
+    ? { ok: false, reason: 'limit', created: true, label }
+    : { ok: false, reason: 'pending', created: true, label }
 }
 
 /** Read-only check used on refresh: the session stays alive only while its
