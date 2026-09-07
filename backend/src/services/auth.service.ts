@@ -4,7 +4,7 @@ import { UserRepository, RefreshTokenRepository, AuthTokenRepository } from '@/r
 import { hashPassword, comparePassword } from '@/utils/hash.ts'
 import { generateTokenPair, verifyRefreshToken, type TokenAudience } from '@/utils/jwt.ts'
 import { logger } from '@/utils/logger.ts'
-import { sendPasswordReset, sendVerifyEmail, sendRegistrationAttempt, sendLoginCode, sendCourseInvite } from '@/services/email.service.ts'
+import { sendPasswordReset, sendVerifyEmail, sendRegistrationAttempt, sendLoginCode, sendCourseInvite, sendDeviceApprovalRequest } from '@/services/email.service.ts'
 import { TotpService } from '@/services/totp.service.ts'
 import { resolveDeviceForLogin, isDeviceApproved, type DeviceOutcome } from '@/services/device.service.ts'
 import { env } from '@/config/env.ts'
@@ -931,7 +931,36 @@ export class AuthService {
     const deviceId = meta?.deviceId
     if (!deviceId) return // no browser device context (non-cookie client) — nothing to gate on
     const outcome = await resolveDeviceForLogin(userId, deviceId, { userAgent: meta?.userAgent, ip: meta?.ip })
-    if (!outcome.ok) throw deviceBlockError(outcome.reason)
+    if (!outcome.ok) {
+      /* Tell admins the first time a browser is blocked, so the request doesn't
+         sit unseen — but only once (created), not on every blocked retry. */
+      if ((outcome.reason === 'pending' || outcome.reason === 'limit') && outcome.created) {
+        void this.#notifyAdminsDeviceRequest(userId, outcome.label).catch(err =>
+          logger.warn({ err, userId }, 'device approval notification failed'))
+      }
+      throw deviceBlockError(outcome.reason)
+    }
+  }
+
+  /* Emails admins that a student is waiting on a second-device approval, with a
+     link to the Devices page. Best-effort — never blocks the sign-in it
+     describes. Mirrors #notifyAllAdmins. */
+  async #notifyAdminsDeviceRequest(userId: string, deviceLabel: string): Promise<void> {
+    const { UserModel } = await import('@/models/schema.ts')
+    const student = await UserModel.findById(userId).select('email').lean<{ email?: string }>()
+    if (!student?.email) return
+    const admins = await UserModel.find({
+      role: { $in: ['super_admin', 'admin'] },
+      isActive: true,
+    }).select('name email').lean()
+    const reviewUrl = `${env.ADMIN_URL}/devices`
+    await Promise.allSettled(
+      admins.map(a =>
+        sendDeviceApprovalRequest(a['email'] as string, (a['name'] as string) ?? 'there', student.email!, deviceLabel, reviewUrl)
+          .catch(() => undefined),
+      ),
+    )
+    logger.info({ userId, adminCount: admins.length }, 'Admin device-approval notifications sent')
   }
 
   /* Issue a session for a fresh sign-in — gated on the device whitelist first.
