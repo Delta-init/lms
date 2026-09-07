@@ -326,7 +326,17 @@ try {
        somebody else, obtained by nothing more than sitting at the keyboard.
        Splitting the handoff across the two routers removes the contest: the
        student router cannot see the admin cookie at all. */
+    /* Carry the student's existing device cookie across. This section is
+       about ONE browser holding both portals' sessions, and a browser is now
+       also a device: students are limited to two approved ones, and a fresh
+       jar reads as a brand-new device that sits 'pending' until an admin lets
+       it in — so the student's login here silently set no cookie and the
+       whole section tested nothing. Reusing the device makes the jar what the
+       test always claimed it was: the same browser, twice signed in. */
     const both: Jar = new Map()
+    const studentDevice = [...sJar.entries()].find(([k]) => k.startsWith('lms_device'))
+    if (studentDevice) both.set(studentDevice[0], studentDevice[1])
+
     await call('POST', '/auth/login',       { jar: both, body: { email: 's@h.local', password: PW } })
     await call('POST', '/admin/auth/login', { jar: both, body: { email: 't@h.local', password: PW } })
     check('the jar really does hold both portals at once',

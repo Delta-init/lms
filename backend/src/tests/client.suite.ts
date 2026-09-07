@@ -535,7 +535,12 @@ try {
   /* ══════════ 14. SIGN OUT ══════════ */
   section('SIGN OUT — the session really ends')
   {
+    /* A SECOND SESSION, not a second browser. The jar is fresh so signing out
+       here cannot kill bobJar — but bob's device cookie comes along, or the
+       two-device whitelist treats this as a new machine and holds it for
+       admin approval instead of signing him in. */
     const jar: Jar = new Map()
+    for (const [k, v] of bobJar) if (k.startsWith('lms_device')) jar.set(k, v)
     await call('POST', '/auth/login', { jar, body: { email: 'bob@t.local', password: PW } })
     check('bob is signed in', ok(await call('GET', '/auth/me', { jar })))
     check('sign out succeeds', ok(await call('POST', '/auth/logout', { jar })))

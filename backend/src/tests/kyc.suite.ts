@@ -120,10 +120,20 @@ try {
   await mk('root@t.local',            'super_admin', bangalore._id)
   const ghostAdmin = await mk('ghost@t.local', 'admin', dubai._id)
 
+  /* The suite signs the same account in more than once. A student's SECOND
+     device is held for admin approval, so a fresh jar each time looks like a
+     new browser and the second sign-in is refused with DEVICE_PENDING.
+     Remember the `lms_device` cookie per account and send it back — which is
+     all a real browser does. */
+  const deviceOf = new Map<string, [string, string]>()
+
   const loginAs = async (email: string, portal: 'client' | 'admin' = 'client') => {
     const jar: Jar = new Map()
+    const known = deviceOf.get(email)
+    if (known) jar.set(known[0], known[1])
     const r = await call('POST', `${BASE}${portal === 'admin' ? '/admin/auth/login' : '/auth/login'}`, { jar, body: { email, password: PW } })
     if (r.status !== 200) throw new Error(`login ${email} (${portal}): ${r.status}`)
+    for (const [k, v] of jar) if (k.startsWith('lms_device')) deviceOf.set(email, [k, v])
     return jar
   }
   const doc = (userId: unknown, field: string, jar?: Jar) =>

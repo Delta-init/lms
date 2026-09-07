@@ -110,9 +110,28 @@ try {
   const teacher = await mk('teacher@t.local', 'instructor')
   await mk('student@t.local', 'student', { enrollmentStatus: 'approved' })
 
-  const login = async (email: string, portal: 'admin' | 'client') => {
-    const jar: Jar = new Map()
+  /* One remembered browser per account.
+
+     Students are limited to two APPROVED devices, and every fresh jar is a
+     brand-new device — so a suite that signs the same student in three times
+     from three empty jars trips the limit on the third and the rest of the
+     journey 401s. That is the whitelist working, not a bug, but it is not
+     what these checks are about: they want a signed-in student, not a device
+     audit. Replaying the account's device cookie keeps every sign-in the same
+     browser, which is what a person actually does.
+
+     Callers can still pass their own jar (the signup flow does, to keep
+     register and sign-in on one device). */
+  const deviceOf = new Map<string, [string, string]>()
+
+  const login = async (email: string, portal: 'admin' | 'client', jar: Jar = new Map()) => {
+    const remembered = deviceOf.get(email)
+    if (remembered && ![...jar.keys()].some(k => k.startsWith('lms_device'))) {
+      jar.set(remembered[0], remembered[1])
+    }
     const r = await call('POST', portal === 'admin' ? '/admin/auth/login' : '/auth/login', { jar, body: { email, password: PW } })
+    const dev = [...jar.entries()].find(([k]) => k.startsWith('lms_device'))
+    if (dev) deviceOf.set(email, dev)
     return { jar, r }
   }
 
@@ -344,7 +363,10 @@ try {
     check('anonymous signup upload works', ok(passport) && ok(photo), why(passport))
 
     const email = `newbie-${Date.now()}@t.local`
-    const reg = await call('POST', '/auth/register', { body: {
+    /* One browser for signup AND the sign-in that follows — the same person
+       at the same machine, which is what this check is about. */
+    const newbieJar: Jar = new Map()
+    const reg = await call('POST', '/auth/register', { jar: newbieJar, body: {
       name: 'New Person', email, password: PW, signupType: 'full', organizationSlug: 'dubai',
       enrollmentApplication: {
         passportUrl: passport.body?.data?.url, idDocUrl: passport.body?.data?.url,
@@ -352,7 +374,7 @@ try {
       },
     } })
     check('full signup succeeds', ok(reg), why(reg))
-    const { r: li } = await login(email, 'client')
+    const { r: li } = await login(email, 'client', newbieJar)
     check('the new account can sign in', ok(li), why(li))
   }
 

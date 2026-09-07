@@ -64,14 +64,35 @@ await new Promise<void>(r => server.once('listening', () => r()))
 const BASE = `http://127.0.0.1:${(server.address() as { port: number }).port}/api/v1`
 
 /* ── tiny HTTP helper ─────────────────────────────── */
+/* Every account here registers and then signs in again. A student's SECOND
+   device is held for admin approval, so without the `lms_device` cookie the
+   sign-in after registration is a new browser and is refused with
+   DEVICE_PENDING. Remember the device per account — keyed off the email in
+   the request body — and send it back, as a browser would. */
+const deviceOf = new Map<string, string>()
+
 async function post(path: string, body: unknown, cookie?: string) {
   const headers: Record<string, string> = { 'content-type': 'application/json' }
-  if (cookie) headers['cookie'] = cookie
+  const email  = (body as { email?: string } | null)?.email
+  const known  = email ? deviceOf.get(email) : undefined
+  const merged = !known || cookie?.includes('lms_device=')
+    ? cookie
+    : [cookie, known].filter(Boolean).join('; ')
+  if (merged) headers['cookie'] = merged
   const res  = await fetch(`${BASE}${path}`, { method: 'POST', headers, body: JSON.stringify(body) })
   const text = await res.text()
   let parsed: any = text; try { parsed = JSON.parse(text) } catch {}
   const setCookies = res.headers.getSetCookie?.() ?? []
-  return { status: res.status, body: parsed, cookie: setCookies.map(c => c.split(';')[0]).join('; ') }
+  const pairs = setCookies.map(c => c.split(';')[0]!)
+  if (email) {
+    const dev = pairs.find(c => c.startsWith('lms_device='))
+    if (dev) deviceOf.set(email, dev)
+    /* A login does not re-issue the device cookie it was just handed, but the
+       browser still HOLDS it — and /auth/refresh refuses a session whose
+       device it cannot see. Keep it in the jar we hand back. */
+    else if (known && pairs.length) pairs.push(known)
+  }
+  return { status: res.status, body: parsed, cookie: pairs.join('; ') }
 }
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex')

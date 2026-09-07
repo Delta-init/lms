@@ -168,8 +168,15 @@ try {
   /* ══ L-06 ══════════════════════════════════════════ */
   section('L-06 — a token is bound to the portal that issued it')
   {
-    const client: any = await auth.login({ email: 'u@t.local', password: PW }, undefined, 'client')
-    const admin:  any = await auth.login({ email: 'u@t.local', password: PW }, undefined, 'admin')
+    /* A device id on both logins. `u@t.local` is a student, and students are
+       device-limited: a refresh whose meta carries no deviceId is now
+       correctly rejected as DEVICE_REVOKED, which used to crash this suite on
+       the rotation check below. Logging in with a device registers it — the
+       first one for a user is auto-approved — so the rotation check exercises
+       the real flow instead of a session that could not exist. */
+    const DEVICE = 'claims-suite-device'
+    const client: any = await auth.login({ email: 'u@t.local', password: PW }, { deviceId: DEVICE }, 'client')
+    const admin:  any = await auth.login({ email: 'u@t.local', password: PW }, { deviceId: DEVICE }, 'admin')
 
     check('a client token carries aud=client',
       (await jwtUtil.verifyAccessToken(client.tokens.access_token)).aud === 'client')
@@ -194,7 +201,7 @@ try {
       (await errOf(() => jwtUtil.verifyRefreshToken(client.tokens.refresh_token, 'admin'))) !== 'ok')
 
     /* Rotation must preserve the portal, or the first refresh downgrades it. */
-    const rotated = await auth.refresh(admin.tokens.refresh_token, undefined, 'admin')
+    const rotated = await auth.refresh(admin.tokens.refresh_token, { deviceId: DEVICE }, 'admin')
     check('rotation preserves the audience',
       (await jwtUtil.verifyAccessToken(rotated.access_token)).aud === 'admin')
 

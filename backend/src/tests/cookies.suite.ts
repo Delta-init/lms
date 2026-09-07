@@ -42,6 +42,7 @@ mongoose.set('autoIndex', false)
 const app = (await import('@/app.ts')).default
 const { UserModel, OrganizationModel } = await import('@/models/schema.ts')
 const { hashPassword } = await import('@/utils/hash.ts')
+const { DEVICE_COOKIE } = await import('@/utils/authCookies.ts')
 
 await mongoose.connect(process.env.DATABASE_URL!)
 if (mongoose.connection.db!.databaseName !== 'lms_cookie_suite') {
@@ -90,16 +91,35 @@ const find = (cookies: Cookie[], name: string, opts: { deleted?: boolean; domain
 const PW = 'CorrectHorse1'
 const LEGACY = '.deltainstitutions.com'
 
+/* ── One browser, not five.
+
+      A student is allowed two approved devices; a third is held for admin
+      approval and is issued NO session cookie at all. This suite signs the
+      same student in once per section, and without the `lms_device` cookie
+      every one of those looks like a different browser — so from the third
+      login onwards there is no `lms_at` to inspect, and the Domain assertions
+      fail for a reason that has nothing to do with cookie scope.
+
+      Keeping the device cookie and sending it back is exactly what a browser
+      does. ─────────────────────────────────────────────────────────────── */
+let deviceCookie: string | null = null
+
 async function post(path: string, body?: unknown, cookie?: string) {
   const headers: Record<string, string> = {}
   if (body !== undefined) headers['content-type'] = 'application/json'
-  if (cookie) headers['cookie'] = cookie
+  const merged = cookie?.includes(`${DEVICE_COOKIE}=`)
+    ? cookie
+    : [cookie, deviceCookie].filter(Boolean).join('; ')
+  if (merged) headers['cookie'] = merged
   const res = await fetch(`${BASE}${path}`, {
     method: 'POST', headers, body: body === undefined ? undefined : JSON.stringify(body),
   })
   const text = await res.text()
   let parsed: any = text; try { parsed = JSON.parse(text) } catch {}
-  return { status: res.status, body: parsed, cookies: parseSetCookies(res) }
+  const cookies = parseSetCookies(res)
+  const dev = cookies.find(c => c.name === DEVICE_COOKIE && !c.deleted)
+  if (dev) deviceCookie = `${DEVICE_COOKIE}=${dev.value}`
+  return { status: res.status, body: parsed, cookies }
 }
 
 try {
