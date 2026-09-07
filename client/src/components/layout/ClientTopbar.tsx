@@ -138,7 +138,7 @@ function ThemeToggle() {
       whileTap={{ scale: 0.92 }}
       title={label}
       aria-label={label}
-      className="relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--color-hover)]"
+      className="relative hidden h-11 w-11 items-center justify-center rounded-lg transition-colors hover:bg-[var(--color-hover)] sm:flex lg:h-8 lg:w-8"
       style={{ color: 'var(--color-text-secondary)' }}>
       {/* Cross-fade with a small rotation — enough to feel deliberate, short
           enough not to delay the theme change it is describing. */}
@@ -237,28 +237,47 @@ export function ClientTopbar() {
         style={{ borderBottom: '1px solid var(--color-border)' }}>
 
         {/* ── Row 1: Logo (topbar mode) + search + actions ── */}
-        <div className="flex h-[60px] items-center gap-3 px-4 sm:px-6" style={{ borderBottom: '1px solid var(--color-border)' }}>
+        <div className="flex h-[68px] items-center gap-3 px-4 sm:gap-5 sm:px-8" style={{ borderBottom: '1px solid var(--color-border)' }}>
 
           {/* Hamburger — always shown on mobile for the mobile drawer */}
           <button
             onClick={() => setMobileNav(true)}
-            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-[var(--color-hover)] lg:hidden"
+            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-[var(--color-hover)] lg:hidden"
             style={{ color: 'var(--color-primary)' }}
             aria-label="Open menu">
             <Menu size={18} />
           </button>
 
           {/* Logo — always visible (no desktop sidebar) */}
-          <div className="flex items-center mr-2 sm:mr-4 flex-shrink-0">
+          <div className="flex items-center mr-1 sm:mr-6 flex-shrink-0">
+            {/* 38px in a 68px row — 56%, inside the 45-60% band a nav logo
+                should occupy. The row grew with it so the extra height buys
+                presence rather than crowding: 15px clear above and below. */}
             <img
               src="/logo-dark.png"
               alt="Delta International"
-              className="h-8 sm:h-11 w-auto object-contain"
+              className="h-[38px] w-auto object-contain"
             />
           </div>
 
           {/* Search — live typeahead, syncs with /search page */}
-          <div className="relative min-w-0 flex-1 sm:max-w-[380px]">
+          {/* Search as an icon on phones, as a field from `sm` up.
+
+              Sharing row 1 with the logo and the action cluster left the
+              field about 55px wide at 375px — narrower than the placeholder,
+              and too small to type into. Rather than steal a second row of
+              header height on the smallest screens, it collapses to a normal
+              44px control that opens /search, which has a full-width input of
+              its own. */}
+          <Link href="/search" aria-label="Search courses"
+            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl transition-colors hover:bg-[var(--color-hover)] sm:hidden"
+            style={{ color: 'var(--color-primary)' }}>
+            <Search size={18} />
+          </Link>
+
+          {/* Capped rather than free-flowing: past ~460px a single-line search
+              field stops reading as a control and starts reading as a gap. */}
+          <div className="relative hidden flex-1 sm:block sm:min-w-[200px] sm:max-w-[460px]">
             <form
               onSubmit={e => {
                 e.preventDefault()
@@ -266,7 +285,7 @@ export function ClientTopbar() {
                 const q = query.trim()
                 router.push(q ? `/search?q=${encodeURIComponent(q)}` : '/search')
               }}>
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10"
+              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10"
                 style={{ color: 'var(--color-primary)', opacity: focused ? 1 : 0.55 }} />
               <input
                 ref={inputRef}
@@ -282,7 +301,7 @@ export function ClientTopbar() {
                 onFocus={() => setFocused(true)}
                 onKeyDown={e => { if (e.key === 'Escape') { setFocused(false); inputRef.current?.blur() } }}
                 placeholder="Search courses…"
-                className="w-full rounded-xl py-2 pl-9 pr-10 text-sm outline-none transition-all"
+                className="h-11 w-full rounded-xl pl-10 pr-10 text-sm outline-none transition-all"
                 style={{
                   background: focused ? 'var(--color-primary-light)' : 'var(--color-bg-subtle)',
                   border: focused ? '1.5px solid #0057b8' : '1.5px solid transparent',
@@ -394,15 +413,18 @@ export function ClientTopbar() {
             <motion.button
               onClick={() => setAiChatOpen(v => !v)}
               whileHover={{ scale: 1.02, boxShadow: '0 6px 20px rgba(0,87,184,0.35)' }} whileTap={{ scale: 0.97 }}
-              className="hidden sm:flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold text-white"
+              className="hidden lg:flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold text-white"
               style={{ background: 'var(--color-primary)', boxShadow: '0 3px 12px rgba(0,87,184,0.22)' }}>
               <Sparkles size={12} />Ask AI
             </motion.button>
 
-            {/* Help & Support */}
-            <Link href="/support">
+            {/* Help & Support — hidden on phones. Six icon buttons plus the
+                logo and search did not fit at 375px: the cluster ran to 437px
+                and the last controls sat off-screen with no way to scroll to
+                them. This one is a row in the drawer nav, so nothing is lost. */}
+            <Link href="/support" className="hidden sm:block">
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                className="flex h-9 w-9 items-center justify-center rounded-xl transition-colors hover:bg-[var(--color-hover)]"
+                className="flex h-11 w-11 items-center justify-center rounded-xl transition-colors hover:bg-[var(--color-hover)] lg:h-9 lg:w-9"
                 style={{ color: 'var(--color-primary)' }}>
                 <MessageSquare size={16} />
               </motion.div>
@@ -411,7 +433,7 @@ export function ClientTopbar() {
             {/* Cart */}
             <Link href="/cart">
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                className="relative flex h-9 w-9 items-center justify-center rounded-xl transition-colors hover:bg-[var(--color-hover)]"
+                className="relative flex h-11 w-11 items-center justify-center rounded-xl transition-colors hover:bg-[var(--color-hover)] lg:h-9 lg:w-9"
                 style={{ color: 'var(--color-primary)' }}>
                 <ShoppingCart size={16} />
                 <AnimatePresence>
@@ -433,7 +455,7 @@ export function ClientTopbar() {
             <div className="relative">
               <motion.button onClick={() => setNotifOpen(v => !v)}
                 whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                className="relative flex h-9 w-9 items-center justify-center rounded-xl transition-colors hover:bg-[var(--color-hover)]"
+                className="relative flex h-11 w-11 items-center justify-center rounded-xl transition-colors hover:bg-[var(--color-hover)] lg:h-9 lg:w-9"
                 style={{ color: 'var(--color-primary)' }}>
                 <Bell size={16} />
                 {unread > 0 && (
@@ -521,13 +543,13 @@ export function ClientTopbar() {
             {/* Profile */}
             <Link href="/settings">
               <div className="flex cursor-pointer items-center gap-2.5 rounded-xl px-2 py-1 transition-colors hover:bg-[var(--color-hover)]">
-                <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full text-xs font-bold text-white ring-2 ring-blue-100"
+                <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full text-xs font-bold text-white ring-2 ring-blue-100 lg:h-9 lg:w-9"
                   style={{ background: 'var(--color-primary)' }}>
                   {hasAvatarImage
                     ? <img src={user!.avatarUrl} alt="" className="h-full w-full object-cover" />
                     : avatarInitial}
                 </div>
-                <div className="hidden md:block max-w-[160px]">
+                <div className="hidden max-w-[160px] lg:block">
                   <p className="truncate text-xs font-semibold leading-tight" style={{ color: 'var(--color-text-primary)' }}>{displayName}</p>
                   <p className="truncate text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{displayRole}</p>
                 </div>
@@ -552,7 +574,7 @@ export function ClientTopbar() {
                 /* Same hover wash as every other icon in the bar so the row
                    reads as one control group — just tinted danger rather than
                    brand, which is the only cue that sets it apart. */
-                className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--color-hover-danger)]"
+                className="hidden h-11 w-11 items-center justify-center rounded-lg transition-colors hover:bg-[var(--color-hover-danger)] sm:flex lg:h-8 lg:w-8"
                 style={{ color: 'var(--color-text-muted)' }}
                 onMouseEnter={e => { e.currentTarget.style.color = 'var(--color-danger)' }}
                 onMouseLeave={e => { e.currentTarget.style.color = 'var(--color-text-muted)' }}>
@@ -568,7 +590,17 @@ export function ClientTopbar() {
         </Suspense>
 
         {/* ── Row 2: Nav tabs — scrollable on mobile ── */}
-        <div className="flex h-[44px] sm:h-[40px] items-end overflow-x-auto px-4 sm:px-6 scrollbar-none">
+        {/* ── Row 2: Nav tabs — desktop only ──────────────────────────────
+            Hidden below `md`. On a phone these nine labels became a
+            horizontally-scrolling strip where the items past "Catalog" were
+            invisible unless you knew to swipe — a nav you cannot see is not a
+            nav. Every one of these links is already in the hamburger drawer
+            (see ClientSidebar), so nothing becomes unreachable; it just moves
+            somewhere a thumb can actually get at it.
+
+            44px tall, which is both the minimum touch target and the number
+            --app-header-h is built from. */}
+        <div className="hidden h-[44px] items-stretch overflow-x-auto px-4 scrollbar-none md:flex sm:px-8">
           {tabs.map((tab, i) => {
             const active = isActive(tab.href)
             return (
@@ -577,7 +609,7 @@ export function ClientTopbar() {
                   initial={{ opacity: 0, y: -16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ type: 'spring', stiffness: 320, damping: 26, delay: 0.05 + i * 0.04 }}
-                  className="relative flex h-[40px] items-center gap-1.5 px-4 cursor-pointer select-none">
+                  className="relative flex h-[44px] items-center gap-1.5 px-3.5 sm:px-4 cursor-pointer select-none">
                   <span className="whitespace-nowrap text-sm font-medium transition-colors"
                     style={{ color: active ? 'var(--color-text-primary)' : 'var(--color-text-muted)', fontWeight: active ? 600 : 400 }}>
                     {tab.label}

@@ -38,9 +38,11 @@ import { readFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { createHash, randomBytes } from 'node:crypto'
 
-const CATEGORY        = 'digital-marketing' as const
 const ORG_SLUG        = 'dubai'
-const BATCH           = 'dm-dxb-2026-08'
+/* Category and batch are flags so the same proven code imports any programme.
+   Defaults keep the original Digital Marketing run reproducible. */
+const VALID_CATEGORIES = ['digital-marketing', '4x-trading', 'ai', 'jura'] as const
+type Category = typeof VALID_CATEGORIES[number]
 const LOG_COLLECTION  = 'bulk_import_log'
 const TOKEN_TTL_MS    = 7 * 24 * 60 * 60 * 1000
 const MAIL_DELAY_MS   = 350
@@ -61,6 +63,8 @@ const FILE    = args.get('file')
 const STAGE   = args.get('stage') ?? 'dry-run'
 const LIMIT   = args.has('limit') ? Number(args.get('limit')) : Infinity
 const SEND_TO = args.get('send-to')
+const CATEGORY = (args.get('category') ?? 'digital-marketing') as Category
+const BATCH    = args.get('batch') ?? 'dm-dxb-2026-08'
 
 if (!FILE) {
   console.error('❌ --file=<path to dm-dxb.csv> is required.')
@@ -68,6 +72,10 @@ if (!FILE) {
 }
 if (!['dry-run', 'import', 'approve', 'welcome'].includes(STAGE)) {
   console.error(`❌ Unknown --stage=${STAGE}. Use import | approve | welcome (or omit for a dry run).`)
+  process.exit(1)
+}
+if (!VALID_CATEGORIES.includes(CATEGORY)) {
+  console.error(`❌ Unknown --category=${CATEGORY}. Use one of: ${VALID_CATEGORIES.join(' | ')}`)
   process.exit(1)
 }
 if (SEND_TO && !EMAIL_RE.test(SEND_TO)) {
@@ -117,7 +125,7 @@ interface Row {
   code: string; name: string; email: string; sheetStatus: string
   phone?: string; emergencyContact?: string; nationality?: string; gender?: string
   dateOfBirth?: string; occupation?: string; countryAttendance?: string
-  photoUrl?: string; idDocUrl?: string; programs: string[]
+  photoUrl?: string; idDocUrl?: string; passportUrl?: string; passportNo?: string; programs: string[]
   action: string; reason: string
 }
 
@@ -132,6 +140,9 @@ const C = {
   attend: col('COUNTRY OF ATTENDANCE'), course: col('COURSE ENROLLED'),
   photo: col('PHOTO_URL'), idDoc: col('ID_DOC_URL'),
 }
+/* Optional columns — absent from the original DM export, present for Forex. */
+const C_PASSPORT_URL = header.indexOf('PASSPORT_URL')
+const C_PASSPORT_NO  = header.indexOf('PASSPORT NUMBER')
 for (const [k, v] of Object.entries(C)) {
   if (v < 0) { console.error(`❌ CSV is missing the expected column for "${k}".`); process.exit(1) }
 }
@@ -153,6 +164,8 @@ for (const r of csv.slice(1)) {
     countryAttendance: get(C.attend) || undefined,
     photoUrl: get(C.photo) || undefined,
     idDocUrl: get(C.idDoc) || undefined,
+    passportUrl: (C_PASSPORT_URL >= 0 ? get(C_PASSPORT_URL) : '') || undefined,
+    passportNo:  (C_PASSPORT_NO  >= 0 ? get(C_PASSPORT_NO)  : '') || undefined,
     programs: get(C.course) ? [get(C.course)] : [],
     action: 'create', reason: '',
   }
@@ -175,6 +188,7 @@ console.log('═'.repeat(64))
 console.log(`  Stage:    ${STAGE.toUpperCase()}${STAGE === 'dry-run' ? '  (nothing will be written)' : ''}`)
 console.log(`  Database: ${dbName}  (${DB_URL.replace(/\/\/[^@/]+@/, '//***@')})`)
 console.log(`  Sheet:    ${FILE}  (${rows.length} rows)`)
+console.log(`  Category: ${CATEGORY}   Org: ${ORG_SLUG}   Batch: ${BATCH}`)
 console.log('═'.repeat(64))
 
 const org = await OrganizationModel.findOne({ slug: ORG_SLUG }).select('_id name').lean()
@@ -211,7 +225,11 @@ if (STAGE === 'import') {
       const user = await UserModel.create({
         name: r.name, email: r.email, role: 'student',
         isActive: true, isVerified: true,
-        signupType: 'express',                    // portal will ask them to complete the full form
+        /* MUST be 'full': the admin students / enrollment-requests list filters
+           OUT signupType 'express' (admin.controller.ts listEnrollmentRequests),
+           routing those accounts to the separate Express Members tab instead.
+           Imported students belong in the normal students table. */
+        signupType: 'full',
         enrollmentStatus: 'pending',              // the "request table" stage
         categories: [],
         organizationId: org!._id,
@@ -225,6 +243,8 @@ if (STAGE === 'import') {
           ...(r.countryAttendance && { countryAttendance: r.countryAttendance }),
           ...(r.photoUrl          && { photoUrl: r.photoUrl }),
           ...(r.idDocUrl          && { idDocUrl: r.idDocUrl }),
+          ...(r.passportUrl       && { passportUrl: r.passportUrl }),
+          ...(r.passportNo        && { idType: 'Passport', idNumber: r.passportNo }),
           ...(r.programs.length   && { programs: r.programs }),
         },
       })

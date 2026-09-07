@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -14,6 +14,7 @@ import { useMyEnrollments, useMyActivity, type MyEnrollment, type ActivityItem }
 import { useUpcomingLiveClasses, isLive, type LiveClass } from '@/lib/api/liveClasses'
 import { useUIStore } from '@/store/ui.store'
 import Spinner from '@/components/ui/Spinner'
+import { titleCase } from '@/lib/titleCase'
 
 /* ── Helpers ──────────────────────────────────────────── */
 function fmtMins(mins: number): string {
@@ -67,6 +68,19 @@ function Divider() {
 ───────────────────────────────────────────────────── */
 export function RightSidebar() {
   const { rightPanelOpen, setRightPanel } = useUIStore()
+
+  /* Below `lg` this panel is an overlay sheet, not a docked column, and the
+     open/closed flag is persisted — so a user who left it open on their
+     desktop arrived on their phone to a sheet covering the whole page before
+     they had touched anything. Collapse it once, on mount, only where it
+     would cover content. Opening it by hand on a phone still works; this only
+     changes the state it *starts* in. */
+  const settled = useRef(false)
+  useEffect(() => {
+    if (settled.current) return
+    settled.current = true
+    if (window.matchMedia('(max-width: 1023px)').matches) setRightPanel(false)
+  }, [setRightPanel])
   const { data: user }         = useCurrentUser()
   const { data: enrollments }  = useMyEnrollments()
   const { data: activity }     = useMyActivity(6)
@@ -126,7 +140,10 @@ export function RightSidebar() {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 340, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-            className="fixed right-0 top-0 z-30 flex h-screen w-[min(320px,100vw)] flex-col lg:top-[100px] lg:h-[calc(100vh-100px)] lg:z-20"
+            /* Offsets read the header token rather than repeating its value:
+               hardcoded 100px here left the panel's first 13px tucked behind
+               the header once the header grew. */
+            className="fixed right-0 top-0 z-30 flex h-screen w-[min(320px,100vw)] flex-col lg:z-20 lg:top-[var(--app-header-h)] lg:h-[calc(100vh-var(--app-header-h))]"
             style={{
               background: 'var(--color-bg-inset)',
               borderLeft: '1px solid var(--color-border)',
@@ -172,11 +189,15 @@ export function RightSidebar() {
                   </button>
                 </div>
 
-                {/* Stats */}
-                <div className="grid grid-cols-3 gap-1.5">
-                  <StatPill icon={Target}  value={stats.active}    label="Active"     color="#0057b8" bg="rgba(0,87,184,0.08)" />
-                  <StatPill icon={Trophy}  value={stats.completed} label="Done"       color="#22C55E" bg="rgba(34,197,94,0.08)"  />
-                  <StatPill icon={Flame}   value={weekLessons}     label="This week"  color="#F59E0B" bg="rgba(245,158,11,0.08)" />
+                {/* One panel, three columns — these are three readings of the
+                    same thing (how the student is doing), so boxing them
+                    separately made the eye stop three times and read a
+                    dashboard as clutter. Hairline dividers group them instead. */}
+                <div className="flex items-stretch overflow-hidden rounded-xl"
+                  style={{ background: 'var(--color-bg-inset)' }}>
+                  <StatCell icon={Target} value={stats.active}    label="Active"    tint="var(--color-primary)" />
+                  <StatCell icon={Trophy} value={stats.completed} label="Done"      tint="var(--color-success)" divider />
+                  <StatCell icon={Flame}  value={weekLessons}     label="This Week" tint="#F59E0B" divider />
                 </div>
               </div>
 
@@ -230,7 +251,7 @@ export function RightSidebar() {
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-xs font-semibold leading-snug" style={{ color: 'var(--color-text-primary)' }}>
-                              {t.kind === 'continue' ? 'Continue' : 'Start'}{' '}{t.course.title}
+                              {t.kind === 'continue' ? 'Continue' : 'Start'}{' '}{titleCase(t.course.title)}
                             </p>
                             {t.kind === 'continue' && (
                               <div className="mt-1 flex items-center gap-1.5">
@@ -282,13 +303,13 @@ export function RightSidebar() {
                         <div className="min-w-0 flex-1">
                           <p className="line-clamp-1 text-xs leading-snug" style={{ color: 'var(--color-text-primary)' }}>
                             <span style={{ color: 'var(--color-text-muted)' }}>Completed </span>
-                            <span className="font-semibold">{l?.title ?? 'a lesson'}</span>
+                            <span className="font-semibold">{l?.title ? titleCase(l.title) : 'a lesson'}</span>
                           </p>
                           {c && (
                             <Link href={`/courses/${c.slug}`}
                               className="mt-0.5 block line-clamp-1 text-[10px] transition-colors hover:text-[#0057b8]"
                               style={{ color: 'var(--color-text-muted)' }}>
-                              {c.title}
+                              {titleCase(c.title)}
                             </Link>
                           )}
                           <p className="mt-0.5 flex items-center gap-1 text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
@@ -363,19 +384,20 @@ export function RightSidebar() {
 }
 
 /* ── Sub-components ─────────────────────────────────── */
-function StatPill({ icon: Icon, value, label, color, bg }: {
-  icon: React.ElementType; value: number; label: string; color: string; bg: string
+/* One column of the unified stats panel. The old StatPill drew its own card
+   and border at 9px type, which read as three cramped widgets rather than one
+   legible row. */
+function StatCell({ icon: Icon, value, label, tint, divider = false }: {
+  icon: React.ElementType; value: number; label: string; tint: string; divider?: boolean
 }) {
   return (
-    <div className="flex flex-col gap-0.5 rounded-xl p-2"
-      style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)' }}>
-      <div className="flex items-center gap-1">
-        <div className="flex h-4 w-4 items-center justify-center rounded-md" style={{ background: bg }}>
-          <Icon size={8} style={{ color }} />
-        </div>
-        <span className="text-sm font-bold leading-none" style={{ color: 'var(--color-text-primary)' }}>{value}</span>
-      </div>
-      <p className="text-[9px] font-medium" style={{ color: 'var(--color-text-muted)' }}>{label}</p>
+    <div className="flex flex-1 flex-col items-center gap-1 px-2 py-3"
+      style={divider ? { borderLeft: '1px solid var(--color-border)' } : undefined}>
+      <Icon size={15} strokeWidth={1.75} style={{ color: tint }} />
+      <span className="text-lg font-bold leading-none tabular-nums" style={{ color: 'var(--color-text-primary)' }}>
+        {value}
+      </span>
+      <p className="text-[10px] font-medium leading-none" style={{ color: 'var(--color-text-muted)' }}>{label}</p>
     </div>
   )
 }
@@ -402,11 +424,11 @@ function LiveRow({ live, index }: { live: LiveClass; index: number }) {
           : <Calendar size={10} style={{ color: '#6366F1' }} />}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-semibold leading-tight" style={{ color: 'var(--color-text-primary)' }}>{live.title}</p>
+        <p className="truncate text-xs font-semibold leading-tight" style={{ color: 'var(--color-text-primary)' }}>{titleCase(live.title)}</p>
         <p className="mt-0.5 text-[10px] leading-tight" style={{ color: 'var(--color-text-muted)' }}>
           {liveNow
             ? <span style={{ color: 'var(--color-danger)', fontWeight: 700 }}>● LIVE NOW</span>
-            : <>{when}{course && ` · ${course.title}`}</>}
+            : <>{when}{course && ` · ${titleCase(course.title)}`}</>}
         </p>
       </div>
       <ArrowUpRight size={9} className="flex-shrink-0 opacity-0 transition-opacity group-hover:opacity-60"
@@ -423,12 +445,18 @@ function QuickTile({ href, label, icon: Icon }: { href: string; label: string; i
           sits near 2:1. Hover steps up to `-strong`, which is the more
           prominent value in BOTH themes — the literal version inverted in dark,
           getting *darker* on hover. */}
-      <div className="group flex items-center gap-1.5 rounded-xl px-2.5 py-2 transition-all hover:bg-[var(--color-bg-surface)]"
+      {/* Micro-interaction: the tile lifts to the surface colour and the icon
+          picks up the brand blue, so the whole row reads as one target rather
+          than a label that happens to sit near an icon. */}
+      <div className="group flex h-11 items-center gap-2 rounded-xl px-3 transition-colors duration-150 hover:bg-[var(--color-hover)] lg:h-10"
         style={{ border: '1px solid var(--color-border)' }}
         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border-strong)' }}
         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border)' }}>
-        <Icon size={11} className="flex-shrink-0" style={{ color: 'var(--color-text-muted)' }} />
-        <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>{label}</span>
+        <Icon size={14} strokeWidth={1.75}
+          className="flex-shrink-0 transition-colors group-hover:text-[var(--color-primary)]"
+          style={{ color: 'var(--color-text-muted)' }} />
+        <span className="truncate text-xs font-semibold transition-colors group-hover:text-[var(--color-text-primary)]"
+          style={{ color: 'var(--color-text-secondary)' }}>{label}</span>
       </div>
     </Link>
   )
@@ -444,7 +472,17 @@ export function RightSidebarToggle() {
       animate={{ opacity: 1, x: 0 }}
       onClick={() => setRightPanel(true)}
       aria-label="Show activity panel"
-      className="fixed right-4 bottom-6 z-20 flex h-10 w-10 items-center justify-center rounded-full transition-shadow hover:shadow-xl lg:bottom-auto lg:top-[120px]"
+      /* 44px on touch, where it is a floating action; the desktop variant can
+         be smaller because a cursor does not need the margin.
+
+         BOTTOM-LEFT on mobile, deliberately. Every course card puts its
+         primary action (Start / Continue) at its own bottom-RIGHT, so a
+         floating button in the screen's bottom-right lands directly on top of
+         one as the grid scrolls past — measured as a real hit-test overlap,
+         which means a tap aimed at "Start" could open the panel instead.
+         Nothing in the content column is right-to-left, so the opposite
+         corner is free. */
+      className="fixed bottom-6 left-4 z-20 flex h-11 w-11 items-center justify-center rounded-full transition-shadow hover:shadow-xl lg:bottom-auto lg:left-auto lg:right-4 lg:top-[calc(var(--app-header-h)+12px)] lg:h-10 lg:w-10"
       style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)', boxShadow: '0 4px 14px rgba(0,0,0,0.10)' }}>
       <Zap size={15} style={{ color: 'var(--color-primary)' }} />
     </motion.button>

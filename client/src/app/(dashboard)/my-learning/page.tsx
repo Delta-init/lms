@@ -10,6 +10,7 @@ import { useMyEnrollments, type MyEnrollment } from '@/lib/api/enrollments'
 import type { Course } from '@/types/index'
 import { StreakWidget } from '@/components/ui/StreakWidget'
 import Spinner from '@/components/ui/Spinner'
+import { titleCase } from '@/lib/titleCase'
 
 const STATUS_TABS = ['All Status', 'Not Started', 'In Progress', 'Completed'] as const
 type StatusTab = typeof STATUS_TABS[number]
@@ -70,8 +71,8 @@ export default function MyLearningPage() {
       {/* ── Continue Learning ───────────────────────── */}
       {continuing.length > 0 && (
         <motion.section variants={stagger} initial="hidden" animate="show">
-          <motion.h2 variants={fadeUp} className="mb-4 text-xl font-bold"
-            style={{ color: 'var(--color-text-primary)', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
+          <motion.h2 variants={fadeUp} className="mb-5 text-[22px] font-bold tracking-tight"
+            style={{ color: 'var(--color-text-primary)' }}>
             Continue Learning
           </motion.h2>
 
@@ -83,10 +84,10 @@ export default function MyLearningPage() {
 
       {/* ── All Materials ───────────────────────────── */}
       <section>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2.5 text-[22px] font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
             All Materials
-            <span className="ml-2 inline-flex items-center justify-center rounded-lg px-2 py-0.5 text-sm font-bold"
+            <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full px-2 text-xs font-bold tabular-nums"
               style={{ background: 'var(--color-bg-subtle)', color: 'var(--color-text-secondary)' }}>
               {enrollments?.length ?? 0}
             </span>
@@ -96,22 +97,29 @@ export default function MyLearningPage() {
             <div className="relative flex-1 sm:flex-none">
               <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--color-text-muted)' }} />
               <input value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="Search…"
-                className="w-full rounded-xl py-2 pl-9 pr-4 text-sm outline-none sm:w-44"
+                placeholder="Search Materials…"
+                className="h-11 w-full rounded-xl pl-9 pr-4 text-sm outline-none transition-shadow focus:shadow-[0_0_0_3px_rgba(0,87,184,0.10)] sm:w-56 lg:h-10"
                 style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }} />
             </div>
           </div>
         </div>
 
-        <div className="mb-5 flex items-center gap-1 rounded-2xl p-1 overflow-x-auto scrollbar-none" style={{ background: 'var(--color-bg-subtle)' }}>
+        {/* Segmented control: shrink-to-fit rather than a full-width strip,
+            which was stretching four short labels across the whole column. */}
+        {/* Scrolls horizontally when the four chips outgrow a narrow screen,
+            rather than wrapping to a second row or squashing the labels. */}
+        <div className="mb-6 inline-flex max-w-full items-center gap-1 overflow-x-auto overscroll-x-contain rounded-xl p-1 scrollbar-none"
+          style={{ background: 'var(--color-bg-subtle)' }}>
           {STATUS_TABS.map(tab => (
             <motion.button key={tab} onClick={() => setActiveTab(tab)}
-              className="relative flex-shrink-0 rounded-xl px-4 py-2 text-sm font-semibold transition-colors whitespace-nowrap"
+              /* 44px on touch (the minimum tap target), 36px from `sm` up
+                 where a cursor does not need the extra margin. */
+              className="relative h-11 flex-shrink-0 whitespace-nowrap rounded-lg px-4 text-sm font-semibold transition-colors lg:h-9"
               style={{ color: activeTab === tab ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>
               {activeTab === tab && (
                 <motion.div layoutId="my-learning-tab"
-                  className="absolute inset-0 rounded-xl bg-[var(--color-bg-surface)]"
-                  style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.10)' }}
+                  className="absolute inset-0 rounded-lg bg-[var(--color-bg-surface)]"
+                  style={{ boxShadow: '0 1px 3px rgba(13,15,26,0.10)' }}
                   transition={{ type: 'spring', stiffness: 500, damping: 35 }} />
               )}
               <span className="relative z-10">{tab}</span>
@@ -145,7 +153,10 @@ export default function MyLearningPage() {
           ) : (
             <motion.div key="grid"
               variants={stagger} initial="hidden" animate="show"
-              className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              /* Capped at 3. At xl:grid-cols-4 a two-course library left two
+                 empty tracks and shrank each card to a thumbnail — the dead
+                 zone was the grid, not the page. */
+              className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {filtered.map(e => <EnrollmentCard key={e.id} enrollment={e} />)}
             </motion.div>
           )}
@@ -186,8 +197,8 @@ function ContinueCard({ enrollment }: { enrollment: MyEnrollment }) {
         <div className="flex-1 min-w-0">
           <span className="inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] font-semibold"
             style={{ background: 'var(--color-primary-light)', color: '#2563EB' }}>Course</span>
-          <h3 className="mt-1.5 text-sm font-bold leading-snug line-clamp-2" style={{ color: 'var(--color-text-primary)' }}>
-            {course.title}
+          <h3 className="mt-2 line-clamp-2 text-[15px] font-bold leading-snug" style={{ color: 'var(--color-text-primary)' }}>
+            {titleCase(course.title)}
           </h3>
           <div className="mt-3">
             <div className="flex items-center justify-between mb-1">
@@ -214,12 +225,21 @@ function ContinueCard({ enrollment }: { enrollment: MyEnrollment }) {
   )
 }
 
+/* One place for the three end-states a card can be in, so the label, the
+   colour and the emphasis can never disagree with each other. */
+const CARD_ACTION = {
+  not_started: { label: 'Start',    primary: true  },
+  in_progress: { label: 'Continue', primary: false },
+  completed:   { label: 'Review',   primary: false },
+} as const
+
 function EnrollmentCard({ enrollment }: { enrollment: MyEnrollment }) {
   const course = asCourse(enrollment)
   if (!course) return null
   const bucket = bucketOf(enrollment)
-  const isDone   = bucket === 'completed'
-  const inProg   = bucket === 'in_progress'
+  const isDone = bucket === 'completed'
+  const inProg = bucket === 'in_progress'
+  const action = CARD_ACTION[bucket]
   const playHref = enrollment.lastLessonId
     ? `/learn/${course.slug}/${enrollment.lastLessonId}`
     : `/courses/${course.slug}`
@@ -227,56 +247,82 @@ function EnrollmentCard({ enrollment }: { enrollment: MyEnrollment }) {
   return (
     <motion.div
       variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 280, damping: 26 } } }}
-      whileHover={{ y: -4, boxShadow: '0 20px 44px rgba(0,0,0,0.10)' }}
-      className="group overflow-hidden rounded-2xl bg-[var(--color-bg-surface)] cursor-pointer"
-      style={{ border: '1px solid var(--color-border)', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
-      <Link href={playHref}>
-        <div className="relative h-40 overflow-hidden">
+      whileHover={{ y: -4 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+      className="group flex flex-col overflow-hidden rounded-2xl bg-[var(--color-bg-surface)]"
+      /* Soft, layered shadow rather than a 1px border: depth without a line. */
+      style={{ boxShadow: '0 1px 2px rgba(13,15,26,0.04), 0 8px 24px -12px rgba(13,15,26,0.10)' }}>
+      <Link href={playHref} className="flex flex-1 flex-col">
+
+        {/* Thumbnail */}
+        <div className="relative aspect-[16/9] overflow-hidden" style={{ background: 'var(--color-bg-subtle)' }}>
           {course.thumbnailUrl
-            ? <img src={course.thumbnailUrl} alt={course.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
-            : <div className="flex h-full w-full items-center justify-center" style={{ background: 'var(--color-bg-subtle)' }}>
-                <BookOpen size={32} style={{ color: 'var(--color-text-muted)' }} />
+            ? <img src={course.thumbnailUrl} alt=""
+                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+            : <div className="flex h-full w-full items-center justify-center">
+                {/* strokeWidth matches the global lucide set — the placeholder
+                    used to render heavier than every other icon on the page. */}
+                <BookOpen size={30} strokeWidth={1.75} style={{ color: 'var(--color-text-muted)' }} />
               </div>}
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-            style={{ background: 'rgba(17,24,39,0.35)' }}>
-            <div className="flex h-11 w-11 items-center justify-center rounded-full"
-              style={{ background: 'rgba(0,87,184,0.92)', boxShadow: '0 6px 16px rgba(0,87,184,0.4)' }}>
-              <Play size={14} fill="white" color="white" />
+
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+            style={{ background: 'rgba(13,15,26,0.32)' }}>
+            <div className="flex h-12 w-12 items-center justify-center rounded-full"
+              style={{ background: 'var(--color-primary)', boxShadow: '0 8px 20px rgba(0,87,184,0.42)' }}>
+              <Play size={15} fill="white" color="white" />
             </div>
           </div>
+
           {isDone && (
             <div className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full"
-              style={{ background: 'var(--color-success)' }}>
-              <CheckCircle2 size={16} color="white" />
+              style={{ background: 'var(--color-success)', boxShadow: '0 2px 8px rgba(14,204,142,0.40)' }}>
+              <CheckCircle2 size={15} strokeWidth={2} color="white" />
             </div>
           )}
         </div>
-        <div className="p-4">
-          <span className="inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] font-semibold"
-            style={{ background: 'var(--color-primary-light)', color: '#2563EB' }}>Course</span>
-          <h3 className="mt-1.5 line-clamp-2 text-sm font-bold leading-snug" style={{ color: 'var(--color-text-primary)' }}>
-            {course.title}
+
+        {/* Body */}
+        <div className="flex flex-1 flex-col p-4">
+          <span className="inline-flex w-fit items-center rounded-md px-2 py-0.5 text-[11px] font-semibold tracking-wide"
+            style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary)' }}>
+            Course
+          </span>
+
+          <h3 className="mt-2.5 line-clamp-2 text-[15px] font-bold leading-snug"
+            style={{ color: 'var(--color-text-primary)' }}>
+            {titleCase(course.title)}
           </h3>
-          <div className="mt-3 flex items-center justify-between" style={{ borderTop: '1px solid var(--color-border)', paddingTop: 10 }}>
+
+          {/* Pushes the footer down so every card in a row ends level, whatever
+              the title length. */}
+          <div className="flex-1" />
+
+          <div className="mt-4 flex items-center justify-between gap-3 pt-3.5"
+            style={{ borderTop: '1px solid var(--color-border)' }}>
             {inProg ? (
-              <div className="flex items-center gap-2">
-                <div className="h-1.5 w-16 overflow-hidden rounded-full" style={{ background: 'var(--color-bg-subtle)' }}>
-                  <motion.div className="h-full rounded-full" style={{ background: 'var(--color-success)', width: `${enrollment.progressPercent}%` }} />
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full" style={{ background: 'var(--color-bg-subtle)' }}>
+                  <div className="h-full rounded-full"
+                    style={{ background: 'var(--color-success)', width: `${enrollment.progressPercent}%` }} />
                 </div>
-                <span className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>{enrollment.progressPercent}%</span>
+                <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--color-text-secondary)' }}>
+                  {enrollment.progressPercent}%
+                </span>
               </div>
             ) : isDone ? (
-              <span className="text-xs font-semibold" style={{ color: 'var(--color-success)' }}>Completed ✓</span>
+              <span className="text-xs font-semibold" style={{ color: 'var(--color-success)' }}>Completed</span>
             ) : (
-              <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Not Started</span>
+              <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>Not Started</span>
             )}
-            <span className="rounded-xl px-3.5 py-1.5 text-xs font-bold"
-              style={inProg
-                ? { background: 'var(--color-text-primary)', color: 'var(--color-text-inverse)' }
+
+            <span
+              className="flex h-11 flex-shrink-0 items-center rounded-xl px-4 text-[13px] font-bold transition-all group-hover:brightness-110 lg:h-9"
+              style={action.primary
+                ? { background: 'var(--color-primary)', color: '#fff', boxShadow: '0 2px 8px rgba(0,87,184,0.28)' }
                 : isDone
-                  ? { background: 'transparent', color: 'var(--color-success)', border: '1.5px solid #BBF7D0' }
-                  : { background: 'transparent', color: 'var(--color-text-primary)', border: '1.5px solid var(--color-border-strong)' }}>
-              {inProg ? 'Continue' : isDone ? 'Review' : 'Start'}
+                  ? { background: 'var(--color-bg-subtle)', color: 'var(--color-text-secondary)' }
+                  : { background: 'var(--color-text-primary)', color: 'var(--color-text-inverse)' }}>
+              {action.label}
             </span>
           </div>
         </div>

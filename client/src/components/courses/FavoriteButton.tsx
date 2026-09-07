@@ -32,7 +32,9 @@ export function FavoriteButton({ courseId, variant = 'pill' }: Props) {
         aria-label={isFav ? 'Remove from favorites' : 'Add to favorites'}
         variant="ghost"
         size="icon"
-        className="h-9 w-9 rounded-full transition-all"
+        /* 44px on touch — this sits in the corner of every catalogue card,
+           so an undersized target here is 12+ mis-taps on one screen. */
+        className="h-11 w-11 rounded-full transition-all lg:h-9 lg:w-9"
         style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', boxShadow: '0 4px 12px rgba(13,15,26,0.10)' }}>
         {toggle.isPending
           ? <Spinner size={14} variant="gray" />

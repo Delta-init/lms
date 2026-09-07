@@ -111,10 +111,14 @@ export function AuthPage({ initialMode }: AuthPageProps) {
         <div className="flex flex-1 items-center justify-center px-8 py-6 lg:px-16">
           <div className="w-full max-w-[400px]">
 
-            {/* Step dots */}
-            <div className="mb-6 flex items-center justify-between">
+            {/* Step dots — the progress and its caption belong together, so
+                they are centred as ONE group. `justify-between` pinned the
+                dots hard left and the caption hard right, which read as two
+                unrelated fragments floating above the form rather than a
+                single wizard indicator. */}
+            <div className="mb-6 flex items-center justify-center gap-3">
               <StepDots mode={mode} />
-              <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>
+              <span className="text-xs font-medium tabular-nums" style={{ color: 'var(--color-text-muted)' }}>
                 {mode === 'login' ? 'Step 1 of 1' : 'Step 1 of 2'}
               </span>
             </div>

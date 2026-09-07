@@ -21,6 +21,7 @@ import { Button, MotionButton } from '@/components/ui/button'
 import type { Course } from '@/types/index'
 import Spinner from '@/components/ui/Spinner'
 import { useCheckoutCurrency, formatCoursePrice } from '@/lib/coursePrice'
+import { titleCase } from '@/lib/titleCase'
 
 const STATUS_TABS = ['All Status', 'Not Started', 'In Progress', 'Completed']
 const SORTS = [
@@ -208,7 +209,7 @@ export default function CoursesPage() {
                 whileHover={{ y: -2, scale: 1.02 }}
                 whileTap={{ scale: 0.97 }}
                 variant="ghost"
-                className="flex shrink-0 items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold h-auto transition-all"
+                className="flex h-11 shrink-0 items-center gap-2 rounded-2xl px-4 text-sm font-semibold transition-all lg:h-auto lg:py-2.5"
                 style={isActive ? {
                   background: p.activeGrad,
                   color: 'white',
@@ -242,7 +243,7 @@ export default function CoursesPage() {
               <MotionButton key={tab} onClick={() => setActiveTab(tab)}
                 variant="ghost"
                 size="sm"
-                className="relative rounded-xl px-3 py-1.5 text-sm font-semibold transition-colors whitespace-nowrap h-auto"
+                className="relative h-11 rounded-xl px-3 text-sm font-semibold transition-colors whitespace-nowrap lg:h-auto lg:py-1.5"
                 style={{ color: activeTab === tab ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>
                 {activeTab === tab && (
                   <motion.div layoutId="status-pill"
@@ -263,7 +264,7 @@ export default function CoursesPage() {
                 style={{ color: 'var(--color-text-muted)' }} />
               <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
                 placeholder="Search…"
-                className="w-full sm:w-36 rounded-xl py-2 pl-9 pr-3 text-sm sm:transition-all sm:focus:w-48"
+                className="h-11 w-full rounded-xl pl-9 pr-3 text-sm sm:w-36 sm:transition-all sm:focus:w-48 lg:h-auto lg:py-2"
                 style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }} />
             </div>
 
@@ -271,7 +272,7 @@ export default function CoursesPage() {
             <MotionButton whileTap={{ scale: 0.96 }} onClick={() => setShowFilters(v => !v)}
               variant="outline"
               size="sm"
-              className="relative flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold h-auto"
+              className="relative flex h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-semibold lg:h-auto lg:min-w-0 lg:py-2"
               style={{ borderColor: showFilters ? '#0057b8' : 'var(--color-border)', color: showFilters ? '#0057b8' : 'var(--color-text-secondary)' }}>
               <SlidersHorizontal size={13} />
               <span className="hidden sm:inline">Filters</span>
@@ -288,7 +289,7 @@ export default function CoursesPage() {
               <MotionButton whileTap={{ scale: 0.96 }} onClick={() => setShowSort(v => !v)}
                 variant="outline"
                 size="sm"
-                className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold h-auto"
+                className="flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-semibold lg:h-auto lg:min-w-0 lg:py-2"
                 style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
                 <ChevronDown size={13} className={`transition-transform ${showSort ? 'rotate-180' : ''}`} />
                 <span className="hidden sm:inline">Sort</span>
@@ -530,7 +531,7 @@ export default function CoursesPage() {
           <Button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={!data.meta.has_prev}
             variant="outline"
             size="sm"
-            className="rounded-xl px-4 py-2 text-sm font-semibold h-auto disabled:opacity-40"
+            className="h-11 rounded-xl px-4 text-sm font-semibold disabled:opacity-40 lg:h-auto lg:py-2"
             style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
             Previous
           </Button>
@@ -538,7 +539,7 @@ export default function CoursesPage() {
             <Button key={p} onClick={() => setPage(p)}
               variant="ghost"
               size="icon"
-              className="h-9 w-9 rounded-xl text-sm font-semibold"
+              className="h-11 w-11 rounded-xl text-sm font-semibold lg:h-9 lg:w-9"
               style={p === page
                 ? { background: 'var(--color-text-primary)', color: 'var(--color-text-inverse)' }
                 : { color: 'var(--color-text-muted)', background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)' }}>
@@ -548,7 +549,7 @@ export default function CoursesPage() {
           <Button onClick={() => setPage(p => p + 1)} disabled={!data.meta.has_next}
             variant="outline"
             size="sm"
-            className="rounded-xl px-4 py-2 text-sm font-semibold h-auto disabled:opacity-40"
+            className="h-11 rounded-xl px-4 text-sm font-semibold disabled:opacity-40 lg:h-auto lg:py-2"
             style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
             Next
           </Button>
@@ -560,6 +561,13 @@ export default function CoursesPage() {
 
 /* ── Material card ────────────────────────────────────── */
 function MaterialCard({ course }: { course: Course }) {
+  /* A thumbnail URL that 404s is not the same as having no thumbnail: the
+     <img> stays in the layout and paints its alt text across the tile, so a
+     dead link showed the course name sprawled over a blank card. Falling back
+     to the same placeholder the no-image case uses keeps the grid uniform
+     whatever the CDN does. */
+  const [thumbFailed, setThumbFailed] = useState(false)
+  const showThumb = !!course.thumbnailUrl && !thumbFailed
   const router     = useRouter()
   const addToCart  = useCartStore(s => s.addItem)
   const isInCart   = useCartStore(s => s.isInCart)
@@ -618,12 +626,13 @@ function MaterialCard({ course }: { course: Course }) {
 
         {/* ── Thumbnail ── */}
         <div className="relative aspect-video overflow-hidden flex-shrink-0">
-          {course.thumbnailUrl
-            ? <img src={course.thumbnailUrl} alt={course.title}
+          {showThumb
+            ? <img src={course.thumbnailUrl} alt="" onError={() => setThumbFailed(true)}
                 className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
             : <div className="flex h-full w-full items-center justify-center"
                 style={{ background: 'var(--color-bg-subtle)' }}>
-                <BookOpen size={28} style={{ color: 'var(--color-text-muted)' }} />
+                {/* strokeWidth matches the global lucide set */}
+                <BookOpen size={28} strokeWidth={1.75} style={{ color: 'var(--color-text-muted)' }} />
               </div>
           }
 
@@ -674,7 +683,7 @@ function MaterialCard({ course }: { course: Course }) {
 
           {/* Title */}
           <h3 className="line-clamp-2 text-sm font-bold leading-snug" style={{ color: 'var(--color-text-primary)' }}>
-            {course.title}
+            {titleCase(course.title)}
           </h3>
 
           {/* Instructor */}
@@ -726,7 +735,7 @@ function MaterialCard({ course }: { course: Course }) {
               disabled={enroll.isPending}
               variant={(isEnrolled || (!isFree && inCart)) ? 'ghost' : 'default'}
               size="sm"
-              className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[11px] font-bold whitespace-nowrap h-auto disabled:opacity-70"
+              className="flex h-11 items-center gap-1.5 rounded-xl px-3.5 text-[11px] font-bold whitespace-nowrap disabled:opacity-70 lg:h-auto lg:px-3 lg:py-1.5"
               style={(isEnrolled || (!isFree && inCart))
                 ? { background: '#F0FDF4', color: 'var(--color-success)', border: '1px solid rgba(34,197,94,0.28)' }
                 : isFree

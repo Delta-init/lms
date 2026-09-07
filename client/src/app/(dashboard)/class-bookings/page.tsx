@@ -17,6 +17,7 @@ import { useCurrentUser } from '@/lib/api/user'
 import { APP_TIMEZONE } from '@/lib/timezone'
 import { useServerNow } from '@/hooks/useServerNow'
 import Spinner from '@/components/ui/Spinner'
+import { titleCase } from '@/lib/titleCase'
 
 /* ── Google Fonts ──────────────────────────────────────────── */
 const FONT_CSS = `@import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap');.syne{font-family:'Syne',sans-serif}.dm{font-family:'DM Sans',sans-serif}`
@@ -426,7 +427,7 @@ function ClassCard({group,bookingMap,onClick}: {
       {/* Title */}
       <div className="px-3.5 pb-2">
         <h3 className="syne line-clamp-2 text-[13px] font-700 leading-snug" style={{color:allEnded?'var(--color-text-muted)':'var(--color-text-primary)'}}>
-          {group.title}
+          {titleCase(group.title)}
         </h3>
       </div>
 
@@ -435,7 +436,7 @@ function ClassCard({group,bookingMap,onClick}: {
         {courseTitle&&(
           <div className="flex items-center gap-1.5">
             <BookOpen size={9} style={{color: 'var(--color-text-muted)'}} className="flex-shrink-0"/>
-            <span className="truncate text-[10px]" style={{color: 'var(--color-text-muted)'}}>{courseTitle}</span>
+            <span className="truncate text-[10px]" style={{color: 'var(--color-text-muted)'}}>{titleCase(courseTitle)}</span>
             {isEnrolled
               ?<CheckCircle2 size={9} style={{color: 'var(--color-success)'}} className="ml-auto flex-shrink-0" strokeWidth={3}/>
               :<Lock size={9} style={{color: 'var(--color-text-muted)'}} className="ml-auto flex-shrink-0"/>}
@@ -527,11 +528,11 @@ function SlotModal({group,bookingMap,onBook,onCancel,bookPending,cancelPending,o
         <div className="px-5 pt-4 pb-4" style={{borderBottom: '1px solid var(--color-border)'}}>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <h2 className="syne text-[17px] font-700 leading-tight" style={{color: 'var(--color-text-primary)'}}>{group.title}</h2>
+              <h2 className="syne text-[17px] font-700 leading-tight" style={{color: 'var(--color-text-primary)'}}>{titleCase(group.title)}</h2>
               {instructor&&<p className="mt-1 flex items-center gap-1 text-xs" style={{color: 'var(--color-text-muted)'}}><User size={10}/>{instructor.name}</p>}
               {courseTitle&&(
                 <p className="mt-0.5 flex items-center gap-1 text-[11px]" style={{color: 'var(--color-text-muted)'}}>
-                  <BookOpen size={9}/>{courseTitle}
+                  <BookOpen size={9}/>{titleCase(courseTitle)}
                   {isEnr?<CheckCircle2 size={9} style={{color: 'var(--color-success)'}} className="ml-1" strokeWidth={3}/>
                         :<Lock size={9} style={{color: 'var(--color-text-muted)'}} className="ml-1"/>}
                 </p>
@@ -1153,6 +1154,45 @@ function ContactAdminModal({onClose}:{onClose:()=>void}) {
 /* ═══════════════════════════════════════════════════════════
    MAIN PAGE
 ═══════════════════════════════════════════════════════════ */
+/* ─────────────────────────────────────────────────────
+   Summary metric tile.
+
+   Each of the four used to paint its own tinted background and matching
+   border — white, red, green, blue side by side — so a row that reports one
+   thing in four ways read as four unrelated widgets. The surface is now
+   identical across all of them and the accent survives where it carries
+   meaning: a small indicator badge behind the icon. The value itself is
+   charcoal in every tile, which is both higher contrast than the tinted
+   version and lets the eye compare the numbers instead of the colours.
+───────────────────────────────────────────────────── */
+function MetricTile({ icon, label, value, accent, pulse = false, index = 0 }: {
+  icon: React.ReactNode; label: string; value: number | string
+  accent: string; pulse?: boolean; index?: number
+}) {
+  return (
+    <motion.div
+      initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{delay:index*0.05}}
+      className="flex items-center gap-3 rounded-2xl px-4 py-3.5"
+      style={{
+        background: 'var(--color-bg-surface)',
+        boxShadow: '0 1px 2px rgba(13,15,26,0.04), 0 8px 24px -12px rgba(13,15,26,0.10)',
+      }}>
+      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl"
+        style={{ background: `${accent}14`, color: accent }}>
+        {pulse
+          ? <motion.div animate={{opacity:[1,0.35,1]}} transition={{duration:1.5,repeat:Infinity}}>{icon}</motion.div>
+          : icon}
+      </div>
+      <div className="min-w-0">
+        <p className="syne text-[24px] font-800 leading-none tabular-nums"
+          style={{color:'var(--color-text-primary)'}}>{value}</p>
+        <p className="dm mt-1.5 truncate text-[10px] font-semibold uppercase tracking-wider"
+          style={{color:'var(--color-text-muted)'}}>{label}</p>
+      </div>
+    </motion.div>
+  )
+}
+
 export default function ClassBookingsPage() {
   const [rangeStart, setRangeStart] = useState<Date>(()=>getMondayOfWeek(new Date()))
   const [rangeEnd,   setRangeEnd]   = useState<Date>(()=>addDays(getMondayOfWeek(new Date()),6))
@@ -1512,18 +1552,18 @@ export default function ClassBookingsPage() {
                 <div className="flex items-center gap-0.5 rounded-2xl bg-[var(--color-bg-surface)] p-1"
                   style={{border: '1px solid var(--color-border)',boxShadow:'0 1px 4px rgba(15,23,42,0.05)'}}>
                   <button type="button" onClick={()=>shiftRange(-1)}
-                    className="flex h-7 w-7 items-center justify-center rounded-xl hover:bg-[var(--color-bg-muted)]">
+                    className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-[var(--color-bg-muted)] sm:h-7 sm:w-7">
                     <ChevronLeft size={13} style={{color: 'var(--color-text-secondary)'}}/>
                   </button>
                   <button type="button" onClick={()=>setShowCal(v=>!v)}
-                    className="flex items-center gap-1.5 rounded-xl px-2 py-1 hover:bg-[var(--color-bg-muted)]">
+                    className="flex h-11 items-center gap-1.5 rounded-xl px-2 hover:bg-[var(--color-bg-muted)] sm:h-auto sm:py-1">
                     <Calendar size={11} style={{color:showCal?'#0057b8':'var(--color-text-muted)'}}/>
                     <span className="dm whitespace-nowrap text-[11px] font-semibold" style={{color: 'var(--color-text-secondary)'}}>
                       {rangeStart.toLocaleDateString('en-US',{month:'short',day:'numeric'})} to {rangeEnd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}
                     </span>
                   </button>
                   <button type="button" onClick={()=>shiftRange(1)}
-                    className="flex h-7 w-7 items-center justify-center rounded-xl hover:bg-[var(--color-bg-muted)]">
+                    className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-[var(--color-bg-muted)] sm:h-7 sm:w-7">
                     <ChevronRight size={13} style={{color: 'var(--color-text-secondary)'}}/>
                   </button>
                 </div>
@@ -1539,25 +1579,10 @@ export default function ClassBookingsPage() {
         {/* ─── STATS ────────────────────────────────────────────── */}
         {!isLoading&&filterDelivery!=='offline'&&(
           <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {[
-              {icon:<CalendarDays size={13}/>,label:'Total Classes',   value:stats.total,    color: 'var(--color-text-secondary)',accent:'var(--color-text-secondary)',bg:'var(--color-bg-surface)',                         border: 'var(--color-border)'},
-              {icon:<Flame size={13}/>,       label:'Live Now',        value:stats.liveNow,  color: 'var(--color-danger)',accent:'#EF4444',bg:'rgba(239,68,68,0.04)',           border:'rgba(239,68,68,0.15)'},
-              {icon:<CheckCircle2 size={13} strokeWidth={3}/>,label:'My Reservations',value:stats.myBooked,color: 'var(--color-success)',accent:'#059669',bg:'rgba(5,150,105,0.04)',border:'rgba(5,150,105,0.15)'},
-              {icon:<TrendingUp size={13}/>,  label:'Open Slots',      value:stats.open,     color: 'var(--color-primary)',accent:'#0057b8',bg:'rgba(0,87,184,0.04)',          border:'rgba(0,87,184,0.15)'},
-            ].map((p,i)=>(
-              <motion.div key={p.label} initial={{opacity:0,y:8}} animate={{opacity:1,y:0}}
-                transition={{delay:i*0.05}}
-                className="flex flex-col rounded-2xl px-4 py-3"
-                style={{background:p.bg,border:`1px solid ${p.border}`}}>
-                <div className="mb-1.5 flex items-center gap-1.5" style={{color:p.accent}}>
-                  {i===1&&stats.liveNow>0
-                    ?<motion.div animate={{opacity:[1,0.3,1]}} transition={{duration:1.5,repeat:Infinity}}>{p.icon}</motion.div>
-                    :p.icon}
-                  <span className="dm text-[9px] font-semibold uppercase tracking-wider" style={{color:p.accent,opacity:0.75}}>{p.label}</span>
-                </div>
-                <span className="syne text-[26px] font-800 leading-none" style={{color:p.color}}>{p.value}</span>
-              </motion.div>
-            ))}
+            <MetricTile index={0} icon={<CalendarDays size={18} strokeWidth={1.75}/>} label="Total Classes"   value={stats.total}    accent="var(--color-text-secondary)" />
+            <MetricTile index={1} icon={<Flame size={18} strokeWidth={1.75}/>}        label="Live Now"        value={stats.liveNow}  accent="#EF4444" pulse={stats.liveNow>0} />
+            <MetricTile index={2} icon={<CheckCircle2 size={18} strokeWidth={1.75}/>} label="My Reservations" value={stats.myBooked} accent="#059669" />
+            <MetricTile index={3} icon={<TrendingUp size={18} strokeWidth={1.75}/>}   label="Open Slots"      value={stats.open}     accent="#0057b8" />
           </div>
         )}
 
@@ -1567,23 +1592,10 @@ export default function ClassBookingsPage() {
             <motion.div initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-4}}
               transition={{type:'spring',stiffness:320,damping:28}}
               className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {[
-                {icon:<CalendarDays size={13}/>,label:'Total Sessions',    value:offlineStats.total,          color: 'var(--color-text-secondary)',accent:'var(--color-text-secondary)',bg:'var(--color-bg-surface)',                         border: 'var(--color-border)'},
-                {icon:<Flame size={13}/>,       label:"Today's Classes",   value:offlineStats.today,          color: 'var(--color-danger)',accent:'#EF4444',bg:'rgba(239,68,68,0.04)',           border:'rgba(239,68,68,0.15)'},
-                {icon:<CheckCircle2 size={13} strokeWidth={3}/>,label:'My Reservations',value:offlineStats.myReservations,color: 'var(--color-success)',accent:'#059669',bg:'rgba(5,150,105,0.04)',border:'rgba(5,150,105,0.15)'},
-                {icon:<TrendingUp size={13}/>,  label:'Available Seats',   value:offlineStats.availableSeats, color: 'var(--color-primary)',accent:'#0057b8',bg:'rgba(0,87,184,0.04)',          border:'rgba(0,87,184,0.15)'},
-              ].map((p,i)=>(
-                <motion.div key={p.label} initial={{opacity:0,y:8}} animate={{opacity:1,y:0}}
-                  transition={{delay:i*0.05}}
-                  className="flex flex-col rounded-2xl px-4 py-3"
-                  style={{background:p.bg,border:`1px solid ${p.border}`}}>
-                  <div className="mb-1.5 flex items-center gap-1.5" style={{color:p.accent}}>
-                    {p.icon}
-                    <span className="dm text-[9px] font-semibold uppercase tracking-wider" style={{color:p.accent,opacity:0.75}}>{p.label}</span>
-                  </div>
-                  <span className="syne text-[26px] font-800 leading-none" style={{color:p.color}}>{p.value}</span>
-                </motion.div>
-              ))}
+              <MetricTile index={0} icon={<CalendarDays size={18} strokeWidth={1.75}/>} label="Total Sessions"   value={offlineStats.total}            accent="var(--color-text-secondary)" />
+              <MetricTile index={1} icon={<Flame size={18} strokeWidth={1.75}/>}        label="Today's Classes"  value={offlineStats.today}            accent="#EF4444" pulse={offlineStats.today>0} />
+              <MetricTile index={2} icon={<CheckCircle2 size={18} strokeWidth={1.75}/>} label="My Reservations"  value={offlineStats.myReservations}   accent="#059669" />
+              <MetricTile index={3} icon={<TrendingUp size={18} strokeWidth={1.75}/>}   label="Available Seats"  value={offlineStats.availableSeats}   accent="#0057b8" />
             </motion.div>
           )}
         </AnimatePresence>
@@ -1593,7 +1605,7 @@ export default function ClassBookingsPage() {
           className="mb-3 flex items-center gap-2 flex-wrap">
           {/* All tab */}
           <button type="button" onClick={()=>setFilterStatus('all')}
-            className="dm inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[12px] font-semibold transition-all"
+            className="dm inline-flex h-11 items-center gap-1.5 rounded-full px-4 text-[12px] font-semibold transition-all sm:h-auto sm:py-2"
             style={filterStatus==='all'
               ?{background: 'var(--color-text-primary)',color:'var(--color-text-inverse)',border:'1.5px solid transparent',fontWeight:700}
               :{background: 'var(--color-bg-surface)',color: 'var(--color-text-secondary)',border: '1px solid var(--color-border)'}}>
@@ -1605,7 +1617,7 @@ export default function ClassBookingsPage() {
           </button>
           {STATUS_TABS.map(tab=>(
             <button key={tab.key} type="button" onClick={()=>setFilterStatus(tab.key)}
-              className="dm inline-flex items-center rounded-full px-4 py-2 text-[12px] font-semibold transition-all"
+              className="dm inline-flex h-11 items-center rounded-full px-4 text-[12px] font-semibold transition-all sm:h-auto sm:py-2"
               style={filterStatus===tab.key
                 ?{...tab.activeStyle,fontWeight:700}
                 :{background: 'var(--color-bg-surface)',color: 'var(--color-text-secondary)',border: '1px solid var(--color-border)'}}>
@@ -1627,34 +1639,43 @@ export default function ClassBookingsPage() {
         {/* ─── FILTER BAR ───────────────────────────────────────── */}
         <div className="mb-4 relative" ref={panelRef}>
           <motion.div initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} transition={{delay:0.08}}
-            className="flex items-center gap-2 rounded-2xl bg-[var(--color-bg-surface)] px-3 py-2.5"
+            /* Wraps instead of squeezing. On one line the search is `flex-1`,
+               which at 375px left it 62px wide — narrower than its own
+               placeholder, so the one control you type into was the one that
+               gave up all its space. With a min-width it drops to its own line
+               on a phone and keeps the full ribbon on desktop, so the group
+               still reads as a single tool bar either way. */
+            className="flex flex-wrap items-center gap-2 rounded-2xl bg-[var(--color-bg-surface)] px-3 py-2.5"
             style={{border: '1px solid var(--color-border)',boxShadow:'0 1px 6px rgba(15,23,42,0.05)'}}>
 
             {/* Delivery toggles */}
             <button type="button" onClick={()=>toggleDelivery('online')}
-              className="dm flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold transition-all flex-shrink-0"
+              className="dm flex h-11 flex-shrink-0 items-center gap-1.5 rounded-full px-3 text-[12px] font-semibold transition-all sm:h-auto sm:py-1.5"
               style={filterDelivery==='online'
                 ?{background:'rgba(99,102,241,0.12)',color: '#6366F1',border:'1.5px solid rgba(99,102,241,0.30)',fontWeight:600}
                 :{background: 'var(--color-bg-inset)',color: 'var(--color-text-secondary)',border: '1px solid var(--color-border)'}}>
               <Wifi size={12}/>Online
             </button>
             <button type="button" onClick={()=>toggleDelivery('offline')}
-              className="dm flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold transition-all flex-shrink-0"
+              className="dm flex h-11 flex-shrink-0 items-center gap-1.5 rounded-full px-3 text-[12px] font-semibold transition-all sm:h-auto sm:py-1.5"
               style={filterDelivery==='offline'
                 ?{background:'rgba(5,150,105,0.10)',color: 'var(--color-success)',border:'1.5px solid rgba(5,150,105,0.28)',fontWeight:600}
                 :{background: 'var(--color-bg-inset)',color: 'var(--color-text-secondary)',border: '1px solid var(--color-border)'}}>
               <Building2 size={12}/>In-Person
             </button>
 
-            <div className="h-5 w-px flex-shrink-0" style={{background: 'var(--color-border)'}}/>
+            {/* Separates the delivery toggles from the search — only meaningful
+                while they share a line. Once the ribbon wraps on a phone it
+                would trail the first row dividing nothing, so it goes. */}
+            <div className="hidden h-5 w-px flex-shrink-0 sm:block" style={{background: 'var(--color-border)'}}/>
 
             {/* Search */}
-            <div className="relative flex-1 min-w-0">
+            <div className="relative min-w-[200px] flex-1">
               <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
                 style={{color:search?'#0057b8':'var(--color-text-muted)'}}/>
               <input type="text" value={search} onChange={e=>setSearch(e.target.value)}
                 placeholder="Search classes, instructors…"
-                className="dm w-full rounded-xl py-1.5 pl-8 pr-7 text-[12px] outline-none"
+                className="dm h-11 w-full rounded-xl pl-8 pr-7 text-[12px] outline-none sm:h-auto sm:py-1.5"
                 style={{background:search?'rgba(0,87,184,0.04)':'var(--color-bg-inset)',color: 'var(--color-text-secondary)',
                   border:`1px solid ${search?'rgba(0,87,184,0.25)':'var(--color-border)'}`}}/>
               {search&&(
@@ -1667,7 +1688,7 @@ export default function ClassBookingsPage() {
 
             {/* Filters button */}
             <button type="button" onClick={()=>setShowPanel(v=>!v)}
-              className="dm flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold flex-shrink-0 transition-all"
+              className="dm flex h-11 flex-shrink-0 items-center gap-1.5 rounded-full px-3 text-[12px] font-semibold transition-all sm:h-auto sm:py-1.5"
               style={showPanel||panelFilterCount>0
                 ?{background:'rgba(0,87,184,0.10)',color: '#EA6010',border:'1.5px solid rgba(0,87,184,0.30)',fontWeight:600}
                 :{background: 'var(--color-bg-inset)',color: 'var(--color-text-secondary)',border: '1px solid var(--color-border)'}}>

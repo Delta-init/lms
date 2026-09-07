@@ -13,6 +13,7 @@ import {
 } from '@/lib/api/classAssignments'
 import { useToast } from '@/store/ui.store'
 import Spinner from '@/components/ui/Spinner'
+import { titleCase } from '@/lib/titleCase'
 
 /* ── Constants that mirror the API's own limits ──────────
    Keeping these in step with the backend is what makes the form refuse a
@@ -83,11 +84,26 @@ function FilePicker({
       <input ref={inputRef} type="file" multiple accept={ACCEPT} className="hidden"
         onChange={e => void add(e.target.files)} />
 
+      {/* Drop zone rather than a button-shaped strip: it is the one place on
+          this form that accepts a file, so it should read as an area you can
+          drop onto. The dashed rule was a hardcoded grey that ignored the
+          theme; it now uses the border token at rest and the brand blue on
+          hover, with the tint coming up to meet it — enough feedback to say
+          "this is a target" without animating on a surface people are
+          reading. */}
       <button type="button" onClick={() => inputRef.current?.click()} disabled={busy || files.length >= MAX_FILES}
-        className="flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-colors disabled:opacity-50"
-        style={{ border: '1.5px dashed #C6CBD4', color: 'var(--color-primary)', background: 'var(--color-bg-inset)' }}>
-        {busy ? <Spinner /> : <Upload size={15} />}
+        className="group flex w-full flex-col items-center justify-center gap-2 rounded-xl px-4 py-6 text-sm font-semibold transition-all duration-200 disabled:opacity-50 hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-light)]"
+        style={{ border: '1.5px dashed var(--color-border-strong)', color: 'var(--color-primary)', background: 'var(--color-bg-inset)' }}>
+        <span className="flex h-10 w-10 items-center justify-center rounded-full transition-colors"
+          style={{ background: 'var(--color-primary-light)' }}>
+          {busy ? <Spinner /> : <Upload size={17} strokeWidth={1.75} />}
+        </span>
         {busy ? 'Uploading…' : files.length ? 'Add another file' : 'Add photos or PDFs'}
+        {!busy && !files.length && (
+          <span className="text-[11px] font-medium" style={{ color: 'var(--color-text-muted)' }}>
+            Click to browse from your device
+          </span>
+        )}
       </button>
       <p className="mt-1.5 text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
         JPG, PNG, WebP or PDF · up to 10 MB each · {MAX_FILES} files max
@@ -188,7 +204,7 @@ function SubmitCard() {
         style={{ border: '1px solid var(--color-border)', background: 'var(--color-bg-inset)', color: 'var(--color-text-primary)' }}>
         <option value="">Select a class you attended…</option>
         {available.map(s => (
-          <option key={s.id} value={s.id}>{s.title} — {fmtDate(s.scheduledStart)}</option>
+          <option key={s.id} value={s.id}>{titleCase(s.title)} — {fmtDate(s.scheduledStart)}</option>
         ))}
       </select>
 
@@ -280,7 +296,7 @@ function AssignmentCard({ a }: { a: MyClassAssignment }) {
                 style={{ background: 'var(--color-bg-page)', color: 'var(--color-text-muted)' }}>Attempt {a.attempt}</span>
             )}
           </div>
-          <p className="truncate text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>{a.title}</p>
+          <p className="truncate text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>{titleCase(a.title)}</p>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>
             <span className="flex items-center gap-1"><Calendar size={10} />{a.liveClassId?.title ?? 'Class'}</span>
             {a.instructorId?.name && <><span>·</span><span>{a.instructorId.name}</span></>}
