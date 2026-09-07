@@ -216,7 +216,46 @@ export class CourseRepository extends BaseRepository<ICourse> {
         .exec(),
       CourseModel.countDocuments(filter).exec(),
     ])
+
+    await this.attachTrueEnrolledCounts(docs)
     return { docs, totalCount }
+  }
+
+  /* ─── The student count the ADMIN table shows ───────────────────────────
+     `enrolledCount` on the course is a denormalised counter, and it is only
+     maintained on two of the paths that create an enrolment (self-enrol and
+     purchase). Admin enrolments, the bulk-import scripts and every deletion
+     path leave it untouched, so it drifts up and never comes back down —
+     locally 18 of 19 courses disagreed with reality, and the seeded ones
+     carry `Math.random() * 3000` from scripts/seed.ts.
+
+     For an admin page of ~20 rows the honest number is cheap: one grouped
+     count over the enrolments for exactly the courses being shown. That
+     cannot drift, because nothing is being remembered.
+
+     Deliberately scoped to the admin list. The public catalogue still reads
+     the stored field, which it sorts by ("popular"), and sorting a whole
+     collection on a derived value is a different problem — see the
+     backfill script for keeping that field honest.
+  ─────────────────────────────────────────────────────────────────────── */
+  private async attachTrueEnrolledCounts(docs: ICourse[]): Promise<void> {
+    if (!docs.length) return
+
+    const ids = docs.map(d => d._id)
+    const rows = await CourseModel.db.collection('enrollments').aggregate<{
+      _id: Types.ObjectId; n: number
+    }>([
+      { $match: { courseId: { $in: ids } } },
+      { $group: { _id: '$courseId', n: { $sum: 1 } } },
+    ]).toArray()
+
+    const byCourse = new Map(rows.map(r => [String(r._id), r.n]))
+    for (const doc of docs) {
+      /* set() rather than assignment so the value survives toJSON/DTO. These
+         documents are read-only on this path — nothing saves them — so the
+         overwrite never reaches the database. */
+      doc.set('enrolledCount', byCourse.get(String(doc._id)) ?? 0)
+    }
   }
 
   async findById_(id: string | Types.ObjectId): Promise<ICourse | null> {

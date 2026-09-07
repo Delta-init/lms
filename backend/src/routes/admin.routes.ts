@@ -299,7 +299,7 @@ router.post ('/users', requirePermission('users','create'),          validate(us
 
       /* Enroll the new student into the requested courses */
       if (courses && courses.length > 0) {
-        const { EnrollmentModel } = await import('@/models/schema.ts')
+        const { EnrollmentModel, CourseModel } = await import('@/models/schema.ts')
         const { Types } = await import('mongoose')
         await Promise.all(
           courses.map(async (c: { courseId: string; blockedLessons: string[] }) => {
@@ -316,6 +316,9 @@ router.post ('/users', requirePermission('users','create'),          validate(us
                 enrollDoc['organizationId'] = new Types.ObjectId(req.user!.organizationId)
               }
               await EnrollmentModel.create(enrollDoc)
+              await CourseModel.updateOne(
+                { _id: new Types.ObjectId(c.courseId) }, { $inc: { enrolledCount: 1 } },
+              )
             } catch (_) { /* skip duplicate enrollments silently */ }
           })
         )
@@ -663,7 +666,7 @@ const enrollCreateSchema = z.object({ courseId: z.string().min(1) })
 router.post('/users/:id/enrollments', requireAnyAdmin, requireSameOrgUser('id'), validate(enrollCreateSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { EnrollmentModel } = await import('@/models/schema.ts')
+      const { EnrollmentModel, CourseModel } = await import('@/models/schema.ts')
       const { Types } = await import('mongoose')
       const userId   = req.params['id'] as string
       const courseId = (req.body as { courseId: string }).courseId
@@ -692,6 +695,10 @@ router.post('/users/:id/enrollments', requireAnyAdmin, requireSameOrgUser('id'),
         userId:   new Types.ObjectId(userId),
         courseId: new Types.ObjectId(courseId),
       })
+      /* Keep the denormalised counter in step. It is maintained on the
+         self-enrol and purchase paths but was never touched here, so every
+         admin enrolment left the catalogue's student count one short. */
+      await CourseModel.updateOne({ _id: new Types.ObjectId(courseId) }, { $inc: { enrolledCount: 1 } })
       const populated = await EnrollmentModel.findById(doc._id)
         .populate('courseId', 'id title thumbnailUrl')
         .lean({ virtuals: true })
@@ -704,7 +711,7 @@ router.post('/users/:id/enrollments', requireAnyAdmin, requireSameOrgUser('id'),
 router.delete('/enrollments/:id', requireAnyAdmin,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { EnrollmentModel } = await import('@/models/schema.ts')
+      const { EnrollmentModel, CourseModel } = await import('@/models/schema.ts')
       const existing = await EnrollmentModel.findById(req.params['id']).select('courseId userId').lean()
       if (!existing) {
         res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Enrollment not found' } })
@@ -730,6 +737,12 @@ router.delete('/enrollments/:id', requireAnyAdmin,
         }
       }
       await EnrollmentModel.findByIdAndDelete(req.params['id'])
+      /* Down as well as up: nothing decremented this counter anywhere, so it
+         could only ever grow. `existing` was already loaded above for the
+         scope check, so the course id costs nothing here. */
+      if (existing?.courseId) {
+        await CourseModel.updateOne({ _id: existing.courseId }, { $inc: { enrolledCount: -1 } })
+      }
       sendSuccess(res, null, 'Enrollment removed')
     } catch (err) { next(err) }
   },

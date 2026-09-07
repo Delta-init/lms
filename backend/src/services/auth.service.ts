@@ -543,8 +543,14 @@ export class AuthService {
 
     /* Cascade the user-attached personal records first.
        We import lazily here to avoid a circular import at module load. */
-    const { ReviewModel, EnrollmentModel, LessonProgressModel, AuthTokenModel } =
+    const { ReviewModel, EnrollmentModel, LessonProgressModel, AuthTokenModel, CourseModel } =
       await import('@/models/schema.ts')
+
+    /* Which courses this account was enrolled on, read before the rows go.
+       Deleting an account used to leave every one of its courses reporting a
+       student it no longer had. */
+    const removedEnrolments = await EnrollmentModel.find({ userId }, { courseId: 1 }).lean()
+
     await Promise.all([
       this.tokenRepo.revokeAllForUser(userId, 'security'),
       AuthTokenModel.deleteMany({ userId }).exec(),
@@ -552,6 +558,15 @@ export class AuthService {
       EnrollmentModel.deleteMany({ userId }).exec(),
       LessonProgressModel.deleteMany({ userId }).exec(),
     ])
+
+    if (removedEnrolments.length) {
+      await CourseModel.bulkWrite(
+        removedEnrolments.map(r => ({
+          updateOne: { filter: { _id: r.courseId }, update: { $inc: { enrolledCount: -1 } } },
+        })),
+        { ordered: false },
+      )
+    }
     await this.userRepo.hardDelete(userId)
     logger.info({ userId }, 'account hard-deleted')
   }

@@ -697,8 +697,20 @@ export class AdminController {
       })
 
       // Remove all course enrollments so the user loses access to all course content
-      const { EnrollmentModel } = await import('@/models/schema.ts')
+      const { EnrollmentModel, CourseModel } = await import('@/models/schema.ts')
+      /* Read the affected courses BEFORE deleting: once the rows are gone
+         there is nothing left to say which counters to bring down, and this
+         path never decremented them at all. */
+      const removed = await EnrollmentModel.find({ userId }, { courseId: 1 }).lean()
       await EnrollmentModel.deleteMany({ userId })
+      if (removed.length) {
+        await CourseModel.bulkWrite(
+          removed.map(r => ({
+            updateOne: { filter: { _id: r.courseId }, update: { $inc: { enrolledCount: -1 } } },
+          })),
+          { ordered: false },
+        )
+      }
 
       void sendEnrollmentCancelled(existing.email, existing.name, '', reason).catch(() => {})
 
