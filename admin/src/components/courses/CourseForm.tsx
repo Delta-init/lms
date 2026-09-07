@@ -13,6 +13,9 @@ import {
 import dynamic from 'next/dynamic'
 import { useCreateCourse, useUpdateCourse } from '@/lib/api/courses'
 import { useCategories } from '@/lib/api/categories'
+import { useOrganizations } from '@/lib/api/organizations'
+import { useCurrentUser } from '@/lib/api/user'
+import { useOrgStore } from '@/store/org.store'
 import { useToast } from '@/store/ui.store'
 import { MediaUploadField } from '@/components/ui/MediaUploadField'
 import { courseLanguageOptions } from '@/lib/languages'
@@ -42,6 +45,7 @@ const schema = z.object({
   tags:         z.string(),
   categoryId:   z.string(),
   program:      z.enum(['4x-trading', 'digital-marketing', 'ai', 'jura', '']),
+  organizationId: z.string().optional(),
 })
 
 type Values = z.infer<typeof schema>
@@ -164,6 +168,14 @@ export function CourseForm({ course }: CourseFormProps) {
   const createMutation = useCreateCourse()
   const updateMutation = useUpdateCourse()
   const { data: categories } = useCategories()
+
+  /* Academy - super admins only. Working from "All Orgs" they have no
+     implicit academy, and a course belonging to none appears in no
+     academy's catalogue. The switcher supplies the default when set. */
+  const { data: me } = useCurrentUser()
+  const isSuper = me?.role === 'super_admin'
+  const activeOrgId = useOrgStore(st => st.activeOrgId)
+  const { data: orgs } = useOrganizations(isSuper)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const toast = useToast()
   const isEditing = !!course
@@ -186,8 +198,16 @@ export function CourseForm({ course }: CourseFormProps) {
       tags:         course?.tags?.join(', ') ?? '',
       categoryId:   course?.categoryId   ?? '',
       program:      course?.program       ?? '',
+      organizationId: (course as { organizationId?: string } | undefined)?.organizationId ?? '',
     },
   })
+
+  /* Follow the topbar switcher when it points at a single academy. */
+  useEffect(() => {
+    if (isSuper && activeOrgId && !watch('organizationId')) {
+      setValue('organizationId', activeOrgId)
+    }
+  }, [isSuper, activeOrgId, watch, setValue])
 
   const isFree = watch('isFree')
   const titleVal = watch('title')
@@ -491,6 +511,16 @@ export function CourseForm({ course }: CourseFormProps) {
                     options={(categories ?? []).map(c => ({ value: c.id, label: c.name }))} />
                 )} />
               </Field>
+
+              {/* Academy - super admins only; everyone else inherits their own. */}
+              {isSuper && (
+                <Field label="Academy *">
+                  <Controller name="organizationId" control={control} render={({ field }) => (
+                    <Select value={field.value ?? ''} onChange={field.onChange} placeholder="Select academy…"
+                      options={(orgs ?? []).map(o => ({ value: o.id, label: o.name }))} />
+                  )} />
+                </Field>
+              )}
 
               <Field label="Program *">
                 <Controller name="program" control={control} render={({ field }) => (

@@ -128,6 +128,7 @@ export class AdminController {
         categoryId?:   string
         instructorId?: string
         program?:      '4x-trading' | 'digital-marketing' | 'ai' | 'jura'
+        organizationId?: string
       }
 
       const tags = typeof dto.tags === 'string'
@@ -148,6 +149,53 @@ export class AdminController {
 
       const scope = req.user!.categoryScope
 
+      /* ── Which academy owns this course? ──────────────────────────────────
+         The same trap as user creation: this used to be whatever
+         `req.user.organizationId` happened to be, which for a super_admin is
+         the topbar org switcher — and its default position, "All Orgs", sends
+         no header. A course created from there belonged to no academy and so
+         appeared in no academy's catalogue.
+
+         A super_admin names the academy, falling back to the switcher. Anyone
+         else gets their own and may not name another. The coupon service has
+         refused the empty case for a while; courses now do the same. */
+      const isSuper   = req.user!.role === 'super_admin'
+      const callerOrg = req.user!.organizationId
+
+      if (!isSuper && dto.organizationId && dto.organizationId !== callerOrg) {
+        res.status(403).json({ success: false, error: {
+          code: 'FORBIDDEN', message: 'You can only create courses in your own academy.',
+        } })
+        return
+      }
+
+      /* `||` not `??` — an unselected picker sends '' meaning "not chosen". */
+      const organizationId = isSuper ? (dto.organizationId || callerOrg) : callerOrg
+
+      if (!organizationId) {
+        res.status(400).json({ success: false, error: {
+          code: 'ORGANIZATION_REQUIRED', message: 'Select an academy for this course.',
+        } })
+        return
+      }
+
+      {
+        const { Types } = await import('mongoose')
+        const { OrganizationModel } = await import('@/models/schema.ts')
+        if (!Types.ObjectId.isValid(organizationId)) {
+          res.status(400).json({ success: false, error: {
+            code: 'INVALID_ORGANIZATION', message: 'That is not a valid academy id.',
+          } })
+          return
+        }
+        if (!(await OrganizationModel.exists({ _id: organizationId }))) {
+          res.status(404).json({ success: false, error: {
+            code: 'ORGANIZATION_NOT_FOUND', message: 'That academy does not exist.',
+          } })
+          return
+        }
+      }
+
       const course = await this.courseService.create({
         title:          dto.title,
         slug:           dto.slug,
@@ -165,7 +213,7 @@ export class AdminController {
         instructorId,
         categoryId:     dto.categoryId,
         program:        scope ?? dto.program,
-        organizationId: req.user!.organizationId,
+        organizationId,
       })
       sendSuccess(res, toCourseDTO(course, 0), 'Course created', 201)
     } catch (err) { next(err) }

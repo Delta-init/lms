@@ -134,9 +134,31 @@ export class UserRepository extends BaseRepository<IUser> {
     if (params.status === 'active')   filter['isActive'] = true
     if (params.status === 'inactive') filter['isActive'] = false
 
-    const categoryOr = params.category
+    /* ── Who counts as "in this programme" ──────────────────────────────
+       A student's programme lives on `categories`, and nothing about
+       enrolling on a course writes it: a Digital Marketing student put on an
+       AI course — by purchase, by an admin, by self-enrol or by script — stays
+       DM, so the AI sub-admin's student table never showed them. They were
+       visible on the AI course roster and nowhere else, which made the two
+       views disagree about who the programme's students are.
+
+       So the programme filter now matches EITHER way in: the student carries
+       the category, or they are enrolled on a course that belongs to it. This
+       is a read-side widening only — nothing here writes `categories`, and a
+       student unenrolled from the course leaves the list with it.
+
+       Guarded to student lists. Not for correctness -- an instructor list
+       already carries `role: 'instructor'`, so student ids could never match
+       it -- but so that listing instructors or admins does not pay for two
+       collection reads whose results are guaranteed to be discarded. */
+    const categoryOr: Record<string, unknown>[] | null = params.category
       ? [{ category: params.category }, { categories: params.category }]
       : null
+
+    if (categoryOr && role === 'student') {
+      const enrolled = await this.studentIdsOnProgramCourses(params.category!)
+      if (enrolled.length) categoryOr.push({ _id: { $in: enrolled } })
+    }
 
     const searchTerm = params.search
       ? params.search.slice(0, MAX_SEARCH_LEN).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -162,6 +184,20 @@ export class UserRepository extends BaseRepository<IUser> {
     }
 
     return this.paginate(filter, params.page, params.perPage, { createdAt: -1 })
+  }
+
+  /* The student ids reachable through a programme's COURSES rather than
+     through their own category. Two small indexed reads — the programme's
+     courses, then the distinct students enrolled on them — which is the same
+     shape the scoped bookings and live-class queries already use. */
+  private async studentIdsOnProgramCourses(program: string): Promise<Types.ObjectId[]> {
+    if (!program) return []
+    const { CourseModel, EnrollmentModel } = await import('@/models/schema.ts')
+    const courses = await CourseModel.find({ program }, { _id: 1 }).lean()
+    if (!courses.length) return []
+    return EnrollmentModel.distinct('userId', {
+      courseId: { $in: courses.map(c => c._id) },
+    }) as unknown as Types.ObjectId[]
   }
 }
 

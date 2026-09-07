@@ -47,6 +47,8 @@ export interface CourseFormValues {
   tags:         string
   categoryId:   string
   program:      '4x-trading' | 'digital-marketing' | 'ai' | 'jura' | ''
+  /** Which academy owns the course. Super admins choose; others inherit. */
+  organizationId?: string
 }
 
 export interface Category { id: string; name: string; slug: string }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -9,11 +9,14 @@ import {
   X, User, Mail, Lock, Eye, EyeOff, AlertCircle,
   CheckCircle2, Users, ChevronDown, ChevronUp,
   Check, Unlock, ArrowLeft, ArrowRight,
-  TrendingUp, Cpu, BarChart2, Tag,
+  TrendingUp, Cpu, BarChart2, Tag, Building2,
 } from 'lucide-react'
 import { useCreateInstructor } from '@/lib/api/instructors'
 import Spinner from '@/components/ui/Spinner'
 import { useCourses } from '@/lib/api/courses'
+import { useOrganizations } from '@/lib/api/organizations'
+import { useCurrentUser } from '@/lib/api/user'
+import { useOrgStore } from '@/store/org.store'
 import { useCourseOutline } from '@/lib/api/outline'
 
 /* ── Types ──────────────────────────────────────────------ */
@@ -176,6 +179,25 @@ export function AddStudentModal({ open, onClose }: Props) {
   const [categories, setCategories] = useState<Set<string>>(new Set())
   const [categoryError, setCategoryError] = useState<string | null>(null)
 
+  /* ── Which academy? ───────────────────────────────────────────────────
+     Only a super admin chooses. Everyone else's account is created in their
+     own academy by the server, so showing them a picker would offer a choice
+     they do not have. A super admin's topbar switcher supplies the default,
+     but its default position is "All Orgs" — which is no academy at all, and
+     is exactly how accounts belonging to nobody used to be created. So it is
+     a required field, not an inherited one. */
+  const { data: me } = useCurrentUser()
+  const isSuper = me?.role === 'super_admin'
+  const activeOrgId = useOrgStore(s => s.activeOrgId)
+  const { data: orgs } = useOrganizations(isSuper)
+  const [orgId, setOrgId] = useState<string>('')
+  const [orgError, setOrgError] = useState<string | null>(null)
+
+  /* Follow the switcher when it points at a single academy. */
+  useEffect(() => {
+    if (isSuper && activeOrgId && !orgId) setOrgId(activeOrgId)
+  }, [isSuper, activeOrgId, orgId])
+
   const { mutateAsync, isPending, error: apiError } = useCreateInstructor()
   const { data: coursesData, isLoading: coursesLoading } = useCourses({ per_page: 50, status: 'published' })
 
@@ -191,6 +213,8 @@ export function AddStudentModal({ open, onClose }: Props) {
 
   /* Step 1 → Step 2 */
   const onStep1Submit = (values: AccountValues) => {
+    if (isSuper && !orgId) { setOrgError('Select which academy this student belongs to'); return }
+    setOrgError(null)
     if (categories.size === 0) { setCategoryError('Please select at least one program category'); return }
     setCategoryError(null)
     setAccountValues(values)
@@ -267,6 +291,7 @@ export function AddStudentModal({ open, onClose }: Props) {
       role:       'student',
       categories: Array.from(categories) as ('4x-trading' | 'digital-marketing' | 'ai' | 'jura')[],
       courses,
+      ...(isSuper && orgId ? { organizationId: orgId } : {}),
     })
     setSuccess(true)
     setTimeout(() => {
@@ -276,6 +301,8 @@ export function AddStudentModal({ open, onClose }: Props) {
       setBlockState({})
       setAccountValues(null)
       setCategories(new Set())
+      setOrgId('')
+      setOrgError(null)
       onClose()
     }, 1800)
   }
@@ -288,6 +315,8 @@ export function AddStudentModal({ open, onClose }: Props) {
     setAccountValues(null)
     setCategories(new Set())
     setCategoryError(null)
+    setOrgId('')
+    setOrgError(null)
     setSuccess(false)
     onClose()
   }
@@ -383,6 +412,48 @@ export function AddStudentModal({ open, onClose }: Props) {
                             className={inputCls} style={inputStyle(!!errors.name)} />
                         </div>
                       </Field>
+
+                      {/* Academy — super admins only. Everyone else's account
+                          is created in their own, so there is nothing to ask. */}
+                      {isSuper && (
+                        <div>
+                          <label className="mb-1.5 block text-xs font-semibold"
+                            style={{ color: 'rgba(255,255,255,0.5)' }}>
+                            Academy * <span style={{ color: 'rgba(255,255,255,0.3)', fontWeight: 400 }}>(which one this student belongs to)</span>
+                          </label>
+                          <div className="flex flex-wrap gap-2">
+                            {(orgs ?? []).map(o => {
+                              const active = orgId === o.id
+                              return (
+                                <button key={o.id} type="button"
+                                  onClick={() => { setOrgError(null); setOrgId(o.id) }}
+                                  className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all"
+                                  style={active
+                                    ? { background: 'rgba(47,107,255,0.14)', border: '1px solid rgba(47,107,255,0.45)', color: '#7FA8FF' }
+                                    : orgError
+                                    ? { background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.25)', color: 'rgba(255,255,255,0.32)' }
+                                    : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.32)' }
+                                  }>
+                                  <Building2 size={11} />{o.name}
+                                </button>
+                              )
+                            })}
+                            {(orgs ?? []).length === 0 && (
+                              <span className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                                Loading academies…
+                              </span>
+                            )}
+                          </div>
+                          <AnimatePresence>
+                            {orgError && (
+                              <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                                className="mt-1.5 flex items-center gap-1 text-xs" style={{ color: '#F87171' }}>
+                                <AlertCircle size={10} />{orgError}
+                              </motion.p>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      )}
 
                       <div>
                         <label className="mb-1.5 block text-xs font-semibold"

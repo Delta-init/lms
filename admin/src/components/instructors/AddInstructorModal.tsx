@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -8,9 +8,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   X, User, Mail, Lock, Eye, EyeOff, FileText,
   AlertCircle, CheckCircle2, GraduationCap, Camera,
-  TrendingUp, Cpu, BarChart2, ShieldCheck,
+  TrendingUp, Cpu, BarChart2, ShieldCheck, Building2,
 } from 'lucide-react'
 import { useCreateInstructor } from '@/lib/api/instructors'
+import { useOrganizations } from '@/lib/api/organizations'
+import { useCurrentUser } from '@/lib/api/user'
+import { useOrgStore } from '@/store/org.store'
 import Spinner from '@/components/ui/Spinner'
 import { api } from '@/lib/axios'
 
@@ -73,6 +76,19 @@ export function AddInstructorModal({ open, onClose }: AddInstructorModalProps) {
 
   const { mutateAsync, isPending, error: apiError } = useCreateInstructor()
 
+  /* Academy - see the note in AddStudentModal. A super admin working from
+     "All Orgs" has no implicit academy, so without this the account is
+     created belonging to none. Required for them, absent for everyone else. */
+  const { data: me } = useCurrentUser()
+  const isSuper = me?.role === 'super_admin'
+  const activeOrgId = useOrgStore(st => st.activeOrgId)
+  const { data: orgs } = useOrganizations(isSuper)
+  const [orgId, setOrgId] = useState<string>('')
+  const [orgError, setOrgError] = useState<string | null>(null)
+  useEffect(() => {
+    if (isSuper && activeOrgId && !orgId) setOrgId(activeOrgId)
+  }, [isSuper, activeOrgId, orgId])
+
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: { role: 'instructor' },
@@ -102,6 +118,8 @@ export function AddInstructorModal({ open, onClose }: AddInstructorModalProps) {
     } finally {
       setUploading(false)
     }
+    if (isSuper && !orgId) { setOrgError('Select which academy this account belongs to'); return }
+    setOrgError(null)
     await mutateAsync({
       name:     values.name,
       email:    values.email,
@@ -111,6 +129,7 @@ export function AddInstructorModal({ open, onClose }: AddInstructorModalProps) {
       bio:      values.bio      || undefined,
       category: values.category,
       avatarUrl,
+      ...(isSuper && orgId ? { organizationId: orgId } : {}),
     })
     setSuccess(true)
     setTimeout(() => {
@@ -300,6 +319,28 @@ export function AddInstructorModal({ open, onClose }: AddInstructorModalProps) {
                     ))}
                   </div>
                 </DField>
+
+                {/* Academy - super admins only */}
+                {isSuper && (
+                  <DField label="Academy *" error={orgError ?? undefined}>
+                    <div className="flex flex-wrap gap-2">
+                      {(orgs ?? []).map(o => {
+                        const active = orgId === o.id
+                        return (
+                          <button key={o.id} type="button"
+                            onClick={() => { setOrgError(null); setOrgId(o.id) }}
+                            className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all"
+                            style={active
+                              ? { background: 'rgba(47,107,255,0.14)', border: '1px solid rgba(47,107,255,0.45)', color: '#7FA8FF' }
+                              : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.32)' }
+                            }>
+                            <Building2 size={11} />{o.name}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </DField>
+                )}
 
                 {/* Category chips */}
                 <DField label="Program Category *" error={errors.category?.message}>
