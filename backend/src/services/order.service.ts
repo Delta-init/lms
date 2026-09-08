@@ -987,9 +987,15 @@ export class OrderService {
     amount?: number
     currency?: string
   }): Promise<{ userId: string; created: boolean; alreadyProcessed: boolean; enrolled: string[] }> {
-    const { OrderModel } = await import('@/models/schema.ts')
+    const { OrderModel, OrganizationModel } = await import('@/models/schema.ts')
     const email = input.email.toLowerCase().trim()
     const COURSE_SLUGS = ['ai', 'ai-academy-english']   // Malayalam + English
+
+    /* AI-academy buyers belong to the Bangalore (India) academy — the
+       INR/Razorpay org the AI-academy programme sits under — so they show up
+       under, and are managed by, that org rather than being org-less. */
+    const bangalore = await OrganizationModel.findOne({ slug: 'bangalore' }).select('_id').lean()
+    const organizationId = bangalore?._id
 
     /* Upsert the user (create passwordless if new; backfill blank name/phone). */
     let user = await UserModel.findOne({ email })
@@ -999,6 +1005,7 @@ export class OrderService {
         name:  input.name?.trim() || email.split('@')[0],
         email,
         role:  'student',
+        ...(organizationId ? { organizationId } : {}),
         ...(input.phone ? { enrollmentApplication: { phone: input.phone.trim() } } : {}),
       })
       created = true
@@ -1007,6 +1014,11 @@ export class OrderService {
       if (input.name && !user.name) set['name'] = input.name.trim()
       if (input.phone && !(user as { enrollmentApplication?: { phone?: string } }).enrollmentApplication?.phone) {
         set['enrollmentApplication.phone'] = input.phone.trim()
+      }
+      /* Assign the org only if the account has none — never clobber a student
+         who already belongs to a different academy. */
+      if (organizationId && !(user as { organizationId?: unknown }).organizationId) {
+        set['organizationId'] = organizationId
       }
       if (Object.keys(set).length) await UserModel.updateOne({ _id: user._id }, { $set: set })
     }
