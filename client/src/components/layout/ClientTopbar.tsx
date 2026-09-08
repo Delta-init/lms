@@ -23,6 +23,7 @@ import {
 } from '@/lib/api/notifications'
 import { AIChatPanel } from '@/components/layout/AIChatPanel'
 import { useIsMobile } from '@/hooks/useIsMobile'
+import { AvatarImg } from '@/components/ui/AvatarImg'
 
 /* Nav tabs shown when sidebar layout is active (minimal — sidebar handles main nav) */
 const SIDEBAR_TABS = [
@@ -545,9 +546,9 @@ export function ClientTopbar() {
               <div className="flex cursor-pointer items-center gap-2.5 rounded-xl px-2 py-1 transition-colors hover:bg-[var(--color-hover)]">
                 <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full text-xs font-bold text-white ring-2 ring-blue-100 lg:h-9 lg:w-9"
                   style={{ background: 'var(--color-primary)' }}>
-                  {hasAvatarImage
-                    ? <img src={user!.avatarUrl} alt="" className="h-full w-full object-cover" />
-                    : avatarInitial}
+                  <AvatarImg src={user?.avatarUrl}
+                    className="h-full w-full object-cover"
+                    fallback={avatarInitial} />
                 </div>
                 <div className="hidden max-w-[160px] lg:block">
                   <p className="truncate text-xs font-semibold leading-tight" style={{ color: 'var(--color-text-primary)' }}>{displayName}</p>

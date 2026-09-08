@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { useAdminReviews, useDeleteReview, type AdminReview } from '@/lib/api/reviews'
 import { useToast } from '@/store/ui.store'
 import Spinner from '@/components/ui/Spinner'
+import { AvatarImg } from '@/components/ui/AvatarImg'
 
 function reviewer(r: AdminReview) {
   return typeof r.userId === 'object' && r.userId !== null ? r.userId : null
@@ -72,9 +73,9 @@ export default function ReviewsPage() {
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full"
                     style={{ background: 'rgba(0,87,184,0.15)', border: '1px solid rgba(0,87,184,0.25)' }}>
-                    {u?.avatarUrl
-                      ? <img src={u.avatarUrl} alt="" className="h-full w-full object-cover" />
-                      : <span className="text-xs font-bold" style={{ color: '#0057b8' }}>{u?.name?.[0] ?? '?'}</span>}
+                    <AvatarImg src={u?.avatarUrl}
+                      className="h-full w-full object-cover"
+                      fallback={<span className="text-xs font-bold" style={{ color: '#0057b8' }}>{u?.name?.[0] ?? '?'}</span>} />
                   </div>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-white">{u?.name ?? 'Student'}</p>

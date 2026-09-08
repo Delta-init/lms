@@ -21,6 +21,7 @@ import { useToast } from '@/store/ui.store'
 import { Button, MotionButton } from '@/components/ui/button'
 import { useDocumentUrl } from '@/lib/api/documents'
 import { programLabel } from '@/lib/programs'
+import { AvatarImg } from '@/components/ui/AvatarImg'
 
 /* ── Custom dark course picker (avoids native white dropdown) ── */
 function CourseSelect({
@@ -456,9 +457,8 @@ export function EditStudentModal({ user, onClose, onSuccess }: Props) {
                     style={{ background: 'rgba(255,255,255,0.08)', border: '2px solid rgba(255,255,255,0.12)' }}
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    {avatarPreview
-                      ? <img src={avatarPreview} alt="Avatar" className="h-full w-full object-cover" />
-                      : <User size={28} style={{ color: 'rgba(255,255,255,0.3)' }} />}
+                    <AvatarImg src={avatarPreview} className="h-full w-full object-cover"
+                      fallback={<User size={28} style={{ color: 'rgba(255,255,255,0.3)' }} />} />
                   </div>
                   <button
                     type="button"

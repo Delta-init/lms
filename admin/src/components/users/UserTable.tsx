@@ -9,6 +9,7 @@ import {
 import { useUsers, useUpdateUser, useImpersonateClient, type AdminUser } from '@/lib/api/users'
 import { useCurrentUser } from '@/lib/api/user'
 import Spinner from '@/components/ui/Spinner'
+import { AvatarImg } from '@/components/ui/AvatarImg'
 import { useToast } from '@/store/ui.store'
 import { EditStudentModal } from '@/components/users/EditStudentModal'
 import { EditInstructorModal } from '@/components/instructors/EditInstructorModal'
@@ -263,9 +264,10 @@ function UserRow({ user, index, onEdit, onViewHistory }: {
             style={{ margin: '-4px', padding: '4px' }}>
             <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full"
               style={{ background: 'rgba(0,87,184,0.15)', border: '1px solid rgba(0,87,184,0.25)' }}>
-              {user.avatarUrl
-                ? <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
-                : <span className="text-xs font-bold" style={{ color: '#0057b8' }}>{user.name[0]?.toUpperCase() ?? '?'}</span>}
+              <AvatarImg src={user.avatarUrl} name={user.name}
+                className="h-full w-full object-cover"
+                fallbackClassName="text-xs font-bold"
+                fallbackStyle={{ color: '#0057b8' }} />
             </div>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-white">{user.name}</p>
@@ -280,9 +282,10 @@ function UserRow({ user, index, onEdit, onViewHistory }: {
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full"
               style={{ background: 'rgba(0,87,184,0.15)', border: '1px solid rgba(0,87,184,0.25)' }}>
-              {user.avatarUrl
-                ? <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
-                : <span className="text-xs font-bold" style={{ color: '#0057b8' }}>{user.name[0]?.toUpperCase() ?? '?'}</span>}
+              <AvatarImg src={user.avatarUrl} name={user.name}
+                className="h-full w-full object-cover"
+                fallbackClassName="text-xs font-bold"
+                fallbackStyle={{ color: '#0057b8' }} />
             </div>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-white">{user.name}</p>

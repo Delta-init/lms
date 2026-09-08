@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { useUIStore } from '@/store/ui.store'
 import { logout as apiLogout, useCurrentUser } from '@/lib/api/user'
+import { AvatarImg } from '@/components/ui/AvatarImg'
 
 const navItems = [
   { label: 'My Learning',    href: '/my-learning',    icon: GraduationCap },
@@ -117,10 +118,10 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
         <div className="mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5"
           style={{ background: 'var(--color-bg-page)', border: '1px solid var(--color-border)' }}>
           <div className="relative h-8 w-8 flex-shrink-0 overflow-hidden rounded-full">
-            {hasAvatarImage
-              ? <img src={user!.avatarUrl} alt="" className="h-full w-full object-cover" />
-              : <div className="flex h-full w-full items-center justify-center text-xs font-bold text-white"
-                  style={{ background: 'var(--color-primary)' }}>{avatarInitial}</div>}
+            <AvatarImg src={user?.avatarUrl}
+              className="h-full w-full object-cover"
+              fallback={<div className="flex h-full w-full items-center justify-center text-xs font-bold text-white"
+                  style={{ background: 'var(--color-primary)' }}>{avatarInitial}</div>} />
             <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white"
               style={{ background: 'var(--color-success)' }} />
           </div>

@@ -15,6 +15,7 @@ import { useToast } from '@/store/ui.store'
 import Spinner from '@/components/ui/Spinner'
 import { useDocumentUrl } from '@/lib/api/documents'
 import { programLabel } from '@/lib/programs'
+import { AvatarImg } from '@/components/ui/AvatarImg'
 
 function fmtDate(d?: string) {
   if (!d) return '—'
@@ -136,10 +137,9 @@ function ViewerDetailModal({ user, onClose }: { user: AdminUser; onClose: () => 
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-full"
               style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)' }}>
-              {user.avatarUrl
-                ? <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
-                : <span className="text-sm font-bold" style={{ color: '#818CF8' }}>{user.name[0]?.toUpperCase() ?? '?'}</span>
-              }
+              <AvatarImg src={user.avatarUrl}
+                className="h-full w-full object-cover"
+                fallback={<span className="text-sm font-bold" style={{ color: '#818CF8' }}>{user.name[0]?.toUpperCase() ?? '?'}</span>} />
             </div>
             <div>
               <h2 className="text-base font-bold text-white">{user.name}</h2>
@@ -482,12 +482,11 @@ export default function ViewersPage() {
                           background: tab === 'rejected' ? 'rgba(248,113,113,0.12)' : 'rgba(99,102,241,0.15)',
                           border: `1px solid ${tab === 'rejected' ? 'rgba(248,113,113,0.25)' : 'rgba(99,102,241,0.25)'}`,
                         }}>
-                        {user.avatarUrl
-                          ? <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
-                          : <span className="text-xs font-bold" style={{ color: tab === 'rejected' ? '#F87171' : '#818CF8' }}>
+                        <AvatarImg src={user.avatarUrl}
+                          className="h-full w-full object-cover"
+                          fallback={<span className="text-xs font-bold" style={{ color: tab === 'rejected' ? '#F87171' : '#818CF8' }}>
                               {user.name[0]?.toUpperCase() ?? '?'}
-                            </span>
-                        }
+                            </span>} />
                         {!user.isActive && (
                           <div className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full"
                             style={{ background: '#EF4444', border: '2px solid #0D0F1A' }}>

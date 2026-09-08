@@ -13,6 +13,7 @@ import {
 import { useCourses } from '@/lib/api/courses'
 import { useCategories } from '@/lib/api/categories'
 import { useInstructors } from '@/lib/api/instructors'
+import { AvatarImg } from '@/components/ui/AvatarImg'
 import { useMyEnrollments, useEnroll } from '@/lib/api/enrollments'
 import { useUIStore } from '@/store/ui.store'
 import { FavoriteButton } from '@/components/courses/FavoriteButton'
@@ -434,13 +435,10 @@ export default function CoursesPage() {
                           style={instructor === ins.id
                             ? { background: 'rgba(0,87,184,0.10)', color: 'var(--color-primary)', border: '1px solid rgba(0,87,184,0.28)' }
                             : { background: 'var(--color-bg-subtle)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}>
-                          {ins.avatarUrl
-                            ? <img src={ins.avatarUrl} alt="" className="h-4 w-4 rounded-full object-cover flex-shrink-0" />
-                            : <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white"
-                                style={{ background: 'var(--color-primary)' }}>
-                                {ins.name[0]?.toUpperCase()}
-                              </span>
-                          }
+                          <AvatarImg src={ins.avatarUrl} name={ins.name}
+                            className="h-4 w-4 rounded-full object-cover flex-shrink-0"
+                            fallbackClassName="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white"
+                            fallbackStyle={{ background: 'var(--color-primary)' }} />
                           {ins.name}
                         </Button>
                       ))}

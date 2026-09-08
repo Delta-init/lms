@@ -17,6 +17,7 @@ import { useToast } from '@/store/ui.store'
 import { EditUserModal } from '@/components/users/EditUserModal'
 import { UserViewModal } from '@/components/users/UserViewModal'
 import { AddUserModal } from '@/components/users/AddUserModal'
+import { AvatarImg } from '@/components/ui/AvatarImg'
 
 const ROLE_STYLE: Record<string, { bg: string; color: string; label: string }> = {
   super_admin:              { bg: 'rgba(168,85,247,0.18)',   color: '#A855F7', label: 'Super Admin' },
@@ -365,9 +366,9 @@ function UserRow({ user, index, canManage, isSuperAdmin, onView, onEdit }: {
         <div className="flex items-center gap-3">
           <div className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full"
             style={{ background: 'rgba(0,87,184,0.15)', border: '1px solid rgba(0,87,184,0.25)' }}>
-            {user.avatarUrl
-              ? <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
-              : <span className="text-xs font-bold" style={{ color: '#0057b8' }}>{user.name[0]?.toUpperCase() ?? '?'}</span>}
+            <AvatarImg src={user.avatarUrl}
+              className="h-full w-full object-cover"
+              fallback={<span className="text-xs font-bold" style={{ color: '#0057b8' }}>{user.name[0]?.toUpperCase() ?? '?'}</span>} />
             {isImpersonating && (
               <div className="absolute inset-0 flex items-center justify-center rounded-full"
                 style={{ background: 'rgba(250,204,21,0.3)' }}>

@@ -11,6 +11,7 @@ import Spinner from '@/components/ui/Spinner'
 import { api } from '@/lib/axios'
 import { useToast } from '@/store/ui.store'
 import { Button, MotionButton } from '@/components/ui/button'
+import { AvatarImg } from '@/components/ui/AvatarImg'
 
 /* ── Category options ───────────────────────────────── */
 const CATS = [
@@ -153,9 +154,8 @@ export function EditInstructorModal({ user, onClose, onSuccess }: Props) {
                     }}
                     onClick={() => fileRef.current?.click()}
                   >
-                    {avatarPreview
-                      ? <img src={avatarPreview} alt="Avatar" className="h-full w-full object-cover" />
-                      : <User size={28} style={{ color: 'rgba(255,255,255,0.3)' }} />}
+                    <AvatarImg src={avatarPreview} className="h-full w-full object-cover"
+                      fallback={<User size={28} style={{ color: 'rgba(255,255,255,0.3)' }} />} />
                   </div>
                   <button type="button" onClick={() => fileRef.current?.click()}
                     className="absolute bottom-0 right-0 flex h-6 w-6 items-center justify-center rounded-full transition-colors hover:brightness-110"

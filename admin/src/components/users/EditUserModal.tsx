@@ -8,6 +8,7 @@ import Spinner from '@/components/ui/Spinner'
 import { useToast } from '@/store/ui.store'
 import { api } from '@/lib/axios'
 import type { CurrentAdmin } from '@/lib/api/user'
+import { AvatarImg } from '@/components/ui/AvatarImg'
 
 /* ── Custom dark select ──────────────────────────── */
 function SelectField<T extends string>({
@@ -335,14 +336,12 @@ export function EditUserModal({ user, me, onClose, onSuccess }: Props) {
                     background: 'rgba(255,255,255,0.05)',
                   }}
                 >
-                  {avatarPreview
-                    ? <img src={avatarPreview} alt="Avatar" className="h-full w-full object-cover" />
-                    : (
+                  <AvatarImg src={avatarPreview} className="h-full w-full object-cover"
+                    fallback={
                       <div className="flex h-full w-full items-center justify-center">
                         <Camera size={18} style={{ color: 'rgba(255,255,255,0.3)' }} />
                       </div>
-                    )
-                  }
+                    } />
                   <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
                     <Camera size={14} className="text-white" />
                   </div>

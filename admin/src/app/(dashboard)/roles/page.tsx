@@ -17,6 +17,7 @@ import { useUsers, type AdminUser } from '@/lib/api/users'
 import { useCurrentUser } from '@/lib/api/user'
 import Spinner from '@/components/ui/Spinner'
 import { useRouter } from 'next/navigation'
+import { AvatarImg } from '@/components/ui/AvatarImg'
 
 /* ── Types ─────────────────────────────────────────────────────── */
 type TabKey = 'roles' | 'users'
@@ -424,15 +425,14 @@ function UsersTab({ roles }: { roles: Role[] }) {
                 style={{ borderTop: i > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
                 {/* User info */}
                 <div className="flex items-center gap-3 min-w-0">
-                  {user.avatarUrl ? (
-                    <img src={user.avatarUrl} alt={user.name}
-                      className="h-8 w-8 flex-shrink-0 rounded-full object-cover" />
-                  ) : (
+                  <AvatarImg src={user.avatarUrl}
+                    className="h-8 w-8 flex-shrink-0 rounded-full object-cover"
+                    fallback={(
                     <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
                       style={{ background: 'linear-gradient(135deg, #0057b840, #003d8040)', border: '1px solid rgba(0,87,184,0.3)' }}>
                       {initial}
                     </div>
-                  )}
+                  )} />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-white">{user.name}</p>
                     <p className="truncate text-[11px]" style={{ color: 'rgba(255,255,255,0.35)' }}>{user.email}</p>

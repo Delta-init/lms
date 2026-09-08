@@ -22,6 +22,7 @@ import { LiveClassesPanel } from '@/components/courses/LiveClassesPanel'
 import { FavoriteButton } from '@/components/courses/FavoriteButton'
 import { CourseRecommendations } from '@/components/courses/CourseRecommendations'
 import Spinner from '@/components/ui/Spinner'
+import { AvatarImg } from '@/components/ui/AvatarImg'
 
 function fmt(mins: number) {
   const h = Math.floor(mins / 60)
@@ -219,12 +220,12 @@ function CourseDetailInner({ slug }: { slug: string }) {
               <div className="mt-4 flex items-center gap-2.5">
                 <div className="h-8 w-8 overflow-hidden rounded-full"
                   style={{ background: 'rgba(0,87,184,0.15)' }}>
-                  {course.instructor.avatarUrl
-                    ? <img src={course.instructor.avatarUrl} alt="" className="h-full w-full object-cover" />
-                    : <div className="flex h-full w-full items-center justify-center text-xs font-bold"
+                  <AvatarImg src={course.instructor.avatarUrl}
+                    className="h-full w-full object-cover"
+                    fallback={<div className="flex h-full w-full items-center justify-center text-xs font-bold"
                         style={{ color: 'var(--color-primary)' }}>
                         {course.instructor.name[0]}
-                      </div>}
+                      </div>} />
                 </div>
                 <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
                   Created by <span className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{course.instructor.name}</span>

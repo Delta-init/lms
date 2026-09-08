@@ -9,6 +9,7 @@ import {
 import type { AdminUser } from '@/lib/api/users'
 import { useStudentEnrollments } from '@/lib/api/users'
 import Spinner from '@/components/ui/Spinner'
+import { AvatarImg } from '@/components/ui/AvatarImg'
 
 const ROLE_STYLE: Record<string, { bg: string; color: string; label: string }> = {
   super_admin:             { bg: 'rgba(168,85,247,0.18)',  color: '#A855F7', label: 'Super Admin' },
@@ -74,9 +75,9 @@ export function UserViewModal({ user, onClose }: Props) {
             <div className="flex items-center gap-4">
               <div className="relative flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl"
                 style={{ background: 'rgba(0,87,184,0.15)', border: '2px solid rgba(0,87,184,0.25)' }}>
-                {user.avatarUrl
-                  ? <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
-                  : <span className="text-2xl font-bold" style={{ color: '#0057b8' }}>{user.name[0]?.toUpperCase()}</span>}
+                <AvatarImg src={user.avatarUrl}
+                  className="h-full w-full object-cover"
+                  fallback={<span className="text-2xl font-bold" style={{ color: '#0057b8' }}>{user.name[0]?.toUpperCase()}</span>} />
               </div>
               <div className="min-w-0">
                 <h2 className="text-lg font-bold text-white truncate" style={{ fontFamily: 'Bricolage Grotesque, sans-serif' }}>

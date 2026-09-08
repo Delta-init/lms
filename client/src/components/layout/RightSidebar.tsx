@@ -15,6 +15,7 @@ import { useUpcomingLiveClasses, isLive, type LiveClass } from '@/lib/api/liveCl
 import { useUIStore } from '@/store/ui.store'
 import Spinner from '@/components/ui/Spinner'
 import { titleCase } from '@/lib/titleCase'
+import { AvatarImg } from '@/components/ui/AvatarImg'
 
 /* ── Helpers ──────────────────────────────────────────── */
 function fmtMins(mins: number): string {
@@ -166,9 +167,9 @@ export function RightSidebar() {
                     <div className="relative flex-shrink-0">
                       <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl text-sm font-bold text-white"
                         style={{ background: 'var(--color-primary)', boxShadow: '0 2px 8px rgba(0,87,184,0.20)' }}>
-                        {hasAvatarImage
-                          ? <img src={user!.avatarUrl} alt="" className="h-full w-full object-cover" />
-                          : avatarInitial}
+                        <AvatarImg src={user?.avatarUrl}
+                          className="h-full w-full object-cover"
+                          fallback={avatarInitial} />
                       </div>
                       <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white"
                         style={{ background: 'var(--color-success)' }} />

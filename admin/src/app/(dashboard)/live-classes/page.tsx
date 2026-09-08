@@ -26,6 +26,7 @@ import { DarkSelect, DarkDateTimePicker, PillToggle } from '@/components/live-cl
 import { Button, MotionButton } from '@/components/ui/button'
 import Spinner from '@/components/ui/Spinner'
 import { categoryScopeOf } from '@/lib/programScope'
+import { AvatarImg } from '@/components/ui/AvatarImg'
 import {
   IN_APP_RGB, MEET_RGB, ROOM_RGB, BROADCAST_RGB,
   LIVEKIT_MAX_SEATS, OPEN_SEATS_DEFAULT,
@@ -66,11 +67,11 @@ function InstructorDropdown({ value, onChange, instructors }: {
       >
         {selected ? (
           <>
-            {selected.avatarUrl
-              ? <img src={selected.avatarUrl} alt="" className="h-5 w-5 rounded-full object-cover flex-shrink-0 ring-1 ring-white/20" />
-              : <div className="h-5 w-5 rounded-full flex-shrink-0 flex items-center justify-center text-[9px] font-bold text-white" style={{ background: '#0057b8' }}>
+            <AvatarImg src={selected.avatarUrl}
+              className="h-5 w-5 rounded-full object-cover flex-shrink-0 ring-1 ring-white/20"
+              fallback={<div className="h-5 w-5 rounded-full flex-shrink-0 flex items-center justify-center text-[9px] font-bold text-white" style={{ background: '#0057b8' }}>
                   {selected.name[0]?.toUpperCase()}
-                </div>}
+                </div>} />
             <span className="max-w-[110px] truncate">{selected.name}</span>
           </>
         ) : (
@@ -108,11 +109,11 @@ function InstructorDropdown({ value, onChange, instructors }: {
                 className="flex w-full items-center gap-2.5 px-3 py-2 text-xs font-semibold transition-colors hover:bg-white/08"
                 style={{ color: value === i.id ? '#60a5fa' : 'rgba(255,255,255,0.7)' }}
               >
-                {i.avatarUrl
-                  ? <img src={i.avatarUrl} alt="" className="h-6 w-6 rounded-full object-cover flex-shrink-0 ring-1 ring-white/15" />
-                  : <div className="h-6 w-6 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-white" style={{ background: '#0057b8' }}>
+                <AvatarImg src={i.avatarUrl}
+                  className="h-6 w-6 rounded-full object-cover flex-shrink-0 ring-1 ring-white/15"
+                  fallback={<div className="h-6 w-6 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-white" style={{ background: '#0057b8' }}>
                       {i.name[0]?.toUpperCase()}
-                    </div>}
+                    </div>} />
                 <span className="truncate">{i.name}</span>
               </button>
             ))}

@@ -18,6 +18,8 @@ import { APP_TIMEZONE } from '@/lib/timezone'
 import { useServerNow } from '@/hooks/useServerNow'
 import Spinner from '@/components/ui/Spinner'
 import { titleCase } from '@/lib/titleCase'
+import { AvatarImg } from '@/components/ui/AvatarImg'
+import { useAnchoredPosition } from '@/lib/useAnchoredPosition'
 
 /* ── Google Fonts ──────────────────────────────────────────── */
 const FONT_CSS = `@import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap');.syne{font-family:'Syne',sans-serif}.dm{font-family:'DM Sans',sans-serif}`
@@ -770,7 +772,6 @@ function CourseDropdown({ value, onChange, options }: {
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const [pos, setPos] = useState({ top: 0, left: 0 })
   const btnRef = useRef<HTMLButtonElement>(null)
   const dropRef = useRef<HTMLDivElement>(null)
   const active = value !== 'all'
@@ -779,13 +780,8 @@ function CourseDropdown({ value, onChange, options }: {
     ? options.filter(o => o.label.toLowerCase().includes(query.toLowerCase()))
     : options
 
-  const toggleOpen = () => {
-    if (!open && btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect()
-      setPos({ top: r.bottom + 6, left: r.left })
-    }
-    setOpen(v => !v)
-  }
+  const pos = useAnchoredPosition(open, btnRef)
+  const toggleOpen = () => setOpen(v => !v)
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -819,7 +815,7 @@ function CourseDropdown({ value, onChange, options }: {
       </button>
 
       <AnimatePresence>
-        {open && (
+        {open && pos.visible && (
           <motion.div
             ref={dropRef}
             initial={{ opacity: 0, y: -6, scale: 0.97 }}
@@ -906,19 +902,13 @@ function LanguageDropdown({ value, onChange }: {
   value: string; onChange: (v: string) => void
 }) {
   const [open, setOpen] = useState(false)
-  const [pos, setPos] = useState({ top: 0, left: 0 })
   const btnRef = useRef<HTMLButtonElement>(null)
   const dropRef = useRef<HTMLDivElement>(null)
   const active = value !== 'all'
   const selected = LANG_OPTIONS.find(o => o.value === value)
 
-  const toggleOpen = () => {
-    if (!open && btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect()
-      setPos({ top: r.bottom + 6, left: r.left })
-    }
-    setOpen(v => !v)
-  }
+  const pos = useAnchoredPosition(open, btnRef)
+  const toggleOpen = () => setOpen(v => !v)
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -954,7 +944,7 @@ function LanguageDropdown({ value, onChange }: {
       </button>
 
       <AnimatePresence>
-        {open && (
+        {open && pos.visible && (
           <motion.div
             ref={dropRef}
             initial={{ opacity: 0, y: -6, scale: 0.97 }}
@@ -1015,19 +1005,13 @@ function InstructorFilterSelect({ value, onChange, instructors }: {
   instructors: { id: string; name: string; avatarUrl?: string }[]
 }) {
   const [open, setOpen] = useState(false)
-  const [pos, setPos] = useState({ top: 0, left: 0 })
   const btnRef = useRef<HTMLButtonElement>(null)
   const dropRef = useRef<HTMLDivElement>(null)
   const active = value !== 'all'
   const selected = instructors.find(i => i.id === value)
 
-  const toggleOpen = () => {
-    if (!open && btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect()
-      setPos({ top: r.bottom + 6, left: r.left })
-    }
-    setOpen(v => !v)
-  }
+  const pos = useAnchoredPosition(open, btnRef)
+  const toggleOpen = () => setOpen(v => !v)
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -1056,11 +1040,11 @@ function InstructorFilterSelect({ value, onChange, instructors }: {
       >
         {selected ? (
           <>
-            {selected.avatarUrl
-              ? <img src={selected.avatarUrl} alt="" className="h-5 w-5 rounded-full object-cover flex-shrink-0" />
-              : <div className="h-5 w-5 rounded-full flex-shrink-0 flex items-center justify-center text-[9px] font-bold text-white" style={{ background: 'var(--color-primary)' }}>
+            <AvatarImg src={selected.avatarUrl}
+              className="h-5 w-5 rounded-full object-cover flex-shrink-0"
+              fallback={<div className="h-5 w-5 rounded-full flex-shrink-0 flex items-center justify-center text-[9px] font-bold text-white" style={{ background: 'var(--color-primary)' }}>
                   {selected.name[0]?.toUpperCase()}
-                </div>}
+                </div>} />
             <span className="max-w-[110px] truncate">{selected.name}</span>
           </>
         ) : (
@@ -1070,7 +1054,7 @@ function InstructorFilterSelect({ value, onChange, instructors }: {
       </button>
 
       <AnimatePresence>
-        {open && (
+        {open && pos.visible && (
           <motion.div
             ref={dropRef}
             initial={{ opacity: 0, y: -6, scale: 0.97 }}
@@ -1111,11 +1095,11 @@ function InstructorFilterSelect({ value, onChange, instructors }: {
                 className="dm flex w-full items-center gap-2.5 px-3 py-2 text-[12px] font-semibold transition-colors hover:bg-[var(--color-hover)]"
                 style={{ color: value === i.id ? '#0057b8' : '#475569' }}
               >
-                {i.avatarUrl
-                  ? <img src={i.avatarUrl} alt="" className="h-6 w-6 rounded-full object-cover flex-shrink-0 ring-1 ring-slate-200" />
-                  : <div className="h-6 w-6 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-white" style={{ background: 'var(--color-primary)' }}>
+                <AvatarImg src={i.avatarUrl}
+                  className="h-6 w-6 rounded-full object-cover flex-shrink-0 ring-1 ring-slate-200"
+                  fallback={<div className="h-6 w-6 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-white" style={{ background: 'var(--color-primary)' }}>
                       {i.name[0]?.toUpperCase()}
-                    </div>}
+                    </div>} />
                 <span className="truncate">{i.name}</span>
               </button>
             ))}

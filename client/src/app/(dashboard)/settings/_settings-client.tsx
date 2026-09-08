@@ -13,6 +13,7 @@ import { useCurrentUser, useUpdateProfile, useChangePassword, logout as apiLogou
 import { PrivacySecuritySection } from '@/components/auth/PrivacySecuritySection'
 import { RequestSection } from '@/components/settings/RequestSection'
 import Spinner from '@/components/ui/Spinner'
+import { AvatarImg } from '@/components/ui/AvatarImg'
 
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } }
 const fadeUp  = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 280, damping: 26 } } }
@@ -279,9 +280,9 @@ export default function SettingsContent() {
                 <div className="relative">
                   <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full text-xl font-bold text-white"
                     style={{ background: 'var(--color-primary)' }}>
-                    {user?.avatarUrl
-                      ? <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
-                      : (profile.name?.trim()?.[0]?.toUpperCase() ?? '?')}
+                    <AvatarImg src={user?.avatarUrl}
+                      className="h-full w-full object-cover"
+                      fallback={(profile.name?.trim()?.[0]?.toUpperCase() ?? '?')} />
                   </div>
                   <button className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--color-bg-surface)] shadow-md"
                     style={{ border: '1px solid var(--color-border)', color: 'var(--color-primary)' }}

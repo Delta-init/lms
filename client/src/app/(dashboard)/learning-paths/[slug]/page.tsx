@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { useLearningPath, type LearningPathCourse } from '@/lib/api/learningpaths'
 import Spinner from '@/components/ui/Spinner'
+import { AvatarImg } from '@/components/ui/AvatarImg'
 
 function fmt(mins: number) {
   const h = Math.floor(mins / 60)
@@ -173,9 +174,9 @@ export default function LearningPathDetailPage({ params }: { params: Promise<{ s
             <div className="mt-3 flex flex-wrap items-center gap-4 text-xs" style={{ color: 'var(--color-text-muted)' }}>
               {instructor && (
                 <span className="flex items-center gap-1.5">
-                  {instructor.avatarUrl
-                    ? <img src={instructor.avatarUrl} alt="" className="h-5 w-5 rounded-full object-cover" />
-                    : <GraduationCap size={14} />}
+                  <AvatarImg src={instructor.avatarUrl}
+                    className="h-5 w-5 rounded-full object-cover"
+                    fallback={<GraduationCap size={14} />} />
                   {instructor.name}
                 </span>
               )}

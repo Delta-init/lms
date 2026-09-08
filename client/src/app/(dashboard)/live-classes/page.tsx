@@ -13,6 +13,7 @@ import {
   fmtCountdown, type LiveClass,
 } from '@/lib/api/liveClasses'
 import Spinner from '@/components/ui/Spinner'
+import { AvatarImg } from '@/components/ui/AvatarImg'
 
 /* ── Helpers ─────────────────────────────────────────── */
 function fmtTime(iso: string) {
@@ -226,15 +227,14 @@ function LiveHeroCard({ live, index }: { live: LiveClass; index: number }) {
           </p>
           {live.instructor?.name && (
             <div className="flex items-center gap-1.5">
-              {live.instructor.avatarUrl ? (
-                <img src={live.instructor.avatarUrl} alt=""
-                  className="h-5 w-5 rounded-full object-cover" />
-              ) : (
+              <AvatarImg src={live.instructor.avatarUrl}
+                className="h-5 w-5 rounded-full object-cover"
+                fallback={(
                 <div className="flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold text-white"
                   style={{ background: 'rgba(0,87,184,0.7)' }}>
                   {live.instructor.name[0]}
                 </div>
-              )}
+              )} />
               <p className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>{live.instructor.name}</p>
             </div>
           )}

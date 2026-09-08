@@ -9,6 +9,7 @@ import {
 } from '@/lib/api/discussion'
 import { useCurrentUser } from '@/lib/api/user'
 import Spinner from '@/components/ui/Spinner'
+import { AvatarImg } from '@/components/ui/AvatarImg'
 
 function authorInfo(a: DiscussionAuthor | string): { id?: string; name: string; avatarUrl?: string; role: string } {
   if (typeof a === 'string') return { id: a, name: 'User', avatarUrl: undefined, role: 'student' }
@@ -17,14 +18,15 @@ function authorInfo(a: DiscussionAuthor | string): { id?: string; name: string; 
 
 function Avatar({ author }: { author: DiscussionAuthor | string }) {
   const { name, avatarUrl } = authorInfo(author)
-  return avatarUrl
-    ? <img src={avatarUrl} alt={name} className="h-6 w-6 rounded-full object-cover flex-shrink-0" />
-    : (
-      <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
-        style={{ background: 'var(--color-primary)' }}>
-        {name.charAt(0).toUpperCase()}
-      </div>
-    )
+  return (
+    <AvatarImg src={avatarUrl} className="h-6 w-6 rounded-full object-cover flex-shrink-0"
+      fallback={
+        <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+          style={{ background: 'var(--color-primary)' }}>
+          {name.charAt(0).toUpperCase()}
+        </div>
+      } />
+  )
 }
 
 function TimeAgo({ date }: { date: string }) {

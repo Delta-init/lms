@@ -3,12 +3,10 @@
 import { useState, useCallback, useRef } from 'react'
 import { Zap, Search, Users, Shield, ShieldOff, Trash2, ChevronLeft, ChevronRight, Globe, X, AlertTriangle } from 'lucide-react'
 import { useExpressMembers, useToggleExpressMember, useDeleteExpressMember, type ExpressMember, type ExpressMemberStatus } from '@/lib/api/expressMembers'
+import { AvatarImg } from '@/components/ui/AvatarImg'
 
 /* ── Avatar initials helper ────────────────────── */
 function Initials({ name, avatarUrl }: { name: string; avatarUrl?: string }) {
-  if (avatarUrl) {
-    return <img src={avatarUrl} alt={name} className="w-9 h-9 rounded-full object-cover" />
-  }
   const letters = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
   const colors = [
     'bg-violet-100 text-violet-700', 'bg-blue-100 text-blue-700',
@@ -17,9 +15,12 @@ function Initials({ name, avatarUrl }: { name: string; avatarUrl?: string }) {
   ]
   const color = colors[name.charCodeAt(0) % colors.length]
   return (
-    <span className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold ${color}`}>
-      {letters}
-    </span>
+    <AvatarImg src={avatarUrl} className="w-9 h-9 rounded-full object-cover"
+      fallback={
+        <span className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold ${color}`}>
+          {letters}
+        </span>
+      } />
   )
 }
 

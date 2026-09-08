@@ -12,6 +12,7 @@ import { useImpersonationStore } from '@/store/impersonation.store'
 import { PROGRAM_LABEL } from '@/lib/programScope'
 import { useOrgStore } from '@/store/org.store'
 import { useOrganizations } from '@/lib/api/organizations'
+import { AvatarImg } from '@/components/ui/AvatarImg'
 
 const notifications = [
   { id: 1, type: 'enroll',     text: 'New enrollment: UI/UX Design Mastery', time: '2m ago',  unread: true },
@@ -298,9 +299,9 @@ export function AdminTopbar() {
             className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full text-xs font-bold text-white ring-2 ring-transparent hover:ring-blue-600/40 transition-all"
             style={{ background: 'linear-gradient(135deg, #0057b8, #003d80)' }}
             title={user?.email}>
-            {user?.avatarUrl
-              ? <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
-              : avatarInitial}
+            <AvatarImg src={user?.avatarUrl}
+              className="h-full w-full object-cover"
+              fallback={avatarInitial} />
           </motion.button>
 
           <AnimatePresence>
