@@ -244,6 +244,51 @@ try {
     check('...and a traversal back into kyc/', traverse.status === 404, `got ${traverse.status}`)
   }
 
+  /* =============================================== */
+  section('G — the reviewer can tell an ABSENT document from an unreadable one')
+  {
+    /* The admin panel decides what to show a reviewer from this response, and
+       it used to collapse every non-200 into "Not submitted — click to
+       upload" — which invited staff to upload a replacement over a file the
+       student had already sent. These are the shapes it has to tell apart. */
+    const revJar = await loginAs('dubai.admin@t.local', 'admin')
+
+    const mkStudent = (extra: Record<string, unknown>) => UserModel.create({
+      name: 'Doc Case', email: `doccase-${Date.now()}-${Math.random()}@t.local`,
+      passwordHash: hash, role: 'student', isActive: true, organizationId: dubai._id,
+      ...extra,
+    })
+
+    const none = await mkStudent({ enrollmentApplication: {} })
+    const absent = await call('GET', `${BASE}/documents/${String(none._id)}/passport`, { jar: revJar })
+    check('a field with nothing stored answers 404', absent.status === 404, String(absent.status))
+
+    /* A key that is stored but whose OBJECT cannot be reached — an upload
+       that half-completed, a bucket whose access changed, storage not
+       configured on this deployment. This is the likely shape behind "the
+       student uploaded it but the panel says they did not": the value is in
+       the database, and the read still answers 404. */
+    const keyed = await mkStudent({ enrollmentApplication: { passportUrl: 'kyc/never-uploaded.png' } })
+    const dangling = await call('GET', `${BASE}/documents/${String(keyed._id)}/passport`, { jar: revJar })
+    check('a stored key whose object is missing also answers 404',
+      dangling.status === 404, String(dangling.status))
+    check('yet the application still records the upload',
+      !!((await UserModel.findById(keyed._id).lean() as any)?.enrollmentApplication?.passportUrl))
+
+    /* An unreadable stored value is ALSO a 404 on the wire. That is exactly why
+       the panel can no longer treat 404 as proof of absence: it now decides
+       from whether a value is stored at all, and reports a failure to resolve
+       as a failure rather than as "never submitted". */
+    const junk = await mkStudent({ enrollmentApplication: { passportUrl: '../../etc/passwd' } })
+    const bad = await call('GET', `${BASE}/documents/${String(junk._id)}/passport`, { jar: revJar })
+    check('an unreadable stored value is refused', bad.status === 404, String(bad.status))
+    check('but the row still HOLDS a value — the signal the panel now uses',
+      !!((await UserModel.findById(junk._id).lean() as any)?.enrollmentApplication?.passportUrl))
+    check('so 404 alone cannot mean "not submitted"',
+      absent.status === bad.status)
+  }
+
+
 } finally {
   for (const abs of written) { try { await fs.unlink(abs) } catch {} }
   lines.push(`\n(cleanup: removed ${written.length} local fixture(s))`)

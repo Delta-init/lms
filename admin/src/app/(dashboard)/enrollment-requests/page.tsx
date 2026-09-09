@@ -24,7 +24,7 @@ import { useToast } from '@/store/ui.store'
 import { api } from '@/lib/axios'
 import { useQueryClient } from '@tanstack/react-query'
 import { useDeleteUser } from '@/lib/api/users'
-import { useDocumentUrl } from '@/lib/api/documents'
+import { useDocumentUrl, type ResolvedDocument } from '@/lib/api/documents'
 import Spinner from '@/components/ui/Spinner'
 import { programLabel } from '@/lib/programs'
 
@@ -369,8 +369,8 @@ function DocumentsSection({ passportUrl: rawPassportUrl, idDocUrl: rawIdDocUrl, 
 }) {
   /* Identity scans are stored as bare keys and exchanged for a short-lived
      signed link (H-11). The photo is public and passes through unchanged. */
-  const passportUrl = useDocumentUrl(userId, 'passport', rawPassportUrl)
-  const idDocUrl    = useDocumentUrl(userId, 'idDoc',    rawIdDocUrl)
+  const passportDoc = useDocumentUrl(userId, 'passport', rawPassportUrl)
+  const idDocDoc    = useDocumentUrl(userId, 'idDoc',    rawIdDocUrl)
 
   const [lightbox,    setLightbox]    = useState<string | null>(null)
   const [pdfView,     setPdfView]     = useState<'passport' | 'idDoc' | 'photo' | null>(null)
@@ -411,9 +411,53 @@ function DocumentsSection({ passportUrl: rawPassportUrl, idDocUrl: rawIdDocUrl, 
     }
   }
 
-  function DocCard({ label, url, field }: { label: string; url?: string; field: 'passport' | 'idDoc' | 'photo' }) {
+  function DocCard({ label, doc, field }: {
+    label: string
+    doc:   ResolvedDocument
+    field: 'passport' | 'idDoc' | 'photo'
+  }) {
+    const url = doc.url
     const inputRef = field === 'passport' ? passportRef : field === 'idDoc' ? idDocRef : photoRef
     const isLoading = uploading === field
+
+    /* A document that exists but whose link did not resolve must never read as
+       "not submitted": the reviewer would upload a replacement over the
+       student's file believing none was there. Say what happened and offer a
+       retry instead. */
+    if (doc.state === 'loading' || doc.state === 'error') {
+      const failed = doc.state === 'error'
+      return (
+        <div className="flex flex-col gap-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.3)' }}>{label}</p>
+          <div className="flex h-36 flex-col items-center justify-center gap-2 rounded-xl px-3 text-center"
+            style={{
+              background: failed ? 'rgba(248,113,113,0.06)' : 'rgba(255,255,255,0.02)',
+              border: `1px solid ${failed ? 'rgba(248,113,113,0.30)' : 'rgba(255,255,255,0.10)'}`,
+            }}>
+            {failed ? (
+              <>
+                <AlertCircle size={18} style={{ color: '#F87171' }} />
+                <span className="text-[11px]" style={{ color: '#F87171' }}>
+                  Submitted, but the link would not load
+                </span>
+                <button type="button" onClick={doc.retry}
+                  className="text-[11px] underline transition-opacity hover:opacity-80"
+                  style={{ color: '#60A5FA' }}>
+                  Try again
+                </button>
+              </>
+            ) : (
+              <>
+                <Spinner size={18} variant="muted" />
+                <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                  Loading document…
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      )
+    }
 
     if (!url) {
       return (
@@ -542,9 +586,12 @@ function DocumentsSection({ passportUrl: rawPassportUrl, idDocUrl: rawIdDocUrl, 
           <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.4)' }}>Submitted Documents</span>
         </div>
         <div className="grid grid-cols-3 gap-4">
-          <DocCard label="Passport Copy"                                    url={passportUrl} field="passport" />
-          <DocCard label={ID_DOC_LABEL[idType ?? ''] ?? 'ID Document'}     url={idDocUrl}    field="idDoc"    />
-          <DocCard label="Profile Photo"                                    url={photoUrl}    field="photo"    />
+          <DocCard label="Passport Copy"                                doc={passportDoc} field="passport" />
+          <DocCard label={ID_DOC_LABEL[idType ?? ''] ?? 'ID Document'} doc={idDocDoc}    field="idDoc"    />
+          {/* The photo is public and never signed, so it is always resolved. */}
+          <DocCard label="Profile Photo"
+            doc={{ url: photoUrl || undefined, state: photoUrl ? 'ready' : 'absent' }}
+            field="photo" />
         </div>
       </div>
 

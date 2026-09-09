@@ -259,11 +259,19 @@ export class CourseRepository extends BaseRepository<ICourse> {
   }
 
   async findById_(id: string | Types.ObjectId): Promise<ICourse | null> {
-    return CourseModel
+    const course = await CourseModel
       .findById(id)
       .populate('instructorId', 'name avatarUrl headline')
       .populate('categoryId',   'name slug')
       .exec()
+
+    /* Derive the student count here too, exactly as the list does.
+       The list already showed the truth while this path returned the stored
+       counter, so one course reported two different numbers depending on which
+       screen you were looking at — 8 in the table, 21 on its own detail page.
+       Sharing the helper is what stops them drifting apart again. */
+    if (course) await this.attachTrueEnrolledCounts([course])
+    return course
   }
 
   async createOne(data: Partial<ICourse>): Promise<ICourse> {

@@ -24,6 +24,7 @@
     "test:cookies": "bun src/tests/cookies.suite.ts",
     "test:signup": "bun src/tests/signup.suite.ts",
     "verify-kyc": "bun src/scripts/verify-kyc.ts",
+    "audit-docs": "bun src/scripts/audit-identity-documents.ts",
     "verify-backup-mail": "bun src/scripts/verify-backup-mail.ts",
     "test:kyc": "bun src/tests/kyc.suite.ts",
     "test:bounty": "bun src/tests/bounty.suite.ts",

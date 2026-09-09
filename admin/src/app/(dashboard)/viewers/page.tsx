@@ -76,8 +76,21 @@ function DocCard({ label, url }: { label: string; url?: string }) {
 function SignedDocCard({ label, userId, field, stored }: {
   label: string; userId: string; field: 'passport' | 'idDoc'; stored?: string
 }) {
-  const url = useDocumentUrl(userId, field, stored)
-  return <DocCard label={label} url={url} />
+  const doc = useDocumentUrl(userId, field, stored)
+  /* A submitted document whose link failed is not the same as none: say so
+     rather than rendering an empty slot that reads as "never sent one". */
+  if (doc.state === 'error') {
+    return (
+      <div>
+        <p className="mb-1 text-[9px]" style={{ color: 'rgba(255,255,255,0.3)' }}>{label}</p>
+        <span className="flex h-20 w-full items-center justify-center rounded-lg px-2 text-center text-[10px]"
+          style={{ border: '1px solid rgba(248,113,113,0.3)', color: '#F87171' }}>
+          Submitted — link would not load
+        </span>
+      </div>
+    )
+  }
+  return <DocCard label={label} url={doc.url} />
 }
 
 /* ── Detail modal (read-only) ──────────────────────── */

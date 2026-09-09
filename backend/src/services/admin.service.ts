@@ -28,6 +28,19 @@ export class AdminService {
     const courseMatch: Record<string, unknown> = { ...orgMatch }
     if (program) courseMatch['program'] = program
 
+    /* The enrolments this dashboard is reporting on are the ones sitting on the
+       courses it is already showing — so ask that directly.
+
+       Counting EnrollmentModel by its OWN organizationId looks equivalent and
+       is not: `enrollmentRepo.create_`, the path behind self-enrolment and
+       every purchase, does not write that field. Those rows therefore matched
+       nothing, and the card read "0 active enrollments" while the course list
+       beside it showed enrolled students on every row. Deriving from the
+       courses in scope also keeps the two in step for a programme-scoped
+       sub-admin, since both now start from the same `courseMatch`. */
+    const scopedCourseIds = (await CourseModel.find(courseMatch, { _id: 1 }).lean())
+      .map(c => c._id)
+
     const [
       totalCourses, publishedCourses, draftCourses,
       totalStudents, totalInstructors,
@@ -37,9 +50,17 @@ export class AdminService {
       CourseModel.countDocuments(courseMatch).exec(),
       CourseModel.countDocuments({ ...courseMatch, status: 'published' }).exec(),
       CourseModel.countDocuments({ ...courseMatch, status: 'draft' }).exec(),
-      UserModel.countDocuments({ ...orgMatch, role: 'student' }).exec(),
+      /* Students ENROLLED on this academy's courses, not everyone holding a
+         student account in it. The two diverge badly: an academy can carry
+         hundreds of registered accounts that never enrolled in anything, and
+         it can teach students provisioned under a different academy — so the
+         old count sat beside the course rows contradicting them. Counting
+         distinct people on the courses in scope is the number the rest of this
+         dashboard is already about. */
+      EnrollmentModel.distinct('userId', { courseId: { $in: scopedCourseIds } })
+        .then(ids => ids.length),
       UserModel.countDocuments({ ...orgMatch, role: 'instructor' }).exec(),
-      EnrollmentModel.countDocuments(orgMatch).exec(),
+      EnrollmentModel.countDocuments({ courseId: { $in: scopedCourseIds } }).exec(),
       ReviewModel.countDocuments({}).exec(),
       OrderModel.aggregate([
         { $match: { ...orgMatch, status: 'paid' } },

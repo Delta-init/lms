@@ -200,7 +200,7 @@ interface Props {
 function KycThumb({ userId, field, stored, label }: {
   userId: string; field: 'passport' | 'idDoc'; stored?: string; label: string
 }) {
-  const url = useDocumentUrl(userId, field, stored)
+  const url = useDocumentUrl(userId, field, stored).url
   if (!stored) return null
   const isImage = /\.(jpg|jpeg|png|webp)$/i.test(stored)
   return (

@@ -331,6 +331,121 @@ try {
         { jar: aJar })).body?.data?.rows ?? []).length === 1)
   }
 
+  /* =============================================== */
+  section('F · the course DETAIL agrees with the course LIST')
+  {
+    /* The shape seen in production: a stored counter that drifted upward while
+       the real enrolments stayed put. The list already derived the truth; the
+       detail page returned the stored field, so one course reported 8 in the
+       table and 21 on its own page. */
+    const course = await mkCourse('Two Screens', 21)
+    const students = await Promise.all([0, 1, 2, 3, 4, 5, 6, 7].map(i => UserModel.create({
+      name: `TS${i}`, email: `ts${i}-${Date.now()}@ec.local`, passwordHash: hash,
+      role: 'student', isActive: true, enrollmentStatus: 'approved', organizationId: org._id,
+    })))
+    await EnrollmentModel.insertMany(students.map(u => ({
+      userId: u._id, courseId: course._id, status: 'active',
+    })))
+
+    check('the stored counter is still the drifted 21',
+      await storedCount(course._id) === 21, String(await storedCount(course._id)))
+
+    const list = await call('GET', '/admin/courses?per_page=100', { jar: aJar })
+    const row  = (list.body?.data ?? []).find((c: any) => c.title === 'Two Screens')
+    check('the LIST reports 8 — the enrolments that exist',
+      row?.enrolledCount === 8, String(row?.enrolledCount))
+
+    const detail = await call('GET', `/admin/courses/${String(course._id)}`, { jar: aJar })
+    check('the DETAIL page answers', detail.status === 200, String(detail.status))
+    check('and reports 8 as well — it used to hand back the stored 21',
+      detail.body?.data?.enrolledCount === 8, String(detail.body?.data?.enrolledCount))
+    check('so the two screens agree',
+      detail.body?.data?.enrolledCount === row?.enrolledCount,
+      `detail=${detail.body?.data?.enrolledCount} list=${row?.enrolledCount}`)
+
+    /* And the roster behind the tile lists exactly that many people. */
+    const roster = await call('GET', `/admin/courses/${String(course._id)}/students?per_page=100`, { jar: aJar })
+    check('the roster holds the same number of students',
+      (roster.body?.data?.rows ?? []).length === 8,
+      String((roster.body?.data?.rows ?? []).length))
+  }
+
+  /* =============================================== */
+  section('G · the dashboard counts enrolments the purchase path created')
+  {
+    /* `enrollmentRepo.create_` does not write Enrollment.organizationId, and it
+       is the path behind self-enrolment and every purchase. The dashboard used
+       to count enrolments BY that field, so those rows matched nothing and the
+       card read 0 while the course list beside it showed enrolled students. */
+    const course = await mkCourse('Dashboard Course')
+    const student = await UserModel.create({
+      name: 'Dash', email: `dash-${Date.now()}@ec.local`, passwordHash: hash,
+      role: 'student', isActive: true, enrollmentStatus: 'approved', organizationId: org._id,
+    })
+
+    const { EnrollmentRepository } = await import('@/repositories/enrollment.repository.ts')
+    await new EnrollmentRepository().create_({
+      userId: student._id, courseId: course._id, source: 'purchase',
+    })
+
+    const row = await EnrollmentModel.findOne({ userId: student._id, courseId: course._id }).lean() as any
+    check('the enrolment carries NO organizationId — this is the real shape',
+      row?.organizationId === undefined || row?.organizationId === null,
+      String(row?.organizationId))
+
+    /* Ask as an ORG-SCOPED admin, not the super admin. A super_admin carries no
+       organizationId unless the topbar switcher supplies one, so the org filter
+       would be empty and both the old and new implementation would count
+       everything — the test would pass either way and prove nothing. A plain
+       admin gets their academy from their own account, which is the scope the
+       bug actually lived in. */
+    const scopedAdmin = await UserModel.create({
+      name: 'Scoped', email: `scoped-${Date.now()}@ec.local`, passwordHash: hash,
+      role: 'admin', isActive: true, organizationId: org._id,
+    })
+    const sJar: Jar = new Map()
+    await call('POST', '/admin/auth/login', {
+      jar: sJar, body: { email: scopedAdmin.email, password: PW },
+    })
+
+    const stats = await call('GET', '/admin/stats', { jar: sJar })
+    check('the stats endpoint answers', stats.status === 200, String(stats.status))
+    check('and counts it anyway — derived from the courses in scope',
+      (stats.body?.data?.totalEnrollments ?? 0) >= 1,
+      String(stats.body?.data?.totalEnrollments))
+
+    /* The dashboard total must not contradict the sum of the rows beside it. */
+    const list = await call('GET', '/admin/courses?per_page=200', { jar: sJar })
+    const sumOfRows = (list.body?.data ?? [])
+      .reduce((t: number, c: any) => t + (c.enrolledCount ?? 0), 0)
+    check('the dashboard total equals the sum of the course rows',
+      stats.body?.data?.totalEnrollments === sumOfRows,
+      `stats=${stats.body?.data?.totalEnrollments} rows=${sumOfRows}`)
+
+    /* "Total Students" counts PEOPLE on those courses, so it must be at most
+       the enrolment total — one student on two courses is two enrolments but
+       one student — and it must not count accounts that never enrolled. */
+    const distinctOnCourses = (await EnrollmentModel.distinct('userId', {
+      courseId: { $in: (await CourseModel.find({ organizationId: org._id }, { _id: 1 }).lean()).map(c => c._id) },
+    })).length
+    check('Total Students counts distinct people on the academy courses',
+      stats.body?.data?.totalStudents === distinctOnCourses,
+      `stats=${stats.body?.data?.totalStudents} distinct=${distinctOnCourses}`)
+    check('and never exceeds the enrolment count',
+      (stats.body?.data?.totalStudents ?? 0) <= (stats.body?.data?.totalEnrollments ?? 0),
+      `students=${stats.body?.data?.totalStudents} enrolments=${stats.body?.data?.totalEnrollments}`)
+
+    /* A registered account that never enrolled must NOT inflate the tile. */
+    await UserModel.create({
+      name: 'Never', email: `never-${Date.now()}@ec.local`, passwordHash: hash,
+      role: 'student', isActive: true, enrollmentStatus: 'approved', organizationId: org._id,
+    })
+    const after = await call('GET', '/admin/stats', { jar: sJar })
+    check('a student who never enrolled does not move the number',
+      after.body?.data?.totalStudents === stats.body?.data?.totalStudents,
+      `before=${stats.body?.data?.totalStudents} after=${after.body?.data?.totalStudents}`)
+  }
+
 } catch (err) {
   fail++
   lines.push(`  FAIL  suite threw — ${(err as Error).message}\n${(err as Error).stack}`)
