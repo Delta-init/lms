@@ -34,6 +34,26 @@ function check(label: string, ok: boolean, detail = '') {
 }
 function section(n: string) { lines.push(`\n${n}`) }
 
+/* Wait for something written OUTSIDE the request the test just made.
+
+   Audit rows are written fire-and-forget from res.on('finish'), and the writer
+   dynamic-imports the tenancy helper and resolves the actor's academy before
+   inserting — so the row lands some time after the response has been read. A
+   fixed sleep encodes a guess at how long that takes: 300ms held while this
+   suite ran on its own and lost under the full chain, where the write arrived
+   only after the suite had disconnected, and both assertions failed on a race
+   rather than on behaviour. Polling waits exactly as long as it needs to, and
+   still fails honestly once the deadline passes. */
+async function waitFor<T>(read: () => Promise<T>, ms = 5000): Promise<T | null> {
+  const until = Date.now() + ms
+  for (;;) {
+    const got = await read()
+    if (got) return got
+    if (Date.now() >= until) return null
+    await new Promise(r => setTimeout(r, 25))
+  }
+}
+
 const mongoose = (await import('mongoose')).default
 mongoose.set('autoIndex', false)
 const { createServer } = await import('node:http')
@@ -176,8 +196,8 @@ try {
   check('a malformed id → 400, not 500', bad.status === 400, String(bad.status))
 
   section('D · watching is audited')
-  await new Promise(r => setTimeout(r, 300))
-  const log = await AuditLogModel.findOne({ action: 'recording.view' }).sort({ createdAt: -1 }).lean() as any
+  const log = await waitFor(async () =>
+    await AuditLogModel.findOne({ action: 'recording.view' }).sort({ createdAt: -1 }).lean() as any)
   check('a recording.view entry is written', !!log)
   check('naming who watched', log?.actorEmail === 'super@rec.local' || log?.actorEmail === 'dubai@rec.local',
     log?.actorEmail)

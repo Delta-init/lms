@@ -60,6 +60,8 @@ type Verdict =
 interface Row {
   name: string; email: string; status: string
   field: string; verdict: Verdict; detail: string
+  /** The raw stored value, so a bad reference can be grouped by shape. */
+  value: string
 }
 
 /** Where a key is expected to live, given its prefix. */
@@ -154,6 +156,7 @@ async function main(): Promise<void> {
         email:  String(u.email ?? ''),
         status: String((u as { enrollmentStatus?: unknown }).enrollmentStatus ?? ''),
         field:  f.label, verdict, detail,
+        value:  app[f.key] == null ? '' : String(app[f.key]),
       })
     }
   }
@@ -190,6 +193,39 @@ async function main(): Promise<void> {
   console.log(`    object missing  ${String(tally['object missing']).padStart(5)}   ${tally['object missing'] ? 'the upload did not land, or the object was removed' : ''}`)
   console.log(`    foreign host    ${String(tally['foreign host']).padStart(5)}   ${tally['foreign host'] ? 'points at another server — never stored here, re-upload required' : ''}`)
   console.log(`    unreadable ref  ${String(tally['unreadable ref']).padStart(5)}   ${tally['unreadable ref'] ? 'legacy or hand-written values — re-upload required' : ''}`)
+  /* Group the unusable references by SHAPE rather than listing them one by one.
+     Two thousand rows all reading "drive.google.com" say nothing about whether
+     the files can be recovered; the URL form does. A Google Forms upload column
+     yields drive.google.com/open?id=<id>, which carries a file id and can be
+     fetched with a Drive credential — while a folder link, or a bare /view
+     page, cannot be read as a file at all. This is the line that decides
+     between migrating the objects and asking students to upload again, so it
+     is worth printing. */
+  const broken = rows.filter(r => r.verdict === 'foreign host' || r.verdict === 'unreadable ref')
+  if (broken.length) {
+    const shape = (v: string): string => {
+      try {
+        const u = new URL(v)
+        const seg = u.pathname.split('/').filter(Boolean)[0] ?? ''
+        const q = [...u.searchParams.keys()].sort().join(',')
+        return u.host + '/' + seg + (q ? '?' + q : '')
+      } catch { return v.slice(0, 40) }
+    }
+    const byShape = new Map<string, { n: number; sample: string }>()
+    for (const r of broken) {
+      const k = shape(r.value)
+      const e = byShape.get(k) ?? { n: 0, sample: r.value }
+      e.n++
+      byShape.set(k, e)
+    }
+    console.log()
+    console.log('  reference shapes among the ' + broken.length + ' unusable value(s):')
+    for (const [k, e] of [...byShape].sort((a, b) => b[1].n - a[1].n).slice(0, 12)) {
+      console.log('    ' + String(e.n).padStart(6) + '  ' + k.padEnd(32) + '  ' + e.sample.slice(0, 56))
+    }
+    console.log()
+  }
+
   console.log(`\n  Anything other than "not submitted" or "ok" is a document the`)
   console.log(`  student sent that a reviewer cannot open.\n`)
 
