@@ -88,14 +88,35 @@ router.post('/:id/resubmit', authenticate, validate(resubmitSchema), async (req:
 
 /* ── Reviewer ────────────────────────────────────────── */
 
+const qs = (req: Request, key: string): string | undefined => {
+  const v = req.query[key]
+  return typeof v === 'string' && v.trim() ? v.trim() : undefined
+}
+
 router.get(
   '/review',
   authenticateAny,
   requireRole('super_admin', 'admin', 'sub_admin', 'support', 'instructor'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const status = typeof req.query['status'] === 'string' ? req.query['status'] : undefined
-      sendSuccess(res, await svc.listForReview(caller(req), status))
+      sendSuccess(res, await svc.listForReview(caller(req), qs(req, 'status'), qs(req, 'instructorId')))
+    } catch (err) { next(err) }
+  },
+)
+
+/* The review dashboard: totals, how long students are waiting, and the same
+   figures broken down per instructor.
+
+   Declared BEFORE /:id, like /submittable and /me above, or the id route
+   swallows it and 'review' arrives as a submission id — a 404 that looks like
+   a missing record rather than a routing mistake. */
+router.get(
+  '/review/stats',
+  authenticateAny,
+  requireRole('super_admin', 'admin', 'sub_admin', 'support', 'instructor'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      sendSuccess(res, await svc.reviewStats(caller(req), qs(req, 'instructorId')))
     } catch (err) { next(err) }
   },
 )

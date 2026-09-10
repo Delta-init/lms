@@ -23,6 +23,9 @@ const notifications = new NotificationService()
 /** Roles that may review anyone's submission within their own reach. */
 const STAFF = new Set(['super_admin', 'admin', 'sub_admin', 'support'])
 
+const EMPTY_TOTALS   = { total: 0, pending: 0, approved: 0, rejected: 0 }
+const EMPTY_RESPONSE = { medianResponseHours: null, oldestPendingHours: null, pendingOver48h: 0 }
+
 export interface Caller {
   id:             string
   role:           string
@@ -175,28 +178,174 @@ export class ClassAssignmentService {
      An instructor sees submissions for sessions they teach — nobody else's.
      Staff see their own academy. super_admin sees everything, matching every
      other guard in the codebase. */
-  async listForReview(caller: Caller, status?: string): Promise<unknown[]> {
-    const filter: Record<string, unknown> = {}
-    if (status && ['pending', 'approved', 'rejected'].includes(status)) filter['status'] = status
+  /* Who this caller is allowed to see, expressed as a filter.
 
+     Extracted because the queue and the dashboard MUST agree: a count that
+     includes submissions the same admin cannot open in the list below it is
+     worse than no count at all. One function, both callers. */
+  #reach(caller: Caller): Record<string, unknown> {
     if (caller.role === 'instructor') {
-      filter['instructorId'] = new Types.ObjectId(caller.id)
-    } else if (STAFF.has(caller.role)) {
-      if (caller.role !== 'super_admin' && caller.organizationId && Types.ObjectId.isValid(caller.organizationId)) {
-        filter['organizationId'] = new Types.ObjectId(caller.organizationId)
-      }
-    } else {
+      return { instructorId: new Types.ObjectId(caller.id) }
+    }
+    if (!STAFF.has(caller.role)) {
       throw new ClassAssignmentError('FORBIDDEN', 'You cannot review submissions.', 403)
     }
+    /* A super_admin carries no organizationId unless the topbar switcher
+       supplies one — and then they are scoped like anybody else. */
+    if (caller.role !== 'super_admin' && caller.organizationId && Types.ObjectId.isValid(caller.organizationId)) {
+      return { organizationId: new Types.ObjectId(caller.organizationId) }
+    }
+    return {}
+  }
+
+  /* Narrowing to one instructor must never WIDEN reach. An instructor's own
+     id is already the only value their own scope permits, so naming somebody
+     else intersects to nothing rather than leaking a row. Returns null when
+     the request is for someone the caller cannot see. */
+  #narrowToInstructor(
+    reach: Record<string, unknown>,
+    instructorId?: string,
+  ): Record<string, unknown> | null {
+    if (!instructorId || !Types.ObjectId.isValid(instructorId)) return reach
+    const asked = new Types.ObjectId(instructorId)
+    const own   = reach['instructorId'] as Types.ObjectId | undefined
+    if (own && !own.equals(asked)) return null
+    return { ...reach, instructorId: asked }
+  }
+
+  async listForReview(caller: Caller, status?: string, instructorId?: string): Promise<unknown[]> {
+    const scoped = this.#narrowToInstructor(this.#reach(caller), instructorId)
+    if (!scoped) return []
+
+    const filter: Record<string, unknown> = { ...scoped }
+    if (status && ['pending', 'approved', 'rejected'].includes(status)) filter['status'] = status
 
     return ClassAssignmentModel.find(filter)
       .populate('studentId', 'name email avatarUrl')
+      .populate('instructorId', 'name email avatarUrl')
       .populate('liveClassId', 'title scheduledStart')
       .populate('courseId', 'title slug')
       .populate('sectionId', 'title')
       .sort({ status: 1, submittedAt: -1 })
       .limit(200)
       .lean()
+  }
+
+  /* ── The review dashboard ───────────────────────────────────────────────
+     Two questions an admin actually has: how much work is outstanding, and
+     which instructors are keeping up with theirs.
+
+     Response time is reported as a MEDIAN, not a mean. One submission left
+     for three weeks drags a mean far enough to make a responsive instructor
+     look negligent, and the number then stops being usable for the very
+     comparison it exists for. A median says what a typical student waits.
+
+     Every figure is derived from the rows themselves — nothing reads a stored
+     counter, so nothing can drift out of agreement with the queue below it. */
+  async reviewStats(caller: Caller, instructorId?: string): Promise<unknown> {
+    const scoped = this.#narrowToInstructor(this.#reach(caller), instructorId)
+    if (!scoped) {
+      return { totals: EMPTY_TOTALS, responsiveness: EMPTY_RESPONSE, instructors: [] }
+    }
+
+    const rows = await ClassAssignmentModel.find(scoped, {
+      instructorId: 1, status: 1, submittedAt: 1, reviewedAt: 1,
+    }).lean()
+
+    const now = Date.now()
+    const hours = (ms: number) => Math.round((ms / 36e5) * 10) / 10
+
+    interface Bucket {
+      total: number; pending: number; approved: number; rejected: number
+      waits: number[]; oldestPendingMs: number
+    }
+    const blank = (): Bucket => ({
+      total: 0, pending: 0, approved: 0, rejected: 0, waits: [], oldestPendingMs: 0,
+    })
+
+    const overall = blank()
+    const byInstructor = new Map<string, Bucket>()
+    let pendingOver48h = 0
+
+    for (const r of rows as any[]) {
+      const key = String(r.instructorId ?? '')
+      let b = byInstructor.get(key)
+      if (!b) { b = blank(); byInstructor.set(key, b) }
+
+      for (const t of [overall, b]) {
+        t.total++
+        if (r.status === 'pending')  t.pending++
+        if (r.status === 'approved') t.approved++
+        if (r.status === 'rejected') t.rejected++
+      }
+
+      const submitted = r.submittedAt ? new Date(r.submittedAt).getTime() : null
+      if (submitted === null) continue
+
+      if (r.status === 'pending') {
+        const waited = now - submitted
+        if (waited > overall.oldestPendingMs) overall.oldestPendingMs = waited
+        if (waited > b.oldestPendingMs)       b.oldestPendingMs = waited
+        if (waited > 48 * 36e5) pendingOver48h++
+      } else if (r.reviewedAt) {
+        /* Clamped at zero: clock skew between two writes should not produce a
+           negative wait that then drags a median below zero. */
+        overall.waits.push(Math.max(0, new Date(r.reviewedAt).getTime() - submitted))
+        b.waits.push(Math.max(0, new Date(r.reviewedAt).getTime() - submitted))
+      }
+    }
+
+    const median = (xs: number[]): number | null => {
+      if (!xs.length) return null
+      const a = [...xs].sort((x, y) => x - y)
+      const mid = Math.floor(a.length / 2)
+      return a.length % 2 ? a[mid]! : Math.round((a[mid - 1]! + a[mid]!) / 2)
+    }
+
+    /* Names in one lookup rather than a populate per row. */
+    const ids = [...byInstructor.keys()].filter(k => Types.ObjectId.isValid(k))
+    const people = await UserModel
+      .find({ _id: { $in: ids.map(i => new Types.ObjectId(i)) } }, { name: 1, email: 1, avatarUrl: 1 })
+      .lean()
+    const byId = new Map(people.map(x => [String(x._id), x as any]))
+
+    const instructors = [...byInstructor.entries()].map(([id, b]) => {
+      const judged = b.approved + b.rejected
+      const med    = median(b.waits)
+      const person = byId.get(id)
+      return {
+        id,
+        name:      person?.name  ?? 'Unknown instructor',
+        email:     person?.email ?? '',
+        avatarUrl: person?.avatarUrl,
+        total: b.total, pending: b.pending, approved: b.approved, rejected: b.rejected,
+        /* Null, not 0 — an instructor who has judged nothing has no rate, and
+           printing 0% would read as "approves nothing", which is a different
+           and much worse claim. */
+        approvalRate:        judged ? Math.round((b.approved / judged) * 100) : null,
+        medianResponseHours: med === null ? null : hours(med),
+        oldestPendingHours:  b.pending ? hours(b.oldestPendingMs) : null,
+      }
+    })
+    /* Most outstanding work first — that is the row an admin needs to act on. */
+    instructors.sort((a, z) => z.pending - a.pending || z.total - a.total)
+
+    const overallMed = median(overall.waits)
+    return {
+      totals: {
+        total:    overall.total,
+        pending:  overall.pending,
+        approved: overall.approved,
+        rejected: overall.rejected,
+      },
+      responsiveness: {
+        medianResponseHours: overallMed === null ? null : hours(overallMed),
+        oldestPendingHours:  overall.pending ? hours(overall.oldestPendingMs) : null,
+        /* Two working days. The one number worth alarming on. */
+        pendingOver48h,
+      },
+      instructors,
+    }
   }
 
   /* ── Approve / reject ─────────────────────────────────────────────────── */

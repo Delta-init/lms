@@ -499,7 +499,25 @@ export class AdminController {
       const filter: Record<string, unknown> = {
         role:             'student',
         enrollmentStatus: { $exists: true },
-        signupType:       { $ne: 'express' },   // express-only users go to the Express Members section
+        /* Express-only members belong in the Express Members section, not in
+           the request pipeline — EXCEPT the ones this pipeline put there.
+
+           Rejecting a student flips signupType to 'express' on purpose, so
+           they keep a browsing account. The blanket exclusion then hid them
+           from the Rejected tab as well, which is the one place an admin goes
+           to look at them: that tab rendered "No rejected requests" no matter
+           how many there were, and the reason, the rejecting admin and the
+           Re-approve button — all of which the table already knows how to
+           draw — were unreachable.
+
+           Wrapped in $and so it cannot be clobbered by the $or the approved
+           tab assigns below. */
+        $and: [{
+          $or: [
+            { signupType:       { $ne: 'express' } },
+            { enrollmentStatus: { $in: ['rejected', 'cancelled'] } },
+          ],
+        }],
       }
       if (orgId) {
         const { Types: OTypes } = await import('mongoose')
@@ -649,7 +667,7 @@ export class AdminController {
         res.status(400).json({ success: false, error: { code: 'MISSING_CATEGORIES', message: 'Select at least one category to assign.' } }); return
       }
 
-      const existing = await UserModel.findById(userId).select('email name categories category').lean()
+      const existing = await UserModel.findById(userId).select('email name categories category enrollmentStatus signupType').lean()
       if (!existing) { res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'User not found' } }); return }
 
       // Merge new categories with existing ones (avoid duplicates)
@@ -660,9 +678,22 @@ export class AdminController {
       // Look up admin's full info for metadata
       const adminUser = await UserModel.findById(admin.id).select('name email role').lean()
 
+      /* Re-approving has to undo the demotion, or it half-works in the worst
+         way: enrollmentStatus flips to 'approved' while signupType stays
+         'express', so the student vanishes from the Approved tab — express is
+         excluded there — and stays listed as an Express Member. The admin sees
+         a success toast and then cannot find the student anywhere.
+
+         Only applied when this account is one we demoted. An express-born
+         member approved through some other path keeps the type they signed up
+         with; nothing here should silently promote them. */
+      const wasRejected = ['rejected', 'cancelled']
+        .includes(String((existing as { enrollmentStatus?: unknown }).enrollmentStatus ?? ''))
+
       await UserModel.findByIdAndUpdate(userId, {
         $set:   {
           enrollmentStatus: 'approved',
+          ...(wasRejected && { signupType: 'full' }),
           categories:       mergedCats,
           category:         primaryCat,
           approvedBy:       admin.id,
@@ -737,9 +768,13 @@ export class AdminController {
           rejectedAt:        new Date(),
           categories:        [],
         },
+        /* `fullRegistrationSubmittedAt` deliberately survives. It records that
+           this person once completed the full form — a historical fact, not a
+           current state — and erasing it left nothing to say a rejected
+           account had ever been more than an express signup. Nothing filters
+           on its absence. */
         $unset: {
           category:                    '',
-          fullRegistrationSubmittedAt: '',
           approvedBy:      '', approvedByEmail: '', approvedByName: '', approvedByRole: '', approvedAt: '',
         },
       })

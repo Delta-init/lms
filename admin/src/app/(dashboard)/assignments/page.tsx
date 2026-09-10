@@ -5,10 +5,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   ClipboardList, CheckCircle2, XCircle, Clock, AlertTriangle, FileText,
   Image as ImageIcon, Search, User, BookOpen, Layers, Calendar, RotateCcw,
+  Timer, Hourglass, Users,
 } from 'lucide-react'
 import {
-  useReviewQueue, useReviewAssignment,
+  useReviewQueue, useReviewAssignment, useReviewStats,
   type ReviewAssignment, type ClassAssignmentStatus,
+  type InstructorPerformance, type ReviewStats,
 } from '@/lib/api/classAssignments'
 import { useToast } from '@/store/ui.store'
 
@@ -22,10 +24,180 @@ function fmtDateTime(iso?: string) {
   return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
+/* Hours are the API's unit because a submission judged in 20 minutes and one
+   left for three weeks have to share a scale. Reading them back out in the
+   unit a person would actually say. */
+function fmtHours(h: number | null | undefined): string {
+  if (h === null || h === undefined) return '—'
+  if (h < 1)  return `${Math.max(1, Math.round(h * 60))}m`
+  if (h < 48) return `${h < 10 ? h.toFixed(1).replace(/\.0$/, '') : Math.round(h)}h`
+  return `${Math.round(h / 24)}d`
+}
+
 const STATUS: Record<ClassAssignmentStatus, { label: string; color: string; bg: string; Icon: React.ElementType }> = {
   pending:  { label: 'Awaiting review', color: '#B45309', bg: 'rgba(245,158,11,0.10)', Icon: Clock },
   approved: { label: 'Approved',        color: '#059669', bg: 'rgba(16,185,129,0.10)', Icon: CheckCircle2 },
   rejected: { label: 'Sent back',       color: '#DC2626', bg: 'rgba(239,68,68,0.10)',  Icon: AlertTriangle },
+}
+
+/* ── The dashboard ───────────────────────────────────
+   Four counts and two timings. The counts answer "how much is outstanding";
+   the timings answer "how long has a student been waiting for it", which is
+   the thing a queue length alone never tells you — ten submissions reviewed
+   within the hour is a healthy screen, three left for a week is not, and the
+   number 3 looks better than the number 10. */
+function StatCards({ stats, loading }: { stats?: ReviewStats; loading: boolean }) {
+  const t = stats?.totals
+  const r = stats?.responsiveness
+
+  const cards: {
+    label: string; value: string; hint?: string
+    Icon: React.ElementType; color: string; bg: string; alarm?: boolean
+  }[] = [
+    {
+      label: 'Total submissions', value: loading ? '—' : String(t?.total ?? 0),
+      Icon: ClipboardList, color: '#0057b8', bg: 'rgba(0,87,184,0.10)',
+    },
+    {
+      label: 'Awaiting review', value: loading ? '—' : String(t?.pending ?? 0),
+      hint: r?.oldestPendingHours ? `oldest waiting ${fmtHours(r.oldestPendingHours)}` : undefined,
+      Icon: Clock, color: '#B45309', bg: 'rgba(245,158,11,0.10)',
+      /* Two working days with no answer is the one thing worth colouring. */
+      alarm: (r?.pendingOver48h ?? 0) > 0,
+    },
+    {
+      label: 'Approved', value: loading ? '—' : String(t?.approved ?? 0),
+      Icon: CheckCircle2, color: '#059669', bg: 'rgba(16,185,129,0.10)',
+    },
+    {
+      label: 'Sent back', value: loading ? '—' : String(t?.rejected ?? 0),
+      Icon: AlertTriangle, color: '#DC2626', bg: 'rgba(239,68,68,0.10)',
+    },
+    {
+      label: 'Typical response', value: loading ? '—' : fmtHours(r?.medianResponseHours),
+      /* Said out loud, because a reader will otherwise assume an average and
+         wonder why one forgotten submission did not move it. */
+      hint: 'median, not average',
+      Icon: Timer, color: '#6D28D9', bg: 'rgba(109,40,217,0.10)',
+    },
+    {
+      label: 'Waiting over 48h', value: loading ? '—' : String(r?.pendingOver48h ?? 0),
+      Icon: Hourglass,
+      color: (r?.pendingOver48h ?? 0) > 0 ? '#DC2626' : '#6B7280',
+      bg:    (r?.pendingOver48h ?? 0) > 0 ? 'rgba(239,68,68,0.10)' : 'rgba(107,114,128,0.08)',
+      alarm: (r?.pendingOver48h ?? 0) > 0,
+    },
+  ]
+
+  return (
+    <div className="mb-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+      {cards.map(c => (
+        <div key={c.label} className="rounded-2xl bg-white p-3"
+          style={{ border: `1px solid ${c.alarm ? 'rgba(239,68,68,0.28)' : '#E4E7ED'}` }}>
+          <div className="mb-1.5 flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: c.bg }}>
+            <c.Icon size={13} style={{ color: c.color }} />
+          </div>
+          <p className="text-lg font-bold leading-tight" style={{ color: '#0D0F1A' }}>{c.value}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: '#6B7280' }}>{c.label}</p>
+          {c.hint && (
+            <p className="mt-0.5 text-[10px]" style={{ color: '#9CA3AF' }}>{c.hint}</p>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/* ── Per instructor ──────────────────────────────────
+   Clicking a row filters the whole screen to that instructor — the cards and
+   the queue both, because a dashboard that disagrees with the list under it
+   is worse than no dashboard. The API applies the same filter to each. */
+function InstructorPanel({ rows, selected, onSelect, loading }: {
+  rows:     InstructorPerformance[]
+  selected: string
+  onSelect: (id: string) => void
+  loading:  boolean
+}) {
+  const [open, setOpen] = useState(false)
+  if (loading || rows.length === 0) return null
+
+  const chosen = rows.find(r => r.id === selected)
+
+  return (
+    <div className="mb-4 rounded-2xl bg-white" style={{ border: '1px solid #E4E7ED' }}>
+      <button type="button" onClick={() => setOpen(o => !o)}
+        className="flex w-full items-center gap-2 px-4 py-3 text-left">
+        <Users size={14} style={{ color: '#0057b8' }} />
+        <span className="text-xs font-bold" style={{ color: '#0D0F1A' }}>
+          By instructor
+        </span>
+        <span className="text-[11px]" style={{ color: '#6B7280' }}>
+          {chosen ? `filtered to ${chosen.name}` : `${rows.length} with submissions`}
+        </span>
+        {chosen && (
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={e => { e.stopPropagation(); onSelect('') }}
+            onKeyDown={e => { if (e.key === 'Enter') { e.stopPropagation(); onSelect('') } }}
+            className="ml-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+            style={{ background: 'rgba(0,87,184,0.10)', color: '#0057b8', cursor: 'pointer' }}>
+            Clear
+          </span>
+        )}
+        <span className="ml-auto text-[11px]" style={{ color: '#9CA3AF' }}>{open ? 'Hide' : 'Show'}</span>
+      </button>
+
+      {open && (
+        <div className="overflow-x-auto border-t" style={{ borderColor: '#E4E7ED' }}>
+          <table className="w-full min-w-[640px] text-left">
+            <thead>
+              <tr>
+                {['Instructor', 'Total', 'Awaiting', 'Approved', 'Sent back', 'Approval', 'Typical response', 'Oldest waiting']
+                  .map(h => (
+                    <th key={h} className="px-3 py-2 text-[10px] font-bold uppercase tracking-wide"
+                      style={{ color: '#9CA3AF' }}>{h}</th>
+                  ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(r => {
+                const isOn = r.id === selected
+                return (
+                  <tr key={r.id}
+                    onClick={() => onSelect(isOn ? '' : r.id)}
+                    className="cursor-pointer transition-colors hover:bg-black/[0.02]"
+                    style={{ borderTop: '1px solid #F1F3F7', background: isOn ? 'rgba(0,87,184,0.05)' : undefined }}>
+                    <td className="px-3 py-2.5">
+                      <p className="text-xs font-semibold" style={{ color: '#0D0F1A' }}>{r.name}</p>
+                      <p className="text-[10px]" style={{ color: '#9CA3AF' }}>{r.email}</p>
+                    </td>
+                    <td className="px-3 py-2.5 text-xs" style={{ color: '#0D0F1A' }}>{r.total}</td>
+                    <td className="px-3 py-2.5 text-xs font-semibold"
+                      style={{ color: r.pending > 0 ? '#B45309' : '#9CA3AF' }}>{r.pending}</td>
+                    <td className="px-3 py-2.5 text-xs" style={{ color: '#059669' }}>{r.approved}</td>
+                    <td className="px-3 py-2.5 text-xs" style={{ color: '#DC2626' }}>{r.rejected}</td>
+                    {/* An em dash, not 0% — this instructor has judged nothing
+                        yet, which is not the same as approving nothing. */}
+                    <td className="px-3 py-2.5 text-xs" style={{ color: '#0D0F1A' }}>
+                      {r.approvalRate === null ? '—' : `${r.approvalRate}%`}
+                    </td>
+                    <td className="px-3 py-2.5 text-xs" style={{ color: '#0D0F1A' }}>
+                      {fmtHours(r.medianResponseHours)}
+                    </td>
+                    <td className="px-3 py-2.5 text-xs font-semibold"
+                      style={{ color: (r.oldestPendingHours ?? 0) > 48 ? '#DC2626' : '#6B7280' }}>
+                      {fmtHours(r.oldestPendingHours)}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
 }
 
 /* ── One submission ──────────────────────────────────── */
@@ -182,9 +354,17 @@ function ReviewCard({ a }: { a: ReviewAssignment }) {
 
 /* ── Page ────────────────────────────────────────────── */
 export default function AdminAssignmentsPage() {
-  const [tab,    setTab]    = useState<'all' | ClassAssignmentStatus>('pending')
-  const [search, setSearch] = useState('')
-  const { data, isLoading, isError, error } = useReviewQueue(tab)
+  const [tab,          setTab]          = useState<'all' | ClassAssignmentStatus>('pending')
+  const [search,       setSearch]       = useState('')
+  const [instructorId, setInstructorId] = useState<string>('')
+
+  /* The dashboard is its own request, not a count of `data`. The queue is
+     capped at 200 and filtered by the tab above, so counting it would report
+     "3 awaiting review" while meaning "3 on this page of this tab" — a figure
+     that changes when you click a tab and is wrong the moment the backlog is
+     real. The API counts every row in this caller's reach. */
+  const stats = useReviewStats(instructorId || undefined)
+  const { data, isLoading, isError, error } = useReviewQueue(tab, instructorId || undefined)
 
   const list = useMemo(() => {
     const rows = data ?? []
@@ -209,6 +389,15 @@ export default function AdminAssignmentsPage() {
           Work students sent after a live class. Approve it, or send it back with a reason.
         </p>
       </div>
+
+      <StatCards stats={stats.data} loading={stats.isLoading} />
+
+      <InstructorPanel
+        rows={stats.data?.instructors ?? []}
+        selected={instructorId}
+        onSelect={setInstructorId}
+        loading={stats.isLoading}
+      />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {([

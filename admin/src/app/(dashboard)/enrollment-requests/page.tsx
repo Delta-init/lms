@@ -690,6 +690,44 @@ function ApplicationDetailModal({ user, scopeCategory, onClose, onApprove, onRej
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+          {/* Why this student was rejected.
+
+              The reason was already stored and already shown as a truncated
+              line in the table, but the panel — the place an admin opens to
+              decide whether to re-approve — never said it. Re-approving is
+              exactly the moment you want to read why somebody said no. */}
+          {isRejected && (
+            <div className="rounded-xl p-4"
+              style={{ background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.22)' }}>
+              <div className="mb-2 flex items-center gap-2">
+                <XCircle size={13} style={{ color: '#F87171' }} />
+                <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: '#F87171' }}>
+                  {user.enrollmentStatus === 'cancelled' ? 'Enrollment cancelled' : 'Request rejected'}
+                </span>
+              </div>
+              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.85)' }}>
+                {user.rejectionReason || 'No reason was recorded.'}
+              </p>
+              {(user.rejectedByName || user.rejectedByEmail || user.rejectedAt) && (
+                <p className="mt-2 text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                  {(user.rejectedByName || user.rejectedByEmail) && `by ${user.rejectedByName ?? user.rejectedByEmail}`}
+                  {user.rejectedAt && ` · ${new Date(user.rejectedAt).toLocaleDateString('en-US', {
+                    year: 'numeric', month: 'short', day: 'numeric',
+                  })}`}
+                </p>
+              )}
+              {/* Rejection deletes every course enrolment and decrements the
+                  course counters. Re-approving restores the account, not the
+                  seats — say so before the button is pressed rather than
+                  leaving an admin to discover it from a confused student. */}
+              <p className="mt-3 text-[11px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                Re-approving restores access to the portal. Course enrollments were
+                removed when the student was rejected and are not restored — they
+                need to be assigned again.
+              </p>
+            </div>
+          )}
+
           {!app ? (
             <div className="flex flex-col items-center gap-2 py-8 text-center" style={{ color: 'rgba(255,255,255,0.3)' }}>
               <FileText size={28} className="opacity-40" />
