@@ -446,6 +446,73 @@ try {
       `before=${stats.body?.data?.totalStudents} after=${after.body?.data?.totalStudents}`)
   }
 
+  /* ═══════════════════════════════════════════════ */
+  section('H · the dashboard "Most enrolled courses" widget ranks on reality')
+  {
+    /* The widget read the stored `enrolledCount` AND sorted by it. Two faults,
+       and only one is about numbers: sorting by a fictional field picks the
+       wrong five COURSES, so re-counting afterwards would have printed honest
+       figures next to the wrong names. The order is what this section is for. */
+    const fake = await mkCourse('Fake Popular', 5000)
+    const real = await mkCourse('Really Popular', 0)
+
+    const mkStudents = (tag: string, n: number) => Promise.all(
+      Array.from({ length: n }, (_, i) => UserModel.create({
+        name: `${tag}${i}`, email: `${tag}${i}-${Date.now()}-${Math.random()}@ec.local`,
+        passwordHash: hash, role: 'student', isActive: true,
+        enrollmentStatus: 'approved', organizationId: org._id,
+      })),
+    )
+
+    /* Straight into the collection, the way the import scripts write — the
+       stored counter never moves, which is the whole premise. */
+    const few  = await mkStudents('fake', 1)
+    const many = await mkStudents('real', 6)
+    await EnrollmentModel.insertMany(few.map(u  => ({ userId: u._id, courseId: fake._id, status: 'active' })))
+    await EnrollmentModel.insertMany(many.map(u => ({ userId: u._id, courseId: real._id, status: 'active' })))
+
+    check('the fiction is still in the database — this is not a seeding artefact',
+      await storedCount(fake._id) === 5000, String(await storedCount(fake._id)))
+    check('and the genuinely popular course still stores zero',
+      await storedCount(real._id) === 0, String(await storedCount(real._id)))
+
+    const res = await call('GET', '/admin/analytics/top-courses?limit=20', { jar: aJar })
+    check('the widget endpoint answers', res.status === 200, String(res.status))
+
+    const rows: any[] = res.body?.data ?? []
+    const iReal = rows.findIndex(r => r.title === 'Really Popular')
+    const iFake = rows.findIndex(r => r.title === 'Fake Popular')
+
+    check('the genuinely popular course is listed at all', iReal >= 0,
+      rows.map(r => r.title).join(' | '))
+    check('it OUTRANKS the one with the inflated counter — the order is derived',
+      iReal >= 0 && iFake >= 0 && iReal < iFake, `real=${iReal} fake=${iFake}`)
+
+    check('it reports 6, its real enrolments, not the 0 it stores',
+      rows[iReal]?.enrolledCount === 6, String(rows[iReal]?.enrolledCount))
+    check('and the inflated one reports 1, not 5000',
+      rows[iFake]?.enrolledCount === 1, String(rows[iFake]?.enrolledCount))
+    check('no row anywhere carries the fictional figure',
+      !rows.some(r => r.enrolledCount === 5000),
+      rows.map(r => `${r.title}=${r.enrolledCount}`).join(' | '))
+
+    /* Every figure on the widget must survive a direct recount. */
+    let mismatched = ''
+    for (const r of rows) {
+      const truth = await EnrollmentModel.countDocuments({ courseId: r.id })
+      if (truth !== r.enrolledCount) mismatched += `${r.title}: shown ${r.enrolledCount}, real ${truth}; `
+    }
+    check('every row on the widget matches a direct count of its enrolments',
+      mismatched === '', mismatched)
+
+    /* A course nobody enrolled on is not a "top performer". */
+    await mkCourse('Nobody Wanted This', 4321)
+    const again = await call('GET', '/admin/analytics/top-courses?limit=20', { jar: aJar })
+    check('a course with zero enrolments stays off the list, however big its counter',
+      !(again.body?.data ?? []).some((r: any) => r.title === 'Nobody Wanted This'),
+      (again.body?.data ?? []).map((r: any) => r.title).join(' | '))
+  }
+
 } catch (err) {
   fail++
   lines.push(`  FAIL  suite threw — ${(err as Error).message}\n${(err as Error).stack}`)

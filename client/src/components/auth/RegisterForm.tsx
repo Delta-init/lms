@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 import { TermsModal } from './TermsModal'
 import Spinner from '@/components/ui/Spinner'
 import { PROGRAMS, PROGRAM_GROUPS, programLabel } from '@/lib/programs'
+import { readJson } from '@/lib/apiResponse'
 
 /* ── Types ─────────────────────────────────────────── */
 interface FormData {
@@ -1174,10 +1175,24 @@ export function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
         fd.append('file', file)
         fd.append('kind', kind)
         const res = await fetch('/api/v1/uploads/signup-doc', { method: 'POST', body: fd })
-        const json = await res.json() as { success: boolean; data?: { url: string }; error?: { message: string } }
-        if (!res.ok) throw new Error(json.error?.message ?? 'Upload failed')
-        uploadedSignupDocs.set(file, json.data!.url)
-        return json.data!.url
+
+        /* Read the body defensively. This request carries megabytes through a
+           reverse proxy, which is the one place in the whole signup that can
+           answer with an HTML error page instead of the API envelope — a 413
+           when the body is over nginx's client_max_body_size, a 502 while the
+           backend restarts. `await res.json()` threw on that HTML before
+           `res.ok` was ever consulted, and the browser's own parser message
+           was what the student was shown at the final step of registration:
+           "Unexpected token '<'" in Chrome, "The string did not match the
+           expected pattern." in Safari. */
+        const read = await readJson<{ url: string }>(res)
+        if (!read.ok) throw new Error(read.message)
+        if (!res.ok)  throw new Error(read.body.error?.message ?? 'Upload failed')
+
+        const url = read.body.data?.url
+        if (!url) throw new Error('The upload finished but no file reference came back. Please try again.')
+        uploadedSignupDocs.set(file, url)
+        return url
       }
 
       const passportUrl = await uploadDoc(data.passportFile, 'kyc')

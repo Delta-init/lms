@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ShieldOff } from 'lucide-react'
+import { ShieldOff, AlertCircle } from 'lucide-react'
 import { useCurrentUser, logout } from '@/lib/api/user'
 import Spinner from '@/components/ui/Spinner'
 
@@ -83,7 +83,35 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (!user || !isAllowed) {
+  /* A failed /admin/auth/me is NOT a role rejection, and this used to report
+     it as one.
+
+     `user` is undefined in two unrelated situations: the account really is
+     not allowed here, and the call simply did not answer — a blip, an access
+     token that expired while a refresh was still in flight, a backend mid
+     restart. Both landed in the branch below, so an admin who had been signed
+     in all day was told "This portal is for admins and instructors only" —
+     a sentence that reads as their access having been revoked. It had not
+     been: the next attempt signs in normally, which is exactly the tell that
+     nothing about their ROLE had changed.
+
+     A role verdict is only honest once a role has actually been read. */
+  if (isError || !user) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4" style={{ background: '#080A12' }}>
+        <div className="flex h-14 w-14 items-center justify-center rounded-3xl"
+          style={{ background: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.22)' }}>
+          <AlertCircle size={22} style={{ color: '#F59E0B' }} />
+        </div>
+        <p className="text-base font-bold" style={{ color: 'white' }}>Could not verify your session</p>
+        <p className="text-sm max-w-sm text-center" style={{ color: 'rgba(255,255,255,0.45)' }}>
+          The server did not answer. Taking you to sign in — your account is fine.
+        </p>
+      </div>
+    )
+  }
+
+  if (!isAllowed) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4" style={{ background: '#080A12' }}>
         <div className="flex h-14 w-14 items-center justify-center rounded-3xl"

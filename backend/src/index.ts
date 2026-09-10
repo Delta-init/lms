@@ -205,11 +205,46 @@ async function bootstrap() {
      WAF and the edge rate limits. Set BIND_HOST=0.0.0.0 when the proxy lives in
      a different container/host and loopback is not reachable. */
   const bindHost = process.env.BIND_HOST ?? '127.0.0.1'
-  const server = app.listen(listenPort, bindHost, () => {
-    logger.info(`🚀  Server running on http://${bindHost}:${listenPort} (instance ${instanceId})`)
-    logger.info(`📡  API prefix: /api/v1`)
-    logger.info(`🌍  Environment: ${env.NODE_ENV}`)
+  const server = app.listen(listenPort, bindHost)
+
+  /* Acquiring the port is a GATE, not a side effect.
+
+     listen() reports EADDRINUSE asynchronously, so an `error` handler attached
+     after the call only runs once the synchronous bootstrap has already
+     finished — cron startup below included. That is how a process which never
+     served a single request still logged "Reminder cron jobs started (primary
+     instance)" 56,697 times across 27 hours, burning a core, while pm2 showed
+     a green `online` row.
+
+     Measured, not assumed: the first attempt at this fix was exactly that
+     `server.on('error')` handler, and a test that boots onto an occupied port
+     showed the cron line STILL appearing above the fatal. Awaiting the outcome
+     is what actually makes it impossible for anything below to run on a
+     process that does not own its port.
+
+     The message names the instance and the port, because the failure used to
+     happen before anything said which port was even wanted. */
+  await new Promise<void>((resolve, reject) => {
+    server.once('listening', () => resolve())
+    server.once('error', reject)
+  }).catch((err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      logger.fatal(
+        `Port ${listenPort} is already in use - instance ${instanceId} cannot ` +
+        `start. This port is PORT (${env.PORT}) + NODE_APP_INSTANCE ` +
+        `(${instanceId}); another process holds it. Check which with ` +
+        `"ss -ltnp | grep :${listenPort}", and confirm the nginx upstream ` +
+        `lists the ports this app actually binds.`,
+      )
+    } else {
+      logger.fatal({ err }, `Server failed to listen on ${bindHost}:${listenPort}`)
+    }
+    process.exit(1)
   })
+
+  logger.info(`🚀  Server running on http://${bindHost}:${listenPort} (instance ${instanceId})`)
+  logger.info(`📡  API prefix: /api/v1`)
+  logger.info(`🌍  Environment: ${env.NODE_ENV}`)
 
   /* 3. Start cron jobs — ONLY on the primary instance.
      Under PM2 multi-instance load balancing, PM2 sets NODE_APP_INSTANCE

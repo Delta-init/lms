@@ -128,20 +128,59 @@ export class AdminService {
       filter['organizationId'] = new Types.ObjectId(organizationId)
     }
     if (program) filter['program'] = program
+
+    /* Ranked on real enrolments, not the stored `enrolledCount`.
+
+       That field is a denormalised counter maintained on only two of the paths
+       that create an enrolment — self-enrol and purchase. Admin enrolments and
+       the bulk-import scripts never touch it, and seeded courses carry
+       `Math.random() * 3000` from scripts/seed.ts outright. So this widget was
+       reading a number that had drifted where it was maintained at all, and
+       was literally random where it was not.
+
+       Reading the field was only half the problem: `.sort({ enrolledCount })`
+       picked the top five BY that field, so a course could be missing from the
+       list entirely rather than merely showing a wrong figure. Re-counting
+       after the sort would have fixed the numbers and kept the wrong five
+       courses. The ranking has to come from the enrolments themselves.
+
+       The course list is filtered first so the aggregation stays scoped to one
+       academy and programme — a super admin on "All Orgs" carries no
+       organizationId and legitimately ranks everything. */
+    const scoped = await CourseModel.find(filter, { _id: 1 }).lean()
+    if (!scoped.length) return []
+
+    const ranked = await CourseModel.db.collection('enrollments').aggregate<{
+      _id: Types.ObjectId; n: number
+    }>([
+      { $match: { courseId: { $in: scoped.map(c => c._id) } } },
+      { $group: { _id: '$courseId', n: { $sum: 1 } } },
+      { $sort:  { n: -1 } },
+      { $limit: limit },
+    ]).toArray()
+    if (!ranked.length) return []
+
     const docs = await CourseModel
-      .find(filter)
-      .sort({ enrolledCount: -1 })
-      .limit(limit)
-      .select('title slug enrolledCount ratingAvg thumbnailUrl')
-      .exec()
-    return docs.map(d => ({
-      id:            d.id,
-      title:         d.title,
-      slug:          d.slug,
-      enrolledCount: d.enrolledCount ?? 0,
-      ratingAvg:     d.ratingAvg ?? 0,
-      thumbnailUrl:  d.thumbnailUrl,
-    }))
+      .find({ _id: { $in: ranked.map(r => r._id) } })
+      .select('title slug ratingAvg thumbnailUrl')
+      .lean()
+    const byId = new Map(docs.map(d => [String(d._id), d]))
+
+    /* flatMap, not map: an enrolment can outlive the course it points at (see
+       cleanup-orphaned-enrollments), and a row with no course would otherwise
+       render as a blank bar. Dropping it keeps the aggregate ORDER intact. */
+    return ranked.flatMap(r => {
+      const d = byId.get(String(r._id))
+      if (!d) return []
+      return [{
+        id:            String(d._id),
+        title:         d.title,
+        slug:          d.slug,
+        enrolledCount: r.n,
+        ratingAvg:     d.ratingAvg ?? 0,
+        thumbnailUrl:  d.thumbnailUrl,
+      }]
+    })
   }
 
   async completionStats(organizationId?: string): Promise<{
