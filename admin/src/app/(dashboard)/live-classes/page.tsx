@@ -1035,10 +1035,16 @@ function QuickCreateModal({ onClose, onSuccess, categoryProgram }: { onClose: ()
   const [title,           setTitle]           = useState('')
   const [start,           setStart]           = useState('')
   const [durationMins,    setDurationMins]    = useState(60)
-  /* The interactive room is the house default, so the form opens on it and the
-     seat count opens at its cap rather than at a number the API would refuse. */
-  const [sessionCapacity, setSessionCapacity] = useState<number | ''>(LIVEKIT_MAX_SEATS)
-  const [type,            setType]            = useState<LiveClassType>('internal')
+  /* Google Meet is the house default, so the form opens on it.
+
+     The seat count has to move with it. Seats are mode-dependent by an order
+     of magnitude — an interactive LiveKit room is capped at LIVEKIT_MAX_SEATS
+     by the meeting platform, while a Meet class opens at OPEN_SEATS_DEFAULT —
+     and seatsFor() only refills the field when a mode is CLICKED. Leaving the
+     old default here would open every new Meet session at 30 seats, silently,
+     for anyone who never touched the type buttons. */
+  const [sessionCapacity, setSessionCapacity] = useState<number | ''>(OPEN_SEATS_DEFAULT)
+  const [type,            setType]            = useState<LiveClassType>('external')
   /* Which in-app engine backs an internal class. Mux is a one-way broadcast
      that scales to hundreds; LiveKit is an interactive room capped at
      LIVEKIT_MAX_SEATS by the meeting platform. */
