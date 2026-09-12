@@ -17,6 +17,19 @@ import { resolveLiveStatus, isBookingOpen, bookingClosesAt } from '@/utils/liveS
 import { authenticate, requireEnrollmentApproval } from '@/middleware/auth.middleware.ts'
 import { validate } from '@/middleware/validate.middleware.ts'
 import { NotificationService } from '@/services/notification.service.ts'
+/* The SHARED sendSuccess, deliberately — not a local one.
+
+   @/utils/response.ts rewrites every stored `pub-*.r2.dev/<key>` URL in the
+   response to the /assets proxy, because that bucket is private now and those
+   URLs 401. A local copy of sendSuccess skips that rewrite, and the failure is
+   silent: the JSON looks perfectly correct, the browser gets a URL it cannot
+   fetch, and the avatar falls back to an initial. That is exactly why
+   instructor photos appeared in the admin table (shared helper) and not in the
+   student class-schedule filter (this file's local one), from the same stored
+   value.
+
+   Anything that serialises a stored asset URL has to go through here. */
+import { sendSuccess } from '@/utils/response.ts'
 
 const router = Router()
 const notifSvc = new NotificationService()
@@ -33,10 +46,6 @@ const bookingQuerySchema = z.object({
 })
 
 /* ── Helper ─────────────────────────────────── */
-function sendSuccess(res: Response, data: unknown, message = 'OK', status = 200) {
-  res.status(status).json({ success: true, data, message })
-}
-
 function fmtDate(iso: string | Date): string {
   return new Date(iso).toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short' })
 }
