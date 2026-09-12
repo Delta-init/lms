@@ -1555,17 +1555,33 @@ const ordersQuerySchema = z.object({
   page:     z.coerce.number().int().min(1).default(1),
   per_page: z.coerce.number().int().min(1).max(100).default(20),
   status:   z.enum(['pending', 'paid', 'refunded', 'cancelled', 'all']).default('all'),
+  /* Pinned to the Order schema's own enum so an unknown value is refused here
+     rather than quietly matching nothing and reading as "this gateway has
+     recorded no orders" — the exact wrong answer for this screen. */
+  gateway:  z.enum(['stripe', 'razorpay', 'tabby', 'abzer', 'tamara', 'all']).default('all'),
 })
 
 router.get('/orders', requireAdmin, requirePermission('orders','list'), validate(ordersQuerySchema, 'query'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { page, per_page, status } = req.query as any
+    const { page, per_page, status, gateway } = req.query as any
     const { docs, totalCount } = await orderSvc.adminList(
-      Number(page ?? 1), Number(per_page ?? 20), String(status ?? 'all'), req.user!.organizationId,
+      Number(page ?? 1), Number(per_page ?? 20), String(status ?? 'all'),
+      req.user!.organizationId, String(gateway ?? 'all'),
     )
     sendSuccess(res, docs, undefined, 200, buildPaginationMeta(totalCount, Number(page ?? 1), Number(per_page ?? 20)))
   } catch (err) { next(err) }
 })
+
+/* Which gateways have recorded orders, and what each took.
+
+   Declared BEFORE /orders/:id/refund so 'by-gateway' cannot be read as an
+   order id. */
+router.get('/orders/by-gateway', requireAdmin, requirePermission('orders','list'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      sendSuccess(res, await orderSvc.gatewayBreakdown(req.user!.organizationId))
+    } catch (err) { next(err) }
+  })
 
 router.post('/orders/:id/refund', requireAdmin, requirePermission('orders','update'), async (req: Request, res: Response, next: NextFunction) => {
   try {

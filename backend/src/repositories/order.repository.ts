@@ -131,12 +131,65 @@ export class OrderRepository {
       .exec()
   }
 
-  async listAll(page = 1, perPage = 20, status?: string, organizationId?: string): Promise<{ docs: IOrder[]; totalCount: number }> {
+  /* The scope both the list and the breakdown read, so a row counted in one
+     is always openable in the other. */
+  private async scopeFilter(
+    status?: string, organizationId?: string, gateway?: string,
+  ): Promise<Record<string, unknown>> {
     const filter: Record<string, unknown> = status && status !== 'all' ? { status } : {}
+    if (gateway && gateway !== 'all') filter['gateway'] = gateway
     if (organizationId) {
       const { Types } = await import('mongoose')
       if (Types.ObjectId.isValid(organizationId)) filter['organizationId'] = new Types.ObjectId(organizationId)
     }
+    return filter
+  }
+
+  /* One row per gateway that has EVER recorded an order, with what it took.
+
+     The question this answers is "is Abzer recording anything at all" — which
+     a paginated list sorted by date cannot answer, because a gateway with a
+     handful of older orders simply never appears on page one. Deliberately
+     ignores the status and gateway filters: a breakdown that moved when you
+     clicked a tab could not be used to check for an absent gateway. */
+  async gatewayBreakdown(organizationId?: string): Promise<{
+    gateway: string; total: number; paid: number; pending: number
+    refunded: number; cancelled: number; paidAmount: number; currency: string
+  }[]> {
+    const match: Record<string, unknown> = {}
+    if (organizationId) {
+      const { Types } = await import('mongoose')
+      if (Types.ObjectId.isValid(organizationId)) match['organizationId'] = new Types.ObjectId(organizationId)
+    }
+    const rows = await OrderModel.aggregate([
+      { $match: match },
+      { $group: {
+        _id:       '$gateway',
+        total:     { $sum: 1 },
+        paid:      { $sum: { $cond: [{ $eq: ['$status', 'paid'] },      1, 0] } },
+        pending:   { $sum: { $cond: [{ $eq: ['$status', 'pending'] },   1, 0] } },
+        refunded:  { $sum: { $cond: [{ $eq: ['$status', 'refunded'] },  1, 0] } },
+        cancelled: { $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] } },
+        /* Only settled money is summed — a pending row is an intention. */
+        paidAmount: { $sum: { $cond: [{ $eq: ['$status', 'paid'] }, '$amount', 0] } },
+        currency:  { $first: '$currency' },
+      } },
+      { $sort: { total: -1 } },
+    ]).exec()
+
+    return rows.map((r: any) => ({
+      gateway: String(r._id ?? 'unknown'),
+      total: r.total, paid: r.paid, pending: r.pending,
+      refunded: r.refunded, cancelled: r.cancelled,
+      paidAmount: r.paidAmount ?? 0,
+      currency: String(r.currency ?? ''),
+    }))
+  }
+
+  async listAll(
+    page = 1, perPage = 20, status?: string, organizationId?: string, gateway?: string,
+  ): Promise<{ docs: IOrder[]; totalCount: number }> {
+    const filter = await this.scopeFilter(status, organizationId, gateway)
     const [docs, totalCount] = await Promise.all([
       OrderModel
         .find(filter)

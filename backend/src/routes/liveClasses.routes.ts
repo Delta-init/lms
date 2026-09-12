@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { LiveClassController } from '@/controllers/liveClass.controller.ts'
 import { authenticate, authenticateAny, injectCategoryScope } from '@/middleware/auth.middleware.ts'
 import { validate } from '@/middleware/validate.middleware.ts'
-import { resolveLiveStatus } from '@/utils/liveStatus.ts'
+import { resolveLiveStatus, bookingClosesAt } from '@/utils/liveStatus.ts'
 import type { PaginationMeta } from '@/types/index.ts'
 import { issueClassHandoff } from '@/controllers/classHandoff.controller.ts'
 
@@ -99,6 +99,14 @@ router.get('/', authenticate, async (req: Request, res: Response, next: NextFunc
         id:         c.id ?? String(c._id),
         status:     resolveLiveStatus(c.status, c.scheduledStart, c.durationMins ?? 60, now),
         isEnrolled,
+        /* When new bookings stop being accepted, computed by the SERVER.
+           The schedule screen needs to grey out a seat an hour before the
+           class, and deriving that in the browser would put the rule in two
+           places — where the two can disagree, and the one the student sees
+           is the one that is wrong. */
+        bookingClosesAt: c.scheduledStart
+          ? bookingClosesAt(c.scheduledStart).toISOString()
+          : undefined,
       }
       // Non-entitled students see the listing only — never the way in.
       if (!isEntitled) {

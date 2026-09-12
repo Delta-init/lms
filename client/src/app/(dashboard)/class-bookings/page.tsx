@@ -88,12 +88,29 @@ function fmtDateRange(s: Date, e: Date): string {
 }
 
 /* ── Status ────────────────────────────────────────────────── */
-type SlotStatus = 'live'|'booked'|'bookable'|'full'|'locked'|'attended'|'missed'|'cancelled'|'ended'
+type SlotStatus = 'live'|'booked'|'bookable'|'closed'|'full'|'locked'|'attended'|'missed'|'cancelled'|'ended'
 const LIVE_LEAD_MINS = 15
 function isWithinLiveWindow(lc: LiveClass): boolean {
   const s = new Date(lc.scheduledStart).getTime()
   return Date.now() >= s - LIVE_LEAD_MINS*60_000 && Date.now() < s + (lc.durationMins||60)*60_000
 }
+/* Booking closes an hour before an online class starts.
+
+   The deadline comes from the server on every session. The local fallback is
+   only for payloads written before that field existed — if the two ever
+   disagree the SERVER is right, because it is the one that will refuse the
+   booking, and a screen that offers a seat the API then rejects is worse than
+   one that greys it out early. */
+const BOOKING_CUTOFF_MINS = 60
+function bookingClosedAt(lc: LiveClass): number {
+  return lc.bookingClosesAt
+    ? new Date(lc.bookingClosesAt).getTime()
+    : new Date(lc.scheduledStart).getTime() - BOOKING_CUTOFF_MINS * 60_000
+}
+function isBookingClosed(lc: LiveClass): boolean {
+  return Date.now() >= bookingClosedAt(lc)
+}
+
 function isPastEnd(lc: LiveClass): boolean {
   return Date.now() >= new Date(lc.scheduledStart).getTime() + (lc.durationMins||60)*60_000
 }
@@ -146,16 +163,24 @@ function getSlotStatus(lc: LiveClass, booking: MyBooking|undefined, hasOther: bo
   const isLive  = lc.status === 'live' || (!pastEnd && isWithinLiveWindow(lc))
   if (lc.status === 'ended' || (pastEnd && !isLive)) return ended()
   if (isLive) return 'live'
+  /* A seat already held is unaffected by the deadline — checked BEFORE it, so
+     a booked student keeps seeing their booking (and the cancel button) right
+     up to the start. The cut-off stops NEW bookings, not existing ones. */
   if (booking) {
     if (booking.status === 'booked')    return 'booked'
     if (booking.status === 'attended')  return 'attended'
     if (booking.status === 'missed')    return 'missed'
     if (booking.status === 'cancelled') {
+      if (isBookingClosed(lc)) return 'closed'
       if (hasOther) return 'locked'
       if (lc.sessionCapacity > 0 && lc.bookedCount >= lc.sessionCapacity) return 'full'
       return 'bookable'
     }
   }
+  /* Ahead of 'full' and 'locked': once the hour has passed the seat count and
+     the one-per-slot rule are both beside the point, and "Booking Closed" is
+     the only answer that tells the student what actually happened. */
+  if (isBookingClosed(lc)) return 'closed'
   if (hasOther) return 'locked'
   if (lc.sessionCapacity > 0 && lc.bookedCount >= lc.sessionCapacity) return 'full'
   return 'bookable'
@@ -163,6 +188,7 @@ function getSlotStatus(lc: LiveClass, booking: MyBooking|undefined, hasOther: bo
 
 const SC: Record<SlotStatus,{color:string;bg:string;border:string;label:string}> = {
   live:      {color: 'var(--color-danger)',bg:'rgba(239,68,68,0.08)',  border:'rgba(239,68,68,0.22)',  label:'Live Now'},
+  closed:    {color: 'var(--color-text-muted)',bg:'var(--color-bg-inset)',border:'var(--color-border)',label:'Booking Closed'},
   booked:    {color: 'var(--color-success)',bg:'rgba(5,150,105,0.08)',  border:'rgba(5,150,105,0.22)',  label:'Reserved'},
   bookable:  {color: 'var(--color-primary)',bg:'rgba(0,87,184,0.08)', border:'rgba(0,87,184,0.22)', label:'Open'},
   full:      {color: 'var(--color-text-muted)',bg:'rgba(107,114,128,0.07)',border:'rgba(107,114,128,0.18)',label:'Full'},
@@ -662,6 +688,7 @@ function SlotModal({group,bookingMap,onBook,onCancel,bookPending,cancelPending,o
                       <BookOpen size={14}/>Complete Registration to Book
                     </Link>
                   ):isEnr?(
+                    <>
                     <motion.button type="button"
                       whileHover={{scale:1.01,boxShadow:'0 8px 28px rgba(0,87,184,0.32)'}}
                       whileTap={{scale:0.98}}
@@ -672,6 +699,31 @@ function SlotModal({group,bookingMap,onBook,onCancel,bookPending,cancelPending,o
                         ?<><Spinner size={14}/>Booking…</>
                         :<><BookOpen size={14}/>Reserve Seat · {fmtShortSlot(sel.scheduledStart)}</>}
                     </motion.button>
+                    {/* The deadline, stated BEFORE they need it.
+
+                        A student who finds out about the cut-off by being
+                        refused has already lost the seat. Shown as a concrete
+                        time rather than the policy — "seats close one hour
+                        before" makes a reader do arithmetic against a class
+                        time they are also reading off the screen — and it
+                        sharpens into a countdown inside the last two hours,
+                        which is the only window where the difference between
+                        knowing and not knowing changes what they do. */}
+                    {(()=>{
+                      const closesAt = bookingClosedAt(sel)
+                      const minsLeft = Math.round((closesAt - now)/60_000)
+                      const urgent   = minsLeft <= 120
+                      return (
+                        <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-[11px] leading-relaxed"
+                          style={{color: urgent ? '#B45309' : 'var(--color-text-muted)'}}>
+                          <Clock size={11} style={{flexShrink:0}}/>
+                          {urgent
+                            ? <span>Booking closes in <strong>{minsLeft < 60 ? `${Math.max(1,minsLeft)} min` : `${Math.floor(minsLeft/60)}h ${minsLeft%60}m`}</strong> — reserve now to keep your seat.</span>
+                            : <span>Reserve by <strong>{fmtTime(new Date(closesAt).toISOString())}</strong> — seats close one hour before the class starts.</span>}
+                        </p>
+                      )
+                    })()}
+                    </>
                   ):(
                     <div className="flex items-start gap-3 rounded-2xl px-4 py-3" style={{background: 'var(--color-bg-inset)',border: '1px solid var(--color-border)'}}>
                       <Lock size={14} style={{color: 'var(--color-text-muted)',flexShrink:0,marginTop:1}}/>
@@ -683,6 +735,21 @@ function SlotModal({group,bookingMap,onBook,onCancel,bookPending,cancelPending,o
                       </div>
                     </div>
                   )
+                )}
+                {selSt==='closed'&&(
+                  <div className="flex items-start gap-3 rounded-2xl px-4 py-3" style={{background: 'var(--color-bg-inset)',border: '1px solid var(--color-border)'}}>
+                    <Clock size={14} style={{color: 'var(--color-text-muted)',flexShrink:0,marginTop:1}}/>
+                    <div>
+                      <p className="text-[12px] font-semibold" style={{color: 'var(--color-text-secondary)'}}>Booking Closed</p>
+                      {/* Says WHEN it closed, not just that it did. A student
+                          who missed it by minutes should be able to tell the
+                          difference from one who missed it by a day. */}
+                      <p className="mt-0.5 text-[11px] leading-relaxed" style={{color: 'var(--color-text-muted)'}}>
+                        Seats closed at <strong>{fmtShortSlot(new Date(bookingClosedAt(sel)).toISOString())}</strong>,
+                        an hour before the class. Ask your admin if you still need a place.
+                      </p>
+                    </div>
+                  </div>
                 )}
                 {selSt==='booked'&&selBk&&(()=>{
                   const msLeft=new Date(sel.scheduledStart).getTime()-now

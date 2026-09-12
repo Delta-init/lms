@@ -40,6 +40,9 @@ export interface CurrentUser {
   id:             string
   name:           string
   email:          string
+  /** An address requested but not yet confirmed. The account still signs
+   *  in with `email` until the link sent here is clicked. */
+  pendingEmail?:  string
   avatarUrl?:     string
   role:           'student' | 'instructor' | 'admin' | 'viewer'
   headline?:      string
@@ -133,6 +136,34 @@ export function useChangePassword() {
     mutationFn: ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) =>
       api.patch('/auth/me/password', { currentPassword, newPassword }),
   })
+}
+
+/* ── Changing the account's email address ──────────────
+   Two calls, because nothing moves until a link sent to the NEW address comes
+   back. The request only parks it; the student keeps signing in with the old
+   one until they confirm, so a typo is harmless rather than a lockout. */
+export function useRequestEmailChange() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ newEmail, currentPassword }: { newEmail: string; currentPassword: string }) =>
+      api.patch('/auth/me/email', { newEmail, currentPassword }),
+    /* Refresh the profile so the pending address appears without a reload. */
+    onSuccess: () => { qc.invalidateQueries({ queryKey: userKeys.me }) },
+  })
+}
+
+export function useCancelEmailChange() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.delete('/auth/me/email'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: userKeys.me }) },
+  })
+}
+
+/* POST /auth/confirm-email-change — opened from the mailbox, so it carries no
+   session of its own. The token is the credential. */
+export function confirmEmailChange(token: string): Promise<{ email: string }> {
+  return api.post('/auth/confirm-email-change', { token }).then(r => r.data.data)
 }
 
 /* POST /auth/forgot-password — always succeeds visibly. */

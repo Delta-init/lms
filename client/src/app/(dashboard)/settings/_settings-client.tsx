@@ -6,10 +6,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   User, Bell, Shield, CreditCard, Globe,
   Camera, Check, LogOut, LayoutDashboard,
-  PanelLeft, AlignJustify, Monitor, AlertCircle, Lock, Eye, EyeOff, FileText,
-} from 'lucide-react'
+  PanelLeft, AlignJustify, Monitor, AlertCircle, Lock, Eye, EyeOff, FileText, Mail,} from 'lucide-react'
 import { useUIStore } from '@/store/ui.store'
-import { useCurrentUser, useUpdateProfile, useChangePassword, logout as apiLogout } from '@/lib/api/user'
+import {
+  useCurrentUser, useUpdateProfile, useChangePassword,
+  useRequestEmailChange, useCancelEmailChange, logout as apiLogout,
+} from '@/lib/api/user'
 import { PrivacySecuritySection } from '@/components/auth/PrivacySecuritySection'
 import { RequestSection } from '@/components/settings/RequestSection'
 import Spinner from '@/components/ui/Spinner'
@@ -166,6 +168,41 @@ export default function SettingsContent() {
   const [showCur,   setShowCur]   = useState(false)
   const [showNew,   setShowNew]   = useState(false)
   const changePasswordMutation = useChangePassword()
+
+  const [emForm,  setEmForm]  = useState({ next: '', password: '' })
+  const [emError, setEmError] = useState<string | null>(null)
+  const [emSent,  setEmSent]  = useState(false)
+  const requestEmailChange = useRequestEmailChange()
+  const cancelEmailChange  = useCancelEmailChange()
+
+  const handleRequestEmailChange = async () => {
+    setEmError(null)
+    const next = emForm.next.trim().toLowerCase()
+    if (!next) { setEmError('Enter the address you want to use.'); return }
+    if (next === (user?.email ?? '').toLowerCase()) {
+      setEmError('That is already the address on your account.'); return
+    }
+    try {
+      await requestEmailChange.mutateAsync({ newEmail: next, currentPassword: emForm.password })
+      setEmSent(true)
+      setEmForm({ next: '', password: '' })
+    } catch (err: any) {
+      /* The API's own message names the problem — already registered, wrong
+         password, social account with nothing to confirm against. Repeating it
+         beats a generic line that leaves the student guessing. */
+      setEmError(err?.response?.data?.error?.message ?? 'Could not start the change. Please try again.')
+    }
+  }
+
+  const handleCancelEmailChange = async () => {
+    setEmError(null)
+    try {
+      await cancelEmailChange.mutateAsync()
+      setEmSent(false)
+    } catch {
+      setEmError('Could not cancel. Please try again.')
+    }
+  }
 
   const handleChangePassword = async () => {
     setPwError(null)
@@ -367,6 +404,92 @@ export default function SettingsContent() {
                 </motion.button>
               </div>
             </div>
+            {/* ── Email address ──────────────────────────────
+                Nothing moves when this is submitted. The address is parked and
+                a link goes to it; the account keeps using the current address
+                until that link is clicked — so a typo here costs nothing, and
+                somebody who has taken over a session still cannot move the
+                account without the password. */}
+            <div className="rounded-2xl bg-[var(--color-bg-surface)] p-6" style={{ border: '1px solid var(--color-border)' }}>
+              <div className="mb-1 flex items-center gap-2">
+                <Mail size={15} style={{ color: 'var(--color-primary)' }} />
+                <h2 className="text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>Email Address</h2>
+              </div>
+              <p className="mb-5 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                You sign in with <strong>{user?.email}</strong>.
+              </p>
+
+              {user?.pendingEmail ? (
+                <div className="rounded-xl p-4" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.28)' }}>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                    Waiting for confirmation
+                  </p>
+                  <p className="mt-1 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                    We sent a link to <strong>{user.pendingEmail}</strong>. Open it from that
+                    inbox to finish the change. Until then you keep signing in with{' '}
+                    <strong>{user.email}</strong>.
+                  </p>
+                  <button
+                    onClick={handleCancelEmailChange}
+                    disabled={cancelEmailChange.isPending}
+                    className="mt-3 text-xs font-semibold underline transition-opacity hover:opacity-80 disabled:opacity-40"
+                    style={{ color: 'var(--color-primary)' }}>
+                    {cancelEmailChange.isPending ? 'Cancelling…' : 'Cancel this change'}
+                  </button>
+                </div>
+              ) : emSent ? (
+                <div className="rounded-xl p-4" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.28)' }}>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                    Check your new inbox
+                  </p>
+                  <p className="mt-1 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                    Open the link we just sent. It expires in an hour.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3.5">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>New email address</label>
+                    <input
+                      type="email"
+                      value={emForm.next}
+                      onChange={e => setEmForm(p => ({ ...p, next: e.target.value }))}
+                      placeholder="you@example.com"
+                      className="w-full rounded-xl px-3.5 py-2.5 text-sm outline-none"
+                      style={{ background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }} />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>Confirm with your password</label>
+                    <input
+                      type="password"
+                      value={emForm.password}
+                      onChange={e => setEmForm(p => ({ ...p, password: e.target.value }))}
+                      placeholder="Your current password"
+                      className="w-full rounded-xl px-3.5 py-2.5 text-sm outline-none"
+                      style={{ background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }} />
+                  </div>
+
+                  {emError && (
+                    <p className="text-xs" style={{ color: '#DC2626' }}>{emError}</p>
+                  )}
+
+                  <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                    We will email a confirmation link to the new address. Your current
+                    address keeps working until you open it.
+                  </p>
+
+                  <motion.button
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleRequestEmailChange}
+                    disabled={requestEmailChange.isPending || !emForm.next || !emForm.password}
+                    className="flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-opacity disabled:opacity-40"
+                    style={{ background: 'var(--color-primary)' }}>
+                    {requestEmailChange.isPending ? 'Sending…' : 'Send confirmation link'}
+                  </motion.button>
+                </div>
+              )}
+            </div>
+
             <div className="rounded-2xl bg-[var(--color-bg-surface)] p-6" style={{ border: '1px solid var(--color-border)' }}>
               <div className="mb-5 flex items-center gap-2">
                 <Lock size={15} style={{ color: 'var(--color-primary)' }} />

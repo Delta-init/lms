@@ -113,14 +113,43 @@ export interface AdminOrder {
   createdAt:               string
 }
 
-export function useAdminOrders(page = 1, status = 'all') {
+export function useAdminOrders(page = 1, status = 'all', gateway = 'all') {
   return useQuery({
-    queryKey: ['admin', 'orders', page, status],
+    queryKey: ['admin', 'orders', page, status, gateway],
     queryFn: async () => {
       const res = await api.get<{ success: true; data: AdminOrder[]; meta: any }>(
-        '/admin/orders', { params: { page, per_page: 20, status } },
+        '/admin/orders', { params: { page, per_page: 20, status, gateway } },
       )
       return { orders: res.data.data, meta: res.data.meta }
+    },
+    staleTime: 30_000,
+  })
+}
+
+export interface GatewayBreakdownRow {
+  gateway:    string
+  total:      number
+  paid:       number
+  pending:    number
+  refunded:   number
+  cancelled:  number
+  paidAmount: number
+  currency:   string
+}
+
+/* Which gateways have EVER recorded an order.
+
+   A paginated list sorted by date cannot answer "is Abzer recording anything"
+   — a gateway with a few older orders simply never reaches page one, and its
+   absence from the screen reads as its absence from the system. This counts
+   the whole collection, and deliberately ignores the status and gateway tabs
+   so the answer does not move when you click one. */
+export function useGatewayBreakdown() {
+  return useQuery({
+    queryKey: ['admin', 'orders', 'by-gateway'],
+    queryFn: async () => {
+      const res = await api.get<{ success: true; data: GatewayBreakdownRow[] }>('/admin/orders/by-gateway')
+      return res.data.data
     },
     staleTime: 30_000,
   })

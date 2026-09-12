@@ -50,7 +50,7 @@ import type { IUser } from './schema.ts'
 import { toAssetUrl } from '@/utils/assetUrl.ts'
 
 const SAFE_USER_FIELDS = [
-  'id', 'name', 'email', 'avatarUrl', 'role',
+  'id', 'name', 'email', 'pendingEmail', 'avatarUrl', 'role',
   'isVerified', 'isActive',
   'bio', 'headline', 'websiteUrl',
   'twoFactorEnabled',

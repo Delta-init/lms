@@ -13,7 +13,7 @@
  */
 import { Router, type Request, type Response, type NextFunction } from 'express'
 import { z } from 'zod'
-import { resolveLiveStatus } from '@/utils/liveStatus.ts'
+import { resolveLiveStatus, isBookingOpen, bookingClosesAt } from '@/utils/liveStatus.ts'
 import { authenticate, requireEnrollmentApproval } from '@/middleware/auth.middleware.ts'
 import { validate } from '@/middleware/validate.middleware.ts'
 import { NotificationService } from '@/services/notification.service.ts'
@@ -129,10 +129,31 @@ router.post('/', authenticate, requireEnrollmentApproval, validate(createBooking
       res.status(400).json({ success: false, error: { code: 'SESSION_UNAVAILABLE', message: 'Session is no longer available for booking' } }); return
     }
 
-    /* Block booking once the class has moved into the live window */
+    /* Booking closes an hour before the class starts.
+
+       Checked BEFORE the live-window test below, and separately from it, so
+       the student is told the truth: between the cut-off and the start there
+       is a whole hour where the class is neither live nor bookable, and
+       "this class is live" would be a lie for most of it.
+
+       Ordered ahead of the enrolment, module, cap and capacity gates on
+       purpose — none of those can be fixed by the student at this point, and
+       the deadline is the one answer that explains why. */
     const effectiveStatus = resolveLiveStatus(session.status, session.scheduledStart, session.durationMins)
-    if (effectiveStatus === 'live') {
-      res.status(400).json({ success: false, error: { code: 'BOOKING_CLOSED', message: 'Booking is closed — this class is live. You must book before the class starts.' } }); return
+    if (!isBookingOpen(session.scheduledStart)) {
+      const started = Date.now() >= new Date(session.scheduledStart).getTime()
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'BOOKING_CLOSED',
+          message: started || effectiveStatus === 'live'
+            ? 'Booking is closed — this class has already started.'
+            : `Booking closed at ${fmtDate(bookingClosesAt(session.scheduledStart))}. Seats must be reserved at least an hour before the class.`,
+          /* The deadline itself, so a client can render it rather than
+             re-deriving a rule that only the server owns. */
+          closedAt: bookingClosesAt(session.scheduledStart).toISOString(),
+        },
+      }); return
     }
 
     /* Enrollment gate — student must be enrolled in the session's course */

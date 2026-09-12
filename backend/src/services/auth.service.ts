@@ -711,6 +711,141 @@ export class AuthService {
        Returns a fresh pair for the calling device: every
        pre-existing session is revoked, so the caller needs
        new cookies to stay signed in here. */
+  /* ─── Changing the address on an account ─────────────────────────────────
+     Three steps, and the split is the whole design.
+
+     An email change is the classic path from a stolen SESSION to a stolen
+     ACCOUNT: move the address, then use forgot-password against it, and the
+     real owner finds out when they can no longer sign in. So:
+
+       · the current password is required — a borrowed cookie is not enough,
+         and this is the same bar changePassword() already sets;
+       · the new address is parked in `pendingEmail` and proven by a link sent
+         to it, because being able to read mail there is the only thing that
+         demonstrates it belongs to you. A typo therefore costs nothing: the
+         old address keeps working and the request simply expires;
+       · the old address is told immediately, while it is still the live one —
+         that is the owner's only chance to react in time.
+
+     One hour, not the 24 the signup verification uses. This link moves an
+     existing account rather than activating a new one, so the window in which
+     a leaked link is useful should be as short as is still practical. */
+  async requestEmailChange(
+    userId: string,
+    newEmailRaw: string,
+    currentPassword: string,
+  ): Promise<{ pendingEmail: string }> {
+    const { UserModel } = await import('@/models/schema.ts')
+
+    const user = await UserModel.findById(userId).select('+passwordHash').exec()
+    if (!user || !user.isActive) {
+      throw new AuthError('USER_NOT_FOUND', 'Account not found.', 404)
+    }
+    if (!user.passwordHash) {
+      throw new AuthError(
+        'OAUTH_ACCOUNT',
+        'This account uses social login, so it has no password to confirm with. Use forgot-password to set one first.',
+        400,
+      )
+    }
+    if (!(await comparePassword(currentPassword, user.passwordHash))) {
+      throw new AuthError('WRONG_PASSWORD', 'Current password is incorrect.', 401)
+    }
+
+    const newEmail = newEmailRaw.trim().toLowerCase()
+    if (newEmail === user.email.toLowerCase()) {
+      throw new AuthError('SAME_EMAIL', 'That is already the address on your account.', 400)
+    }
+
+    /* Told plainly, rather than hidden behind a generic success.
+       The caller is already signed in as this account, so the only thing a
+       vague answer protects is whether OTHER addresses are registered — and it
+       costs the student the one fact they need to fix their own mistake. The
+       route rate-limits this endpoint, which is what actually bounds probing. */
+    const taken = await UserModel.findOne({ email: newEmail }).select('_id').lean()
+    if (taken) {
+      throw new AuthError('EMAIL_TAKEN', 'That address is already used by another account.', 409)
+    }
+
+    user.pendingEmail = newEmail
+    await user.save()
+
+    const { raw } = await this.#issueAuthToken(userId, 'change-email', 60 * 60 * 1000)
+    const url = `${env.CLIENT_URL}/confirm-email?token=${raw}`
+
+    const { sendEmailChangeConfirm, sendEmailChangeNotice } =
+      await import('@/services/email.service.ts')
+
+    /* The confirmation is awaited: if it cannot be sent there is nothing for
+       the student to click, and they should be told now rather than left
+       waiting for a mail that never comes. The warning to the old address is
+       fire-and-forget — it must never be able to fail the request, because a
+       student whose old mailbox is dead still has to be able to move off it. */
+    await sendEmailChangeConfirm(newEmail, user.name, url)
+    void sendEmailChangeNotice(user.email, user.name, newEmail).catch(err =>
+      logger.warn({ err, userId }, 'could not warn the old address about an email change'))
+
+    return { pendingEmail: newEmail }
+  }
+
+  /** Drops an outstanding request. Any issued link stops working with it. */
+  async cancelEmailChange(userId: string): Promise<void> {
+    const { UserModel, AuthTokenModel } = await import('@/models/schema.ts')
+    await UserModel.updateOne({ _id: userId }, { $unset: { pendingEmail: '' } })
+    await AuthTokenModel.deleteMany({ userId, purpose: 'change-email' })
+  }
+
+  async confirmEmailChange(rawToken: string): Promise<{ email: string }> {
+    const { UserModel } = await import('@/models/schema.ts')
+
+    const tokenHash = this.#hashToken(rawToken)
+    const claimed   = await this.authTokenRepo.claim(tokenHash, 'change-email')
+    if (!claimed) {
+      throw new AuthError('INVALID_TOKEN', 'That link is invalid or has expired.', 400)
+    }
+
+    const user = await UserModel.findById(claimed.userId).exec()
+    if (!user || !user.isActive) {
+      throw new AuthError('USER_NOT_FOUND', 'Account not found.', 404)
+    }
+
+    /* The request may have been cancelled, or superseded by a later one that
+       parked a different address. The token is single-use and already spent,
+       so there is nothing to roll back — just refuse. */
+    const pending = user.pendingEmail
+    if (!pending) {
+      throw new AuthError('NO_PENDING_CHANGE', 'There is no email change waiting to be confirmed.', 400)
+    }
+
+    /* Checked AGAIN, because the gap between asking and confirming is up to an
+       hour and somebody else can register the address inside it. The unique
+       index is still the final arbiter below — this only turns the common case
+       into a sentence a person can act on rather than a duplicate-key error. */
+    const taken = await UserModel.findOne({ email: pending, _id: { $ne: user._id } }).select('_id').lean()
+    if (taken) {
+      user.pendingEmail = undefined
+      await user.save()
+      throw new AuthError('EMAIL_TAKEN', 'That address was registered by someone else while you were confirming.', 409)
+    }
+
+    user.email        = pending
+    user.pendingEmail = undefined
+    /* Confirmed by construction: the link was delivered to this address and
+       came back. An account that was never verified becomes verified here. */
+    user.isVerified   = true
+
+    try {
+      await user.save()
+    } catch (err) {
+      if (typeof err === 'object' && err !== null && (err as { code?: number }).code === 11000) {
+        throw new AuthError('EMAIL_TAKEN', 'That address was registered by someone else while you were confirming.', 409)
+      }
+      throw err
+    }
+
+    return { email: user.email }
+  }
+
   async changePassword(
     userId: string,
     currentPassword: string,
@@ -1134,7 +1269,7 @@ export class AuthService {
        only the hash to the DB. */
   async #issueAuthToken(
     userId: string,
-    purpose: 'reset-password' | 'verify-email',
+    purpose: 'reset-password' | 'verify-email' | 'change-email',
     ttlMs: number,
   ): Promise<{ raw: string }> {
     /* Invalidate any outstanding tokens for this purpose so the most

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { ShoppingBag, RotateCcw, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react'
-import { useAdminOrders, type AdminOrder } from '@/lib/api/stats'
+import { useAdminOrders, useGatewayBreakdown, type AdminOrder } from '@/lib/api/stats'
 import { api } from '@/lib/axios'
 import { useQueryClient } from '@tanstack/react-query'
 import Spinner from '@/components/ui/Spinner'
@@ -36,12 +36,14 @@ const GATEWAY_LABEL: Record<string, { label: string; color: string }> = {
 const MANUAL_REFUND_GATEWAYS = new Set(['abzer', 'tamara', 'tabby'])
 
 export default function AdminOrdersPage() {
-  const [status, setStatus] = useState<StatusTab>('all')
-  const [page,   setPage]   = useState(1)
+  const [status,  setStatus]  = useState<StatusTab>('all')
+  const [gateway, setGateway] = useState<string>('all')
+  const [page,    setPage]    = useState(1)
   const [refunding, setRefunding] = useState<string | null>(null)
   const qc = useQueryClient()
 
-  const { data, isLoading } = useAdminOrders(page, status)
+  const { data, isLoading } = useAdminOrders(page, status, gateway)
+  const breakdown = useGatewayBreakdown()
 
   const handleRefund = async (orderId: string) => {
     if (!confirm('Issue a full refund for this order? This cannot be undone.')) return
@@ -71,6 +73,53 @@ export default function AdminOrdersPage() {
           All payment records across the platform.
         </p>
       </div>
+
+      {/* Every gateway that has recorded an order, whether or not any of them
+          appear on this page. A gateway missing from HERE has recorded nothing
+          — which is the actual question, and the one a paginated list sorted
+          by date cannot answer. Clicking one filters the table below. */}
+      {breakdown.data && breakdown.data.length > 0 && (
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+          {breakdown.data.map(row => {
+            const gw   = GATEWAY_LABEL[row.gateway] ?? { label: row.gateway, color: 'rgba(255,255,255,0.4)' }
+            const isOn = gateway === row.gateway
+            return (
+              <button key={row.gateway} type="button"
+                onClick={() => { setGateway(isOn ? 'all' : row.gateway); setPage(1) }}
+                className="rounded-2xl p-3 text-left transition-colors"
+                style={{
+                  background: isOn ? `${gw.color}1A` : 'rgba(255,255,255,0.025)',
+                  border: `1px solid ${isOn ? `${gw.color}66` : 'rgba(255,255,255,0.07)'}`,
+                }}>
+                <span className="rounded-md px-2 py-0.5 text-[10px] font-semibold"
+                  style={{ background: `${gw.color}22`, color: gw.color }}>
+                  {gw.label}
+                </span>
+                <p className="mt-1.5 text-lg font-bold leading-tight text-white">{row.total}</p>
+                <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                  {row.paid} paid · {row.pending} pending
+                </p>
+                <p className="mt-0.5 text-[10px] tabular-nums" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                  {formatUSD(row.paidAmount, row.currency)} settled
+                </p>
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {gateway !== 'all' && (
+        <div className="flex items-center gap-2">
+          <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            Showing {GATEWAY_LABEL[gateway]?.label ?? gateway} orders only
+          </span>
+          <button type="button" onClick={() => { setGateway('all'); setPage(1) }}
+            className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+            style={{ background: 'rgba(0,87,184,0.18)', color: '#60A5FA' }}>
+            Clear
+          </button>
+        </div>
+      )}
 
       {/* Status tabs */}
       <div className="flex items-center gap-1 rounded-2xl p-1 w-fit" style={{ background: 'rgba(255,255,255,0.06)' }}>

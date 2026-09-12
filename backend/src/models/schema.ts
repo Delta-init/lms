@@ -93,6 +93,8 @@ export interface IUser extends Document {
   id:            string
   name:          string
   email:         string
+  /** Requested but not yet confirmed. See the schema note below. */
+  pendingEmail?: string
   passwordHash?: string
   avatarUrl?:    string
   role:          UserRole
@@ -152,6 +154,16 @@ const UserSchema = new Schema<IUser>(
   {
     name:         { type: String, required: true, trim: true, maxlength: 120 },
     email:        { type: String, required: true, unique: true, lowercase: true, trim: true },
+    /* An email change the student has asked for but not yet confirmed.
+
+       Deliberately NOT the `email` field with a flag beside it: until the new
+       address is proven reachable it must not be able to sign in, receive
+       anything, or collide with somebody else's account. Parking it here keeps
+       the live identity untouched while the link is outstanding, so a typo
+       costs nothing and a change abandoned halfway simply expires. No unique
+       index — two students may both be part-way through claiming the same
+       address, and only the one who confirms first gets it. */
+    pendingEmail: { type: String, lowercase: true, trim: true },
     passwordHash: { type: String, select: false },   // excluded from queries by default
     avatarUrl:    { type: String },
     role:         { type: String, enum: ['student', 'instructor', 'admin', 'super_admin', 'sub_admin', 'support'], default: 'student' },
@@ -372,7 +384,8 @@ export const DeviceModel = mongoose.model<IDevice>('Device', DeviceSchema)
 /* ─────────────────────────────────────────────────────
    AUTH TOKEN — used for password reset + email verify
 ───────────────────────────────────────────────────── */
-export type AuthTokenPurpose = 'reset-password' | 'verify-email' | 'otp-login' | 'login-link'
+export type AuthTokenPurpose =
+  | 'reset-password' | 'verify-email' | 'otp-login' | 'login-link' | 'change-email'
 
 export interface IAuthToken extends Document {
   id:        string
@@ -389,7 +402,7 @@ const AuthTokenSchema = new Schema<IAuthToken>(
   {
     userId:    { type: Schema.Types.ObjectId, ref: 'User', required: true },
     tokenHash: { type: String, required: true, unique: true },
-    purpose:   { type: String, enum: ['reset-password', 'verify-email', 'otp-login', 'login-link'], required: true },
+    purpose:   { type: String, enum: ['reset-password', 'verify-email', 'otp-login', 'login-link', 'change-email'], required: true },
     expiresAt: { type: Date, required: true },
     usedAt:    { type: Date },
   },

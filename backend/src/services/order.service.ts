@@ -11,6 +11,7 @@ import { NotificationService } from '@/services/notification.service.ts'
 import { sendEnrollmentConfirmation } from '@/services/email.service.ts'
 import { CourseModel, UserModel } from '@/models/schema.ts'
 import { env } from '@/config/env.ts'
+import type { OrderGateway } from '@/models/schema.ts'
 import { logger } from '@/utils/logger.ts'
 
 export type GatewayConfig =
@@ -961,8 +962,14 @@ export class OrderService {
   }
 
   /* ─── Admin list + analytics ──────────────────────── */
-  async adminList(page = 1, perPage = 20, status?: string, organizationId?: string) {
-    return this.orderRepo.listAll(page, perPage, status, organizationId)
+  async adminList(
+    page = 1, perPage = 20, status?: string, organizationId?: string, gateway?: string,
+  ) {
+    return this.orderRepo.listAll(page, perPage, status, organizationId, gateway)
+  }
+
+  async gatewayBreakdown(organizationId?: string) {
+    return this.orderRepo.gatewayBreakdown(organizationId)
   }
 
   async revenueTimeseries(days: number, organizationId?: string) {
@@ -986,6 +993,10 @@ export class OrderService {
     orderId: string
     amount?: number
     currency?: string
+    /* Which gateway actually took the money. Optional for compatibility with
+       callers written before this existed; those still record 'razorpay',
+       which is what the AI-academy site used at the time. */
+    gateway?: OrderGateway
   }): Promise<{ userId: string; created: boolean; alreadyProcessed: boolean; enrolled: string[] }> {
     const { OrderModel, OrganizationModel } = await import('@/models/schema.ts')
     const email = input.email.toLowerCase().trim()
@@ -1031,15 +1042,54 @@ export class OrderService {
       return { userId, created, alreadyProcessed: true, enrolled: COURSE_SLUGS }
     }
 
-    const courses = await CourseModel.find({ slug: { $in: COURSE_SLUGS } }).select('_id slug').lean()
+    const courses = await CourseModel.find({ slug: { $in: COURSE_SLUGS } }).select('_id slug price').lean()
+
+    /* Which gateway took the money, as reported by the caller. Hardcoding
+       'razorpay' meant the Orders table described every external purchase as
+       a Razorpay one whatever actually happened — so the table could never
+       answer the question it exists to answer. */
+    const gateway: OrderGateway = input.gateway ?? 'razorpay'
+
+    /* What was actually paid.
+
+       `input.amount ?? 0` recorded a settled purchase as a payment of zero
+       whenever the caller omitted the field — which it is allowed to do, so
+       every row read ₹0.00 and the revenue figures built on them were silently
+       wrong. Zero is a CLAIM, not a safe default: it says the student paid
+       nothing, which is a different statement from "the amount was not sent".
+       Falling back to the course's own price is the best available truth, and
+       a missing amount is logged so the gap is visible rather than absorbed. */
+    if (input.amount === undefined) {
+      logger.warn(
+        { orderId: input.orderId, gateway },
+        'external purchase arrived with no amount — falling back to the course price',
+      )
+    }
+
+    /* ONE payment, several courses.
+
+       A single external purchase enrols the buyer in every AI-academy course,
+       and each enrolment needs its own Order row because Order.courseId is
+       required. Writing the full amount on all of them turned one ₹5,000
+       purchase into ₹10,000 of reported revenue — every revenue query sums
+       this collection. The paid amount is therefore attributed ONCE, to the
+       first row; the rest carry 0 and the same external order id, so they stay
+       traceable to the purchase without being counted twice. */
     const enrolled: string[] = []
-    for (const c of courses as Array<{ _id: unknown; slug: string }>) {
+    let amountRemaining: number | null = input.amount ?? null
+
+    for (const c of courses as Array<{ _id: unknown; slug: string; price?: number }>) {
       const courseId = String(c._id)
       await this._createEnrollment(userId, courseId)
       await this._autoApproveViaPayment(userId, courseId)
+
+      let amount: number
+      if (amountRemaining !== null) { amount = amountRemaining; amountRemaining = 0 }
+      else                          { amount = enrolled.length === 0 ? (c.price ?? 0) : 0 }
+
       await OrderModel.create({
-        userId, courseId, gateway: 'razorpay', status: 'paid',
-        amount: input.amount ?? 0,
+        userId, courseId, gateway, status: 'paid',
+        amount,
         currency: (input.currency ?? 'INR').toLowerCase().slice(0, 3),
         razorpayOrderId: input.orderId,
       })

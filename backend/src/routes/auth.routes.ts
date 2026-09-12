@@ -167,6 +167,17 @@ const reauthSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 })
 
+/* The same shape the signup form validates against, so an address accepted
+   here cannot be one that could never have registered in the first place. */
+const emailChangeSchema = z.object({
+  newEmail:        z.string().trim().toLowerCase().email('Enter a valid email address').max(254),
+  currentPassword: z.string().min(1, 'Your current password is required'),
+})
+
+const confirmEmailChangeSchema = z.object({
+  token: z.string().min(1),
+})
+
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Current password is required'),
   newPassword: z
@@ -186,6 +197,15 @@ router.patch ('/me',                       authenticate, validate(updateMeSchema
 router.patch ('/me/enrollment-docs',       authenticate, validate(enrollmentDocsSchema), auth.updateEnrollmentDocs)
 router.patch ('/me/complete-registration', authenticate, validate(completeRegistrationSchema), auth.completeRegistration)
 router.patch ('/me/password',         authRateLimit, authenticate, validate(changePasswordSchema), auth.changePassword)
+
+/* ── Changing the address on an account ───────────────
+   All three carry authRateLimit. The request endpoint reports whether an
+   address is already registered — useful to the student, but a probe if left
+   unbounded, and the limiter is what bounds it. Confirm is limited for the
+   ordinary reason: it takes a single-use token and must not be brute-forced. */
+router.patch ('/me/email',            authRateLimit, authenticate, validate(emailChangeSchema), auth.requestEmailChange)
+router.delete('/me/email',            authRateLimit, authenticate, auth.cancelEmailChange)
+router.post  ('/confirm-email-change', authRateLimit, validate(confirmEmailChangeSchema), auth.confirmEmailChange)
 router.post  ('/resend-verification', authRateLimit, authenticate, auth.resendVerification)
 router.get   ('/sessions',            authenticate, auth.listSessions)
 router.delete('/sessions/:id',        authenticate, auth.revokeSession)

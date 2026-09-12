@@ -6,6 +6,7 @@ import { verifyWebhookSignature } from '@/services/mux.service.ts'
 import { createGoogleMeetLink } from '@/services/googleMeet.service.ts'
 import { sendSuccess } from '@/utils/response.ts'
 import { sendInstructorClassScheduled } from '@/services/email.service.ts'
+import { bookingClosesAt } from '@/utils/liveStatus.ts'
 
 function isPopulated(v: unknown): v is Record<string, unknown> & { id: string } {
   return !!v && typeof v === 'object' && typeof (v as { id?: unknown }).id === 'string'
@@ -73,6 +74,10 @@ function toDTO(doc: any, entitled = true) {
 
     sessionCapacity: j.sessionCapacity ?? 30,
     bookedCount:     j.bookedCount     ?? 0,
+
+    /* When new bookings stop being accepted — the SERVER's answer, so the UI
+       never has to hold its own copy of the rule and drift from it. */
+    bookingClosesAt: j.scheduledStart ? bookingClosesAt(j.scheduledStart).toISOString() : undefined,
 
     language:       j.language ?? 'English',
 

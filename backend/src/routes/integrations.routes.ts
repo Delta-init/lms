@@ -123,6 +123,11 @@ const aiaPurchaseSchema = z.object({
   orderId:  z.string().min(1).max(200),
   amount:   z.coerce.number().min(0).optional(),
   currency: z.string().max(3).optional(),
+  /* Which gateway took the money. Pinned to the same enum the Order schema
+     stores, so an unknown value is refused at the edge rather than written
+     into a column the admin table then cannot label. Optional: callers
+     written before this existed keep recording 'razorpay'. */
+  gateway:  z.enum(['stripe', 'razorpay', 'tabby', 'abzer', 'tamara']).optional(),
 })
 
 router.post('/ai-academy/purchase', validate(aiaPurchaseSchema), async (req: Request, res: Response, next: NextFunction) => {
@@ -138,11 +143,13 @@ router.post('/ai-academy/purchase', validate(aiaPurchaseSchema), async (req: Req
       return
     }
 
-    const { email, name, phone, orderId, amount, currency } = req.body as {
-      email: string; name?: string; phone?: string; orderId: string; amount?: number; currency?: string
+    const { email, name, phone, orderId, amount, currency, gateway } = req.body as {
+      email: string; name?: string; phone?: string; orderId: string
+      amount?: number; currency?: string
+      gateway?: 'stripe' | 'razorpay' | 'tabby' | 'abzer' | 'tamara'
     }
 
-    const result = await orderSvc.provisionExternalPurchase({ email, name, phone, orderId, amount, currency })
+    const result = await orderSvc.provisionExternalPurchase({ email, name, phone, orderId, amount, currency, gateway })
 
     /* Email the one-click login link — only on first provision, so webhook
        retries don't spam the buyer. */

@@ -386,6 +386,43 @@ export class AuthController {
     }
   }
 
+  /* ── PATCH /auth/me/email ─────────────────────────
+     Asks for the change. Nothing moves until the link in the new mailbox is
+     clicked — the response says what is now pending, not what has happened. */
+  requestEmailChange = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { newEmail, currentPassword } = req.body as { newEmail: string; currentPassword: string }
+      const out = await this.service.requestEmailChange(req.user!.id, newEmail, currentPassword)
+      sendSuccess(res, out, `Confirmation sent to ${out.pendingEmail}. Your current address keeps working until you confirm.`)
+    } catch (err) {
+      next(err)
+    }
+  }
+
+  /* ── DELETE /auth/me/email ──────────────────────── */
+  cancelEmailChange = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      await this.service.cancelEmailChange(req.user!.id)
+      sendSuccess(res, null, 'Email change cancelled.')
+    } catch (err) {
+      next(err)
+    }
+  }
+
+  /* ── POST /auth/confirm-email-change ──────────────
+     Unauthenticated on purpose: the link is opened from a mailbox, which may
+     well be on a different device or browser from the signed-in session. The
+     single-use token is the credential. */
+  confirmEmailChange = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { token } = req.body as { token: string }
+      const out = await this.service.confirmEmailChange(token)
+      sendSuccess(res, out, 'Your email address has been changed. Use it to sign in from now on.')
+    } catch (err) {
+      next(err)
+    }
+  }
+
   /* ── POST /auth/forgot-password ───────────────────
      Always returns 200 to prevent account enumeration. */
   forgotPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {

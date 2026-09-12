@@ -565,6 +565,53 @@ export async function sendVerifyEmail(to: string, name: string, verifyUrl: strin
   })
 }
 
+/* ── Changing the address on an account ──────────────────────────────────
+   Two messages, and BOTH matter.
+
+   The link goes to the NEW address, because the only thing that proves an
+   address belongs to you is that you can read mail sent to it. The notice goes
+   to the OLD one, because an email change is how a stolen session becomes a
+   stolen account: the attacker moves the address, then uses forgot-password on
+   it, and the real owner finds out when they can no longer sign in. A message
+   to the address that is still live is the one chance they get to react while
+   they still control the account. It is sent even though nothing has changed
+   yet — waiting until the change completes would be too late to matter. */
+export async function sendEmailChangeConfirm(to: string, name: string, confirmUrl: string): Promise<void> {
+  const subject = 'Confirm your new Delta email address'
+  const html = wrap(subject, `
+    <h2 style="margin:0 0 16px;font-size:20px;font-weight:700;color:#0D0F1A">Confirm this address, ${escapeHtml(name)}</h2>
+    <p>You asked to use this address for your Delta account. Confirm it and it becomes the address you sign in with.</p>
+    <p style="margin:24px 0">
+      <a href="${escapeHtml(sanitiseUrl(confirmUrl))}" style="display:inline-block;background:linear-gradient(135deg,#0057b8,#2F6BFF);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none">
+        Confirm this address
+      </a>
+    </p>
+    <p style="font-size:12px;color:#6B7280">Or paste this URL into your browser:<br><span style="color:#0057b8">${escapeHtml(confirmUrl)}</span></p>
+    <p style="font-size:12px;color:#9CA3AF">The link expires in 1 hour. Until you confirm, your old address keeps working.</p>
+  `)
+  await sender.send({
+    to, subject, html,
+    text: `Confirm your new Delta email address: ${confirmUrl}\nThis link expires in 1 hour. Until you confirm, your old address keeps working.`,
+  })
+}
+
+export async function sendEmailChangeNotice(to: string, name: string, newEmail: string): Promise<void> {
+  const subject = 'Someone asked to change your Delta email address'
+  const html = wrap(subject, `
+    <h2 style="margin:0 0 16px;font-size:20px;font-weight:700;color:#0D0F1A">Hello ${escapeHtml(name)}</h2>
+    <p>A request was made to move your Delta account to <strong>${escapeHtml(newEmail)}</strong>.</p>
+    <p><strong>Nothing has changed yet.</strong> The new address has to be confirmed first, and until then you keep signing in with this one.</p>
+    <p style="margin:20px 0;padding:14px 16px;border-radius:12px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.22);color:#7F1D1D">
+      If this was not you, change your password now — somebody may be signed in to your account.
+    </p>
+    <p style="font-size:12px;color:#9CA3AF">You are receiving this at your current address because it is still the one on the account.</p>
+  `)
+  await sender.send({
+    to, subject, html,
+    text: `A request was made to move your Delta account to ${newEmail}.\nNothing has changed yet — the new address must be confirmed first.\nIf this was not you, change your password now.`,
+  })
+}
+
 export async function sendLiveClassScheduled(
   to: string,
   name: string,
